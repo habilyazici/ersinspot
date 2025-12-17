@@ -1,0 +1,614 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Patrick+Hand&family=Handlee&display=swap');
+
+@custom-variant dark (&:is(.dark *));
+
+/* Scrollbar kayması önleme - her zaman scrollbar göster */
+html {
+  overflow-y: scroll;
+  overflow-x: hidden;
+  /* Scroll hareketini instant yap - smooth scroll devre dışı */
+  scroll-behavior: auto !important;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+:root {
+  --font-size: 16px;
+  --background: #ffffff;
+  --foreground: oklch(0.145 0 0);
+  --card: #ffffff;
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: #030213;
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.95 0.0058 264.53);
+  --secondary-foreground: #030213;
+  --muted: #ececf0;
+  --muted-foreground: #717182;
+  --accent: #e9ebef;
+  --accent-foreground: #030213;
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(0, 0, 0, 0.1);
+  --input: transparent;
+  --input-background: #f3f3f5;
+  --switch-background: #cbced4;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: #030213;
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  
+  /* Ersin Spot Brand Colors */
+  --brand-navy: #1e3a8a;
+  --brand-navy-light: #2563eb;
+  --brand-navy-dark: #1e40af;
+  
+  --brand-orange: #f97316;
+  --brand-orange-light: #fb923c;
+  --brand-orange-dark: #ea580c;
+  
+  /* Extended Color Palette - Full Spectrum (50-900) */
+  
+  /* NAVY - Lacivert Tonları */
+  --brand-navy-50: #eff6ff;
+  --brand-navy-100: #dbeafe;
+  --brand-navy-200: #bfdbfe;
+  --brand-navy-300: #93c5fd;
+  --brand-navy-400: #60a5fa;
+  --brand-navy-500: #3b82f6;
+  --brand-navy-600: #2563eb;
+  --brand-navy-700: #1e3a8a;  /* Ana renk */
+  --brand-navy-800: #1e40af;
+  --brand-navy-900: #1e3a8a;
+  
+  /* ORANGE - Turuncu Tonları */
+  --brand-orange-50: #fff7ed;
+  --brand-orange-100: #ffedd5;
+  --brand-orange-200: #fed7aa;
+  --brand-orange-300: #fdba74;
+  --brand-orange-400: #fb923c;
+  --brand-orange-500: #f97316;  /* Ana renk */
+  --brand-orange-600: #ea580c;
+  --brand-orange-700: #c2410c;
+  --brand-orange-800: #9a3412;
+  --brand-orange-900: #7c2d12;
+  
+  /* BRONZE - Kahverengi/Bronz Tonları */
+  --brand-bronze-50: #f9f6f2;
+  --brand-bronze-100: #f0eae0;
+  --brand-bronze-200: #e0d4c0;
+  --brand-bronze-300: #cfbd9f;
+  --brand-bronze-400: #b99673;
+  --brand-bronze-500: #8B6F47;  /* Ana renk */
+  --brand-bronze-600: #6f5939;
+  --brand-bronze-700: #5a472d;
+  --brand-bronze-800: #443621;
+  --brand-bronze-900: #2f2516;
+  
+  /* TEAL - Turkuaz/Yeşilimsi Tonları */
+  --brand-teal-50: #f2f7f6;
+  --brand-teal-100: #e3eeec;
+  --brand-teal-200: #c7ddd8;
+  --brand-teal-300: #abc3ba;
+  --brand-teal-400: #93b6aa;
+  --brand-teal-500: #7FA99B;  /* Ana renk */
+  --brand-teal-600: #65877c;
+  --brand-teal-700: #516d64;
+  --brand-teal-800: #3d524c;
+  --brand-teal-900: #293834;
+  
+  /* CREAM - Krem/Bej Tonları */
+  --brand-cream-50: #fdfcfb;
+  --brand-cream-100: #fbf9f6;
+  --brand-cream-200: #f8f5ef;
+  --brand-cream-300: #f5f1e9;
+  --brand-cream-400: #f3efe6;
+  --brand-cream-500: #F1EDE3;  /* Ana renk */
+  --brand-cream-600: #c1beb6;
+  --brand-cream-700: #918e88;
+  --brand-cream-800: #605f5a;
+  --brand-cream-900: #302f2d;
+  
+  /* CORAL - Mercan/Turuncu Tonları */
+  --brand-coral-50: #fff5f2;
+  --brand-coral-100: #ffe8e0;
+  --brand-coral-200: #ffd1c2;
+  --brand-coral-300: #ffb399;
+  --brand-coral-400: #ff9e82;
+  --brand-coral-500: #FF8A6B;  /* Ana renk */
+  --brand-coral-600: #cc6e56;
+  --brand-coral-700: #995341;
+  --brand-coral-800: #66372b;
+  --brand-coral-900: #331c16;
+  
+  /* Neutral Gray Palette */
+  --gray-50: #f8fafc;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-300: #cbd5e1;
+  --gray-400: #94a3b8;
+  --gray-500: #64748b;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1e293b;
+  --gray-900: #0f172a;
+  
+  /* Supporting Colors */
+  --success: #10b981;
+  --success-dark: #059669;
+  --warning: #f59e0b;
+  --warning-dark: #d97706;
+  --error: #ef4444;
+  --error-dark: #dc2626;
+  --info: #3b82f6;
+  --info-dark: #2563eb;
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.439 0 0);
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+  
+  /* Placeholder renklerini daha soluk ve az belirgin yap */
+  input::placeholder,
+  textarea::placeholder,
+  select::placeholder {
+    color: #cbd5e1;
+    opacity: 0.5;
+  }
+  
+  input::-webkit-input-placeholder,
+  textarea::-webkit-input-placeholder {
+    color: #cbd5e1;
+    opacity: 0.5;
+  }
+  
+  input::-moz-placeholder,
+  textarea::-moz-placeholder {
+    color: #cbd5e1;
+    opacity: 0.5;
+  }
+  
+  input:-ms-input-placeholder,
+  textarea:-ms-input-placeholder {
+    color: #cbd5e1;
+    opacity: 0.5;
+  }
+}
+
+/**
+ * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
+ */
+@layer base {
+  :where(:not(:has([class*=' text-']), :not(:has([class^='text-'])))) {
+    h1 {
+      font-size: var(--text-2xl);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h2 {
+      font-size: var(--text-xl);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h3 {
+      font-size: var(--text-lg);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h4 {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    p {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+
+    label {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    button {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    input {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+  }
+}
+
+html {
+  font-size: var(--font-size);
+}
+
+/* Print Styles - PDF Format */
+@media print {
+  @page {
+    size: A4;
+    margin: 20mm;
+  }
+
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Navbar, Footer ve diğer UI elementlerini gizle */
+  nav,
+  header,
+  footer,
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  /* Sadece rapor içeriğini göster */
+  body > div:first-child > div:first-child {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+  }
+
+  /* Sayfa kırılmalarını optimize et */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  table {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  img {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Arka plan renklerini koru */
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
+/* Gradient Animation for CTA Button */
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Admin Panel Dialog Overlay - Koyu Arka Plan */
+[data-admin-dialog] [data-radix-dialog-overlay] {
+  background-color: rgba(0, 0, 0, 0.80) !important;
+  backdrop-filter: blur(4px) !important;
+}
+
+/* Shimmer Effect for Hover */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s ease-in-out;
+}
+
+/* Custom Toast Styling - Aydınlık ve Navbar'ın Altında */
+[data-sonner-toaster] {
+  top: 80px !important; /* Navbar'ın altına kaydır */
+  z-index: 99999 !important; /* En üstte görünsün */
+  pointer-events: none !important; /* Toaster container'ı tıklanamaz */
+}
+
+/* Toast'lar tamamen non-interactive - fare etkileşimi yok */
+[data-sonner-toast] {
+  pointer-events: none !important; /* Fare ile etkileşim tamamen kapalı */
+  animation-play-state: running !important; /* Her zaman çalışsın */
+  z-index: 99999 !important;
+  --normal-duration: 2000ms;
+  animation-duration: var(--normal-duration) !important;
+}
+
+/* Pause durumunu kapat - her zaman çalışsın */
+[data-sonner-toast][data-swiping='false'] {
+  animation-play-state: running !important;
+}
+
+[data-sonner-toast][data-expanded='false'] {
+  animation-play-state: running !important;
+}
+
+[data-sonner-toast][data-expanded='true'] {
+  animation-play-state: running !important;
+}
+
+/* Hover durumunda da hiçbir şey değişmesin */
+[data-sonner-toast]:hover,
+[data-sonner-toast]:focus,
+[data-sonner-toast]:active {
+  animation-play-state: running !important;
+  pointer-events: none !important;
+}
+
+/* Toast container'daki tüm elementler non-interactive */
+[data-sonner-toast] * {
+  pointer-events: none !important;
+}
+
+/* Toast içindeki tüm elementler - fare etkileşimi tamamen kapalı */
+[data-sonner-toast] button,
+[data-sonner-toast] a,
+[data-sonner-toast] [data-button],
+[data-sonner-toast] [data-close-button] {
+  pointer-events: none !important;
+  display: none !important; /* Butonları tamamen gizle */
+}
+
+/* Success toast icon rengi */
+[data-sonner-toast][data-type="success"] [data-icon] {
+  color: #10b981 !important;
+}
+
+/* Error toast icon rengi */
+[data-sonner-toast][data-type="error"] [data-icon] {
+  color: #ef4444 !important;
+}
+
+/* Toast başlık */
+[data-sonner-toast] [data-title] {
+  color: #1f2937 !important;
+  font-weight: 600 !important;
+}
+
+/* Toast açıklama */
+[data-sonner-toast] [data-description] {
+  color: #6b7280 !important;
+}
+
+/* Success toast - yeşil arka plan için beyaz metin */
+[data-sonner-toast][data-type="success"][style*="background: rgb(16, 185, 129)"] [data-title],
+[data-sonner-toast][data-type="success"][style*="background:#10b981"] [data-title] {
+  color: #ffffff !important;
+}
+
+[data-sonner-toast][data-type="success"][style*="background: rgb(16, 185, 129)"] [data-description],
+[data-sonner-toast][data-type="success"][style*="background:#10b981"] [data-description] {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+
+
+/* Modern Custom Scrollbar - İnce ve Hafif */
+/* Tüm scrollbar'lar için genel stil */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(203, 213, 225, 0.5) transparent;
+}
+
+/* WebKit (Chrome, Safari, Edge) Scrollbar Özelleştirme */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(203, 213, 225, 0.4);
+  border-radius: 10px;
+  transition: background-color 0.2s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
+}
+
+/* Popup/Dialog/Modal içindeki scrollbar'lar için özel stil */
+[data-slot="dialog-content"]::-webkit-scrollbar,
+[data-slot="drawer-content"]::-webkit-scrollbar,
+[data-slot="sheet-content"]::-webkit-scrollbar,
+[data-slot="alert-dialog-content"]::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+[data-slot="dialog-content"]::-webkit-scrollbar-thumb,
+[data-slot="drawer-content"]::-webkit-scrollbar-thumb,
+[data-slot="sheet-content"]::-webkit-scrollbar-thumb,
+[data-slot="alert-dialog-content"]::-webkit-scrollbar-thumb {
+  background: rgba(203, 213, 225, 0.3);
+  border-radius: 10px;
+}
+
+[data-slot="dialog-content"]::-webkit-scrollbar-thumb:hover,
+[data-slot="drawer-content"]::-webkit-scrollbar-thumb:hover,
+[data-slot="sheet-content"]::-webkit-scrollbar-thumb:hover,
+[data-slot="alert-dialog-content"]::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* Firefox için popup scrollbar özelleştirme */
+[data-slot="dialog-content"],
+[data-slot="drawer-content"],
+[data-slot="sheet-content"],
+[data-slot="alert-dialog-content"] {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(203, 213, 225, 0.3) transparent;
+}
+
+/* Date Input Görselleştirme - Modern ve Tıklanabilir */
+input[type="date"] {
+  position: relative;
+  cursor: pointer;
+  color: #1f2937;
+  font-weight: 400;
+  transition: all 0.2s ease;
+}
+
+/* Date input hover efekti */
+input[type="date"]:hover {
+  border-color: rgba(249, 115, 22, 0.5);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.05);
+}
+
+/* Date input placeholder benzeri görünüm */
+input[type="date"]::-webkit-datetime-edit {
+  padding-left: 0;
+}
+
+/* Native calendar picker icon - daha belirgin */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.5;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 1;
+  filter: brightness(0) saturate(100%) invert(44%) sepia(0%) saturate(0%) hue-rotate(155deg) brightness(96%) contrast(87%);
+}
+
+input[type="date"]:hover::-webkit-calendar-picker-indicator {
+  opacity: 0.8;
+  filter: brightness(0) saturate(100%) invert(45%) sepia(96%) saturate(1920%) hue-rotate(357deg) brightness(100%) contrast(96%);
+}
+
+/* Date input focus durumu - turuncu vurgu */
+input[type="date"]:focus {
+  outline: none;
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
+}
+
+input[type="date"]:focus::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  filter: brightness(0) saturate(100%) invert(45%) sepia(96%) saturate(1920%) hue-rotate(357deg) brightness(100%) contrast(96%);
+}
