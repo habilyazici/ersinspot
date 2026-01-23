@@ -1,0 +1,7 @@
+# Supabase Edge Functions Configuration
+
+[project]
+# Supabase project ID will be set during deployment
+
+[functions.make-server-0f4d2485]
+verify_jwt = false
