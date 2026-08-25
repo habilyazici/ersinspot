@@ -16,10 +16,9 @@
  * yalnızca biri başarılı olmalıdır.
  */
 
-import type { ProductStatus } from '@ersinspot/shared';
+import type { ProductCondition, ProductStatus } from '@ersinspot/shared';
 import type { Transaction } from '../../../platform/db/client.ts';
 import { productUnavailable } from '../../../platform/errors/index.ts';
-import { resolveStorageUrl } from '../../../platform/storage.ts';
 import { canTransitionProduct, isPurchasable } from '../domain/product-rules.ts';
 import * as repository from '../infrastructure/product-repository.ts';
 
@@ -41,8 +40,16 @@ export interface PurchasableProduct {
   readonly title: string;
   /** Kuruş cinsinden güncel birim fiyat. Sipariş tutarı bu değerden hesaplanır. */
   readonly unitPrice: number;
-  readonly condition: string;
-  readonly coverImageUrl: string | null;
+  readonly condition: ProductCondition;
+
+  /**
+   * Kapak görselinin DEPOLAMA ANAHTARI — URL değil.
+   *
+   * Sipariş kalemleri bu değeri anlık görüntü olarak saklar. URL yapılandırmadan
+   * türetilir; depolama sunucusu değişse kayıtlı URL'ler kırılırdı, anahtar ise
+   * sabittir. Görüntüleme adresine çevirme işi okuma tarafında yapılır.
+   */
+  readonly coverStorageKey: string | null;
   readonly status: ProductStatus;
   /** Ürün şu anda sipariş edilebilir mi? */
   readonly isPurchasable: boolean;
@@ -71,7 +78,7 @@ export async function getPurchasableProducts(
     title: row.title,
     unitPrice: row.priceKurus,
     condition: row.condition,
-    coverImageUrl: row.coverStorageKey === null ? null : resolveStorageUrl(row.coverStorageKey),
+    coverStorageKey: row.coverStorageKey,
     status: row.status,
     isPurchasable: isPurchasable(row.status),
   }));

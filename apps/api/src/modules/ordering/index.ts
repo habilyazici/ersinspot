@@ -2,13 +2,14 @@
  * ordering modülü — genel sözleşme.
  *
  * Sahip olduğu tablolar:
- *   cart_items, favorites, orders, order_items, order_events
+ *   cart_items, favorites, orders, order_addresses, order_items,
+ *   order_events, payments
  *
  * Bağımlılıkları: catalog (ürün fiyatı ve rezervasyon), identity (kullanıcı)
  *
- * Planlanan sözleşme:
- *   getOrderCountForUser(userId)   — müşteri panelindeki özet sayaç
- *   hasPurchasedProduct(userId, productId) — yorum yetkisi kontrolü
+ * Bu modül `products` tablosuna ERİŞEMEZ. Fiyat ve satılabilirlik bilgisini
+ * `catalog` sözleşmesinden ister; bu sınır, sipariş tutarının istemciden gelen
+ * fiyatla hesaplanmasını yapısal olarak engeller.
  */
 
-export {};
+export { orderingRoutes } from './api/routes.ts';

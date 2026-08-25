@@ -17,15 +17,28 @@
 // HTTP yönlendiricisi — app.ts tarafından bağlanır.
 export { catalogRoutes } from './api/routes.ts';
 
-// Diğer modüllerin kullandığı işlemler.
-export {
+import {
+  getPurchasableProducts,
+  markProductsAsSold,
+  releaseExpiredReservations,
+  releaseProducts,
+  reserveProducts,
+} from './application/inventory-service.ts';
+
+/**
+ * Diğer modüllerin kullandığı işlemler.
+ *
+ * Tek nesne olarak dışa aktarılır: çağrı yerinde `catalog.reserveProducts(...)`
+ * biçiminde görünür ve hangi modülün sorumluluğunda olduğu okunurken belli olur.
+ */
+export const catalog = {
   getPurchasableProducts,
   reserveProducts,
   releaseProducts,
   markProductsAsSold,
-} from './application/inventory-service.ts';
+} as const;
 
 export type { PurchasableProduct } from './application/inventory-service.ts';
 
 // Bakım görevi: süresi geçmiş rezervasyonları serbest bırakır.
-export { releaseExpiredReservations } from './application/inventory-service.ts';
+export { releaseExpiredReservations };
