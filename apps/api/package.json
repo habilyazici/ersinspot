@@ -7,12 +7,13 @@
     "dev": "tsx watch --env-file=../../.env src/server.ts",
     "start": "node --env-file=../../.env --import tsx src/server.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "pnpm db:migrate:test && vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file=../../.env src/db/migrate.ts",
     "db:seed": "tsx --env-file=../../.env src/db/seed.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:migrate:test": "tsx src/platform/db/migrate-test.ts"
   },
   "dependencies": {
     "@ersinspot/shared": "workspace:*",

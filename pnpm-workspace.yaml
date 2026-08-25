@@ -4,3 +4,7 @@ packages:
 
 allowBuilds:
   esbuild: true
+
+# Eş bağımlılık uyumsuzlukları kurulumu durdurmasın; uyarı olarak geçilir.
+strictPeerDependencies: false
+autoInstallPeers: true

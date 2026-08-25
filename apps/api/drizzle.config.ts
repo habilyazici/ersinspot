@@ -12,7 +12,8 @@ export default defineConfig({
   out: './src/db/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? 'postgresql://ersinspot:ersinspot_dev@localhost:5432/ersinspot',
+    url:
+      process.env.DATABASE_URL ?? 'postgresql://ersinspot:ersinspot_dev@localhost:5432/ersinspot',
   },
   casing: 'snake_case',
   verbose: true,
