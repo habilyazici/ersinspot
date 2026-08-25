@@ -9,7 +9,6 @@
  */
 
 import { sql } from 'drizzle-orm';
-import type { ServiceKind } from '@ersinspot/shared';
 import { db } from './client.ts';
 import type { Transaction } from './client.ts';
 
@@ -49,19 +48,4 @@ export async function generateReferenceNumber(
   }
 
   return reference;
-}
-
-/** Hizmet talebi türünü belge türüne çevirir. */
-export function documentKindForService(kind: ServiceKind): DocumentKind {
-  return kind;
-}
-
-/**
- * Takip numarasının biçimini doğrular.
- *
- * Sipariş takip formunda kullanılır: geçersiz biçimdeki bir kod için veritabanına
- * hiç gitmeden hata gösterilir.
- */
-export function isValidReferenceNumber(value: string): boolean {
-  return /^(SIP|NAK|TSV|SAT)-\d{4}-\d{6}$/.test(value);
 }

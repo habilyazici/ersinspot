@@ -185,11 +185,6 @@ export function currentSession(c: ReadsAuth): SessionContext {
   return session;
 }
 
-/** Oturum varsa kullanıcıyı, yoksa null döndürür. Misafir/üye ayrımı yapan uçlar için. */
-export function optionalUser(c: ReadsAuth): AuthenticatedUser | null {
-  return c.var.user ?? null;
-}
-
 /**
  * Kaynağın sahibi mi, yoksa personel mi?
  *

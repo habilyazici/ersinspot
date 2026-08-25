@@ -12,8 +12,35 @@ import { createApp } from './app.ts';
 import { closeDatabase } from './platform/db/client.ts';
 import { env } from './platform/config/env.ts';
 import { logger } from './platform/observability/logger.ts';
+import { startMaintenance, stopMaintenance } from './platform/maintenance.ts';
+import { pruneExpiredSessions } from './modules/identity/index.ts';
+import { releaseExpiredReservations } from './modules/catalog/index.ts';
 
 const app = createApp();
+
+/*
+ * Zamanla tetiklenen iş kuralları.
+ *
+ * Her modül kendi bakım görevini genel sözleşmesinden sunar; burada yalnızca
+ * zamanlanırlar. Görevlerin ne yaptığı modülün sorumluluğunda, ne zaman
+ * çalıştığı sunucunun.
+ *
+ * Görevler sunucu porta BAĞLANDIKTAN SONRA başlatılır: bağlanma başarısız
+ * olursa (port dolu, izin yok) süreç zaten sonlanacaktır ve yarım açılmış bir
+ * sunucunun arka planda veritabanına yazması istenmez.
+ */
+const maintenanceTasks = [
+  {
+    name: 'sureli-oturumlari-temizle',
+    intervalMs: 60 * 60 * 1000,
+    run: pruneExpiredSessions,
+  },
+  {
+    name: 'suresi-gecmis-rezervasyonlari-serbest-birak',
+    intervalMs: 15 * 60 * 1000,
+    run: releaseExpiredReservations,
+  },
+];
 
 const server = serve(
   {
@@ -26,6 +53,8 @@ const server = serve(
       ortam: env.NODE_ENV,
       webAdresi: env.WEB_ORIGIN,
     });
+
+    startMaintenance(maintenanceTasks);
   },
 );
 
@@ -36,6 +65,8 @@ async function shutdown(signal: string): Promise<void> {
   shuttingDown = true;
 
   logger.info('Kapanış başlatıldı', { signal });
+
+  stopMaintenance();
 
   server.close(() => {
     logger.info('HTTP sunucusu kapandı.');

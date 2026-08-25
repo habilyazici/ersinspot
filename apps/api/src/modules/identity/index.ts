@@ -19,3 +19,6 @@ export type { AuthenticatedUser, SessionContext } from './application/session.ts
 // users tablosuna doğrudan sorgu yapılmaz.
 export { getUserSummary, getUserSummaries } from './application/user-directory.ts';
 export type { UserSummary } from './application/user-directory.ts';
+
+// Bakım görevi: süresi dolmuş oturumları temizler.
+export { pruneExpiredSessions } from './application/session.ts';

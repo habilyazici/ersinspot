@@ -172,9 +172,3 @@ export async function getProductById(id: string): Promise<ProductDetail> {
 
   return { ...product, warrantyLabel: formatWarranty(row.warrantyMonths) };
 }
-
-// ---------------------------------------------------------------------------
-// Bağlantı adı üretimi
-// ---------------------------------------------------------------------------
-
-export { generateUniqueSlug } from './slug-service.ts';
