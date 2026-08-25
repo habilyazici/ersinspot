@@ -24,6 +24,7 @@ import {
 } from './platform/http/security.ts';
 import { authRoutes } from './modules/identity/index.ts';
 import { catalogRoutes } from './modules/catalog/index.ts';
+import { orderingRoutes } from './modules/ordering/index.ts';
 
 export type AppVariables = AuthVariables & ValidatedVariables;
 
@@ -70,6 +71,14 @@ export function createApp() {
   // Yetki, modülün rota tanımlarında bildirilir.
 
   app.route('/api', catalogRoutes);
+
+  // -------------------------------------------------------------------------
+  // Sepet ve sipariş
+  // -------------------------------------------------------------------------
+  // Sepet ve sipariş uçlarının tamamı oturum gerektirir; tek istisna takip
+  // numarasıyla sipariş durumu sorgulamadır. Yetki modülün rota tanımlarında.
+
+  app.route('/api', orderingRoutes);
 
   return app;
 }
