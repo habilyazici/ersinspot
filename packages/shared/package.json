@@ -7,8 +7,12 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./domain": "./src/domain/index.ts",
-    "./schemas": "./src/schemas/index.ts"
+    "./kernel": "./src/kernel/index.ts",
+    "./identity": "./src/modules/identity/index.ts",
+    "./catalog": "./src/modules/catalog/index.ts",
+    "./ordering": "./src/modules/ordering/index.ts",
+    "./servicing": "./src/modules/servicing/index.ts",
+    "./content": "./src/modules/content/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

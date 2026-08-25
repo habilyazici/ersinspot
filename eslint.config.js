@@ -24,6 +24,7 @@ export default tseslint.config(
       '**/db/migrations/**',
       'coverage',
       '*.config.js',
+      '**/*.config.ts',
     ],
   },
 
@@ -91,21 +92,32 @@ export default tseslint.config(
         {
           object: 'process',
           property: 'env',
-          message: "Ortam değişkenlerine '@/lib/env' üzerinden erişin.",
+          message: "Ortam değişkenlerine '@/platform/config/env' üzerinden erişin.",
         },
       ],
     },
   },
 
-  // env ve migrate modülleri process.env'e erişmek zorundadır.
+  // Yalnızca yapılandırma modülü ve migration betiği process.env'e erişebilir.
   {
-    files: ['apps/api/src/lib/env.ts', 'apps/api/src/db/migrate.ts', 'apps/api/drizzle.config.ts'],
+    files: [
+      'apps/api/src/platform/config/env.ts',
+      'apps/api/src/platform/db/migrate.ts',
+      'apps/api/src/platform/db/migrate-test.ts',
+      'apps/api/drizzle.config.ts',
+    ],
     rules: { 'no-restricted-properties': 'off' },
   },
 
-  // logger, konsola yazma iznine sahip tek modüldür.
+  // logger, konsola yazma iznine sahip tek modüldür. Migration ve tohumlama
+  // betikleri komut satırından çalıştığı için doğrudan yazabilir.
   {
-    files: ['apps/api/src/lib/logger.ts', 'apps/api/src/db/migrate.ts', 'apps/api/src/db/seed.ts'],
+    files: [
+      'apps/api/src/platform/observability/logger.ts',
+      'apps/api/src/platform/db/migrate.ts',
+      'apps/api/src/platform/db/migrate-test.ts',
+      'apps/api/src/platform/db/seed.ts',
+    ],
     rules: { 'no-console': 'off' },
   },
 
@@ -137,6 +149,129 @@ export default tseslint.config(
   {
     files: ['apps/web/src/lib/api/**/*.ts'],
     rules: { 'no-restricted-globals': 'off' },
+  },
+
+
+  // ---------------------------------------------------------------------------
+  // Modüler monolit sınırları
+  // ---------------------------------------------------------------------------
+  // Bu kurallar docs/MIMARI.md içindeki sözleşmeyi zorunlu kılar. Belge tavsiye
+  // verir; burası derlemeyi kırar.
+
+  {
+    files: ['apps/api/src/modules/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              // Başka bir modülün iç dosyalarına erişim yasak.
+              // Modül içinde göreli yol (./domain/x.ts) kullanılır; modüller arası
+              // erişim yalnızca @/modules/<ad> genel sözleşmesi üzerinden yapılır.
+              group: ['@/modules/*/*', '@/modules/*/**'],
+              message:
+                'Modüller arası erişim yalnızca genel sözleşme üzerinden yapılır: ' +
+                "import { catalog } from '@/modules/catalog'. " +
+                'Ayrıntı için docs/MIMARI.md, Kural 1.',
+            },
+            {
+              // Göreli yolla modül sınırını aşmak da yasak.
+              group: ['../../*/infrastructure/*', '../../*/application/*', '../../*/domain/*', '../../*/api/*'],
+              message:
+                'Başka bir modülün iç katmanına göreli yolla erişilemez. ' +
+                'Genel sözleşmeyi kullanın: @/modules/<ad>. Ayrıntı için docs/MIMARI.md.',
+            },
+            {
+              // Şema birleştiricisi modüllerin tablolarını toplar; iş kodu ondan
+              // tablo çekemez, kendi modülünün şemasını kullanır.
+              group: ['**/platform/db/schema.ts'],
+              message:
+                'platform/db/schema.ts yalnızca Drizzle Kit içindir. ' +
+                'Kendi modülünüzün infrastructure/schema.ts dosyasını kullanın.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
+    // Platform katmanı altyapıdır: iş kuralı içermez ve modüllere bağımlı olmaz.
+    // Tek istisna, kimlik doğrulama middleware'inin oturum çözümlemesidir.
+    files: ['apps/api/src/platform/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/modules/*/api/*', '**/modules/*/domain/*'],
+              message:
+                'Platform katmanı modüllerin iş mantığına bağımlı olamaz. ' +
+                'Bağımlılık yönü daima modüllerden platforma doğrudur.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
+    // Şema birleştiricisi ve ilişki tanımları, modüllerin tablolarını toplamak
+    // zorundadır: Drizzle Kit tek bir giriş noktası bekler. Bilinçli istisna.
+    files: [
+      'apps/api/src/platform/db/schema.ts',
+      'apps/api/src/platform/db/relations.ts',
+      'apps/api/src/platform/http/auth.ts',
+      'apps/api/src/platform/http/security.ts',
+    ],
+    rules: { 'no-restricted-imports': 'off' },
+  },
+
+  {
+    // Şema dosyaları, modül sınırını geçen yabancı anahtarlar için diğer modüllerin
+    // tablolarına referans vermek zorundadır (orders.user_id → users.id gibi).
+    // docs/MIMARI.md, Kural 2: tek veritabanı kullandığımız için referans
+    // bütünlüğünü veritabanına bırakmak bilinçli bir tercihtir.
+    //
+    // Bu istisna YALNIZCA şema tanımları içindir. İş mantığı (application, api,
+    // domain) başka modülün tablosuna erişemez — veriyi genel sözleşmeden ister.
+    files: ['apps/api/src/modules/*/infrastructure/schema.ts'],
+    rules: { 'no-restricted-imports': 'off' },
+  },
+
+  {
+    // Testler kurulum için modüllerin içine erişebilir.
+    files: ['apps/api/src/test/**/*.ts', 'apps/api/**/*.test.ts'],
+    rules: { 'no-restricted-imports': 'off' },
+  },
+
+  {
+    // Yapılandırma doğrulaması logger kurulmadan önce çalışır; hatayı doğrudan
+    // yazmak zorundadır.
+    files: ['apps/api/src/platform/config/env.ts'],
+    rules: { 'no-console': 'off' },
+  },
+
+  {
+    // Paylaşılan paketin çekirdeği hiçbir modüle bağımlı olamaz.
+    files: ['packages/shared/src/kernel/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['../modules/**', '**/modules/**'],
+              message:
+                'Çekirdek modüllere bağımlı olamaz. Bağımlılık yönü daima ' +
+                'modüllerden çekirdeğe doğrudur.',
+            },
+          ],
+        },
+      ],
+    },
   },
 
   // ---------------------------------------------------------------------------

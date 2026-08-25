@@ -24,7 +24,8 @@
     "db:studio": "pnpm --filter @ersinspot/api db:studio",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
-    "db:reset": "docker compose down -v && docker compose up -d postgres"
+    "db:reset": "docker compose down -v && docker compose up -d postgres",
+    "db:migrate:test": "pnpm --filter @ersinspot/api db:migrate:test"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
