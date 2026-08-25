@@ -9,7 +9,7 @@
  * Sonuç: tablolar ayrı ve sahipleri net, sütun tanımı tek yerde.
  */
 
-import { text, time } from 'drizzle-orm/pg-core';
+import { text } from 'drizzle-orm/pg-core';
 import { izmirDistrictEnum } from './enums.ts';
 
 /**
@@ -32,17 +32,4 @@ export const addressColumns = {
   apartmentNo: text(),
   /** Kurye için ek tarif: "market karşısı, yeşil kapı". */
   directions: text(),
-} as const;
-
-/**
- * Randevu saat aralığı.
- *
- * Metin yerine iki `time` sütunu kullanılır. Metin olarak saklandığında
- * ("09:00-11:00") aralıklar karşılaştırılamaz, sıralanamaz ve çakışma kontrolü
- * yapılamaz. Ayrı sütunlarla "bugün 14:00'te kaç randevu var" sorgusu doğrudan
- * çalışır.
- */
-export const timeSlotColumns = {
-  startTime: time().notNull(),
-  endTime: time().notNull(),
 } as const;

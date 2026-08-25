@@ -26,3 +26,6 @@ export {
 } from './application/inventory-service.ts';
 
 export type { PurchasableProduct } from './application/inventory-service.ts';
+
+// Bakım görevi: süresi geçmiş rezervasyonları serbest bırakır.
+export { releaseExpiredReservations } from './application/inventory-service.ts';
