@@ -15,8 +15,15 @@ import { env, isProduction, isTest } from '../config/env.ts';
 import * as schema from './schema.ts';
 
 const queryClient = postgres(env.DATABASE_URL, {
-  // Havuz boyutu: test ortamında paralel çalışan dosyalar bağlantıyı tüketmesin diye düşük.
-  max: isTest ? 2 : 10,
+  /*
+   * Havuz boyutu.
+   *
+   * Testlerde de yeterince büyük tutulur: eşzamanlılık testleri aynı anda birden
+   * çok işlem açıp satır kilidi davranışını sınar. Havuz bu işlemlerin sayısından
+   * küçük olursa testler kilitlenip zaman aşımına uğrar — bu, uygulamanın değil
+   * test kurulumunun hatasıdır.
+   */
+  max: isTest ? 10 : 20,
 
   // Boşta kalan bağlantı bu süre sonunda kapanır (saniye).
   idle_timeout: 30,

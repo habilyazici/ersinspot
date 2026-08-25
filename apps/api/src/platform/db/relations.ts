@@ -8,6 +8,7 @@
 
 import { relations } from 'drizzle-orm';
 import {
+  customerAddresses,
   emailVerificationTokens,
   passwordResetTokens,
   sessions,
@@ -23,13 +24,16 @@ import {
 import {
   cartItems,
   favorites,
+  orderAddresses,
   orderEvents,
   orderItems,
   orders,
+  payments,
 } from '../../modules/ordering/infrastructure/schema.ts';
 import {
   movingRequestDetails,
   movingRequestItems,
+  requestAddresses,
   requestAppointments,
   requestEvents,
   requestPhotos,
@@ -39,8 +43,10 @@ import {
   technicalServiceDetails,
 } from '../../modules/servicing/infrastructure/schema.ts';
 import {
+  blogPostTags,
   blogPosts,
   contactMessages,
+  tags,
   uploadedFiles,
 } from '../../modules/content/infrastructure/schema.ts';
 
@@ -59,6 +65,11 @@ export const usersRelations = relations(users, ({ many }) => ({
   uploadedFiles: many(uploadedFiles),
   blogPosts: many(blogPosts),
   contactMessages: many(contactMessages),
+  addresses: many(customerAddresses),
+}));
+
+export const customerAddressesRelations = relations(customerAddresses, ({ one }) => ({
+  user: one(users, { fields: [customerAddresses.userId], references: [users.id] }),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
@@ -127,6 +138,20 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(users, { fields: [orders.userId], references: [users.id] }),
   items: many(orderItems),
   events: many(orderEvents),
+  deliveryAddress: one(orderAddresses, {
+    fields: [orders.id],
+    references: [orderAddresses.orderId],
+  }),
+  payments: many(payments),
+}));
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  order: one(orders, { fields: [payments.orderId], references: [orders.id] }),
+  recordedBy: one(users, { fields: [payments.recordedByUserId], references: [users.id] }),
+}));
+
+export const orderAddressesRelations = relations(orderAddresses, ({ one }) => ({
+  order: one(orders, { fields: [orderAddresses.orderId], references: [orders.id] }),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
@@ -160,10 +185,18 @@ export const serviceRequestsRelations = relations(serviceRequests, ({ one, many 
     references: [sellRequestDetails.requestId],
   }),
 
+  addresses: many(requestAddresses),
   photos: many(requestPhotos),
   quotes: many(requestQuotes),
   appointments: many(requestAppointments),
   events: many(requestEvents),
+}));
+
+export const requestAddressesRelations = relations(requestAddresses, ({ one }) => ({
+  request: one(serviceRequests, {
+    fields: [requestAddresses.requestId],
+    references: [serviceRequests.id],
+  }),
 }));
 
 export const movingRequestDetailsRelations = relations(movingRequestDetails, ({ one, many }) => ({
@@ -241,8 +274,18 @@ export const contactMessagesRelations = relations(contactMessages, ({ one }) => 
   user: one(users, { fields: [contactMessages.userId], references: [users.id] }),
 }));
 
-export const blogPostsRelations = relations(blogPosts, ({ one }) => ({
+export const blogPostsRelations = relations(blogPosts, ({ one, many }) => ({
   author: one(users, { fields: [blogPosts.authorUserId], references: [users.id] }),
+  tags: many(blogPostTags),
+}));
+
+export const tagsRelations = relations(tags, ({ many }) => ({
+  posts: many(blogPostTags),
+}));
+
+export const blogPostTagsRelations = relations(blogPostTags, ({ one }) => ({
+  post: one(blogPosts, { fields: [blogPostTags.postId], references: [blogPosts.id] }),
+  tag: one(tags, { fields: [blogPostTags.tagId], references: [tags.id] }),
 }));
 
 export const uploadedFilesRelations = relations(uploadedFiles, ({ one }) => ({

@@ -8,8 +8,8 @@ import { defineConfig } from 'drizzle-kit';
  * dosyası vardı ve hangisinin geçerli olduğu belirsizdi.
  */
 export default defineConfig({
-  schema: './src/db/schema/index.ts',
-  out: './src/db/migrations',
+  schema: './src/platform/db/schema.ts',
+  out: './src/platform/db/migrations',
   dialect: 'postgresql',
   dbCredentials: {
     url:

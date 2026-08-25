@@ -13,6 +13,7 @@ import {
   inet,
   integer,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -22,6 +23,8 @@ import { users } from '../../identity/infrastructure/schema.ts';
 import {
   blogCategoryEnum,
   contactSubjectEnum,
+  faqCategoryEnum,
+  settingValueTypeEnum,
   uploadPurposeEnum,
 } from '../../../platform/db/enums.ts';
 
@@ -54,6 +57,7 @@ export const contactMessages = pgTable(
     /** Personelin yanıtı. Müşteriye e-posta ile iletilir. */
     replyNote: text(),
     repliedAt: timestamp({ withTimezone: true }),
+    repliedByUserId: uuid().references(() => users.id, { onDelete: 'set null' }),
 
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
@@ -86,9 +90,6 @@ export const blogPosts = pgTable(
     coverImageStorageKey: text(),
 
     category: blogCategoryEnum().notNull(),
-
-    /** Etiketler. Postgres metin dizisi olarak saklanır. */
-    tags: text().array().notNull().default([]),
 
     authorName: text().notNull(),
     authorUserId: uuid().references(() => users.id, { onDelete: 'set null' }),
@@ -124,8 +125,11 @@ export const faqs = pgTable(
     question: text().notNull(),
     answer: text().notNull(),
 
-    /** Gruplama başlığı: "Siparişler", "Teknik Servis" gibi. */
-    category: text().notNull(),
+    /**
+     * Gruplama başlığı. Serbest metin değil kapalı kümedir: metin olsaydı
+     * "Siparişler" ve "Sipariş" gibi varyasyonlar çoğalır, gruplama bozulurdu.
+     */
+    category: faqCategoryEnum().notNull(),
 
     displayOrder: integer().notNull().default(0),
     isPublished: boolean().notNull().default(true),
@@ -194,8 +198,55 @@ export const uploadedFiles = pgTable(
  */
 export const siteSettings = pgTable('site_settings', {
   key: text().primaryKey(),
+
+  /**
+   * Değer metin olarak saklanır ancak tipi ayrıca bildirilir.
+   *
+   * Tipsiz bir ayar tablosunda "3" değerinin sayı mı metin mi olduğu belirsizdir
+   * ve okuyan her yer kendi ayrıştırmasını yazar. Tip sütunu, okuma tarafının
+   * doğru dönüşümü yapmasını ve yanlış değerin yazılmasını engellemeyi sağlar.
+   */
   value: text().notNull(),
+  valueType: settingValueTypeEnum().notNull().default('string'),
+
   description: text(),
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   updatedByUserId: uuid().references(() => users.id, { onDelete: 'set null' }),
 });
+
+/**
+ * Etiketler.
+ *
+ * Dizi sütunu (`text[]`) yerine ayrı tablo kullanılır. Etiketler sayılır
+ * ("en çok kullanılan etiketler"), yeniden adlandırılır ve etiket sayfası
+ * üretilir; dizi sütunuyla bunların hiçbiri verimli yapılamaz. Ayrıca aynı
+ * etiketin farklı yazımları ("beyaz eşya", "Beyaz Eşya") çoğalırdı.
+ */
+export const tags = pgTable(
+  'tags',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    name: text().notNull(),
+    slug: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('tags_slug_unique').on(table.slug)],
+);
+
+/** Blog yazısı ile etiket arasındaki çoka çok ilişki. */
+export const blogPostTags = pgTable(
+  'blog_post_tags',
+  {
+    postId: uuid()
+      .notNull()
+      .references(() => blogPosts.id, { onDelete: 'cascade' }),
+
+    tagId: uuid()
+      .notNull()
+      .references(() => tags.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.postId, table.tagId] }),
+    index('blog_post_tags_tag_idx').on(table.tagId),
+  ],
+);

@@ -55,7 +55,14 @@ export const brands = pgTable(
     id: uuid().primaryKey().defaultRandom(),
     name: text().notNull(),
     slug: text().notNull(),
-    logoUrl: text(),
+
+    /**
+     * Logo, depolama anahtarı olarak tutulur — URL olarak değil.
+     *
+     * URL yapılandırmadan türetilir (`STORAGE_PUBLIC_URL`). Depolama sunucusu
+     * veya alan adı değiştiğinde kayıtlı URL'ler kırılırdı; anahtar ise sabittir.
+     */
+    logoStorageKey: text(),
 
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -95,6 +102,18 @@ export const products = pgTable(
      */
     viewCount: integer().notNull().default(0),
     favoriteCount: integer().notNull().default(0),
+
+    /**
+     * Rezervasyonun sona ereceği an.
+     *
+     * Ürün bir siparişe bağlandığında dolar. Sipariş ödenmez ve iptal de
+     * edilmezse ürün kalıcı olarak satıştan çıkardı; bu alan sayesinde
+     * zamanlanmış temizlik görevi süresi geçmiş rezervasyonları serbest
+     * bırakabilir.
+     *
+     * Yalnızca `reserved` durumundaki ürünlerde doludur.
+     */
+    reservedUntil: timestamp({ withTimezone: true }),
 
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),

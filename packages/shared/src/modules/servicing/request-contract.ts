@@ -75,7 +75,7 @@ export type RequestQuote = z.infer<typeof requestQuoteSchema>;
 /** Planlanmış randevu. */
 export const requestAppointmentSchema = z.object({
   date: z.string(),
-  timeSlot: z.string(),
+  timeSlot: timeSlotSchema,
   note: z.string().nullable(),
 });
 

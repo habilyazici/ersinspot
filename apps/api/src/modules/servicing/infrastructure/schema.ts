@@ -28,22 +28,23 @@ import {
   date,
   index,
   integer,
-  jsonb,
   pgTable,
   text,
+  time,
   timestamp,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import type { AddressInput } from '@ersinspot/shared';
 import { users } from '../../identity/infrastructure/schema.ts';
 import { categories, products } from '../../catalog/infrastructure/schema.ts';
+import { addressColumns } from '../../../platform/db/columns.ts';
 import {
   actorEnum,
   deviceTypeEnum,
   houseSizeEnum,
   problemCategoryEnum,
   productConditionEnum,
+  requestAddressRoleEnum,
   requestStatusEnum,
   serviceKindEnum,
   warrantyStatusEnum,
@@ -98,15 +99,6 @@ export const serviceRequests = pgTable(
 // Nakliye detayı
 // ---------------------------------------------------------------------------
 
-/**
- * Nakliye adresi. Standart adrese ek olarak kat ve asansör bilgisi taşır;
- * bunlar fiyatlandırmanın doğrudan girdisidir.
- */
-export interface MovingAddress extends AddressInput {
-  readonly floor: number;
-  readonly hasElevator: boolean;
-}
-
 export const movingRequestDetails = pgTable('moving_request_details', {
   /** Taban tabloyla bire bir: birincil anahtar aynı zamanda yabancı anahtardır. */
   requestId: uuid()
@@ -115,12 +107,22 @@ export const movingRequestDetails = pgTable('moving_request_details', {
 
   houseSize: houseSizeEnum().notNull(),
 
-  fromAddress: jsonb().$type<MovingAddress>().notNull(),
-  toAddress: jsonb().$type<MovingAddress>().notNull(),
+  /*
+   * Bina erişim bilgileri.
+   *
+   * Adresin parçası değildir, işin zorluğunun parçasıdır: asansörsüz her kat
+   * için ek ücret uygulanır. Fiyatlandırmanın doğrudan girdisi olduğu için
+   * gerçek sütunlarda tutulur; adres kayıtları `requestAddresses` tablosundadır.
+   */
+  fromFloor: integer().notNull(),
+  fromHasElevator: boolean().notNull(),
+  toFloor: integer().notNull(),
+  toHasElevator: boolean().notNull(),
 
   /** Müşterinin tercih ettiği tarih. Kesin randevu teklif onayından sonra verilir. */
   preferredDate: date().notNull(),
-  preferredTimeSlot: text(),
+  preferredStartTime: time(),
+  preferredEndTime: time(),
 
   needsPacking: boolean().notNull().default(false),
   needsAssembly: boolean().notNull().default(false),
@@ -175,10 +177,10 @@ export const technicalServiceDetails = pgTable('technical_service_details', {
   problemCategory: problemCategoryEnum().notNull(),
   problemDescription: text().notNull(),
 
-  address: jsonb().$type<AddressInput>().notNull(),
-
+  /** Servis adresi `requestAddresses` tablosunda, `service_location` rolüyle tutulur. */
   preferredDate: date().notNull(),
-  preferredTimeSlot: text(),
+  preferredStartTime: time(),
+  preferredEndTime: time(),
 
   /**
    * Keşif ücreti, talep oluşturulduğu andaki tarifeyle sabitlenir. Tarife
@@ -224,7 +226,7 @@ export const sellRequestDetails = pgTable(
     /** Müşterinin aklındaki fiyat (kuruş). Bağlayıcı değildir. */
     askingPriceKurus: bigint({ mode: 'number' }),
 
-    pickupAddress: jsonb().$type<AddressInput>().notNull(),
+    /** Teslim alma adresi `requestAddresses` tablosunda, `pickup` rolüyle tutulur. */
 
     /**
      * Talep kabul edilip ürün teslim alındıysa, katalogda oluşturulan ürünün kimliği.
@@ -299,7 +301,8 @@ export const requestAppointments = pgTable(
       .references(() => serviceRequests.id, { onDelete: 'cascade' }),
 
     scheduledDate: date().notNull(),
-    timeSlot: text().notNull(),
+    startTime: time().notNull(),
+    endTime: time().notNull(),
     note: text(),
 
     /** Randevu iptal edildiyse dolar. Kayıt silinmez, takvim geçmişi korunur. */
@@ -310,8 +313,8 @@ export const requestAppointments = pgTable(
   },
   (table) => [
     index('request_appointments_request_idx').on(table.requestId),
-    // Takvim ekranının sorgusu: belirli bir gündeki tüm randevular.
-    index('request_appointments_date_idx').on(table.scheduledDate, table.timeSlot),
+    // Takvim ekranının sorgusu: belirli bir gündeki tüm randevular, saat sırasıyla.
+    index('request_appointments_date_idx').on(table.scheduledDate, table.startTime),
   ],
 );
 
@@ -339,4 +342,43 @@ export const requestEvents = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index('request_events_request_created_idx').on(table.requestId, table.createdAt)],
+);
+
+/**
+ * Hizmet taleplerinin adresleri.
+ *
+ * Tek tabloda, rol sütunuyla ayrılır:
+ *   moving_from       nakliyede çıkış adresi
+ *   moving_to         nakliyede varış adresi
+ *   service_location  teknik servisin gideceği adres
+ *   pickup            satış talebinde ürünün alınacağı adres
+ *
+ * Adresler değişmezdir: talep oluşturulduğu andaki fotoğraftır. Müşteri adres
+ * defterindeki kaydı sonradan düzenlese bile talebin adresi olduğu gibi kalır.
+ *
+ * `jsonb` yerine gerçek sütunlar kullanılır. Bu alanlar sorgulanır — "bu hafta
+ * Bornova'da kaç iş var", "hangi ilçelerde talep yoğun" — ve `jsonb` içinde
+ * indekslenemez, ilçe kısıtı uygulanamazdı.
+ */
+export const requestAddresses = pgTable(
+  'request_addresses',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+
+    requestId: uuid()
+      .notNull()
+      .references(() => serviceRequests.id, { onDelete: 'cascade' }),
+
+    role: requestAddressRoleEnum().notNull(),
+
+    ...addressColumns,
+
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // Bir talepte aynı rolden yalnızca bir adres olabilir: nakliyenin tek çıkış
+    // ve tek varış adresi vardır.
+    uniqueIndex('request_addresses_request_role_unique').on(table.requestId, table.role),
+    index('request_addresses_district_idx').on(table.district),
+  ],
 );

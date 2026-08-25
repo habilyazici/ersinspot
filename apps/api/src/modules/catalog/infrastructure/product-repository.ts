@@ -9,7 +9,7 @@
  * (`.or(\`email.eq.${email}\`)`), bu da filtre enjeksiyonuna açıktı.
  */
 
-import { and, asc, desc, eq, gte, ilike, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, ilike, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type {
   AdminProductListQuery,
@@ -384,18 +384,46 @@ export async function findPurchasableForUpdate(
   }));
 }
 
-/** Ürünlerin durumunu topluca değiştirir. Rezervasyon ve satış akışında kullanılır. */
+/**
+ * Ürünlerin durumunu topluca değiştirir. Rezervasyon ve satış akışında kullanılır.
+ *
+ * Rezervasyon süresi durumla birlikte yönetilir: `reserved` durumuna geçerken
+ * dolar, çıkarken temizlenir. Veritabanı kısıtı ikisinin tutarlı olmasını
+ * zorunlu kılar (`products_reserved_has_expiry`).
+ */
 export async function updateStatuses(
   productIds: readonly string[],
   status: ProductStatus,
   tx: Transaction,
+  reservedUntil?: Date,
 ): Promise<void> {
   if (productIds.length === 0) return;
 
   await tx
     .update(products)
-    .set({ status })
+    .set({
+      status,
+      reservedUntil: status === 'reserved' ? (reservedUntil ?? null) : null,
+    })
     .where(inArray(products.id, [...productIds]));
+}
+
+/**
+ * Süresi geçmiş rezervasyonları serbest bırakır.
+ *
+ * Ödenmeyen ve iptal de edilmeyen siparişler ürünü kalıcı olarak satıştan
+ * çıkarırdı. Zamanlanmış bakım görevinden çağrılır.
+ *
+ * @returns Serbest bırakılan ürün sayısı.
+ */
+export async function releaseExpiredReservations(): Promise<number> {
+  const released = await db
+    .update(products)
+    .set({ status: 'for_sale', reservedUntil: null })
+    .where(and(eq(products.status, 'reserved'), lt(products.reservedUntil, new Date())))
+    .returning({ id: products.id });
+
+  return released.length;
 }
 
 // ---------------------------------------------------------------------------

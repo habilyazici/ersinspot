@@ -8,3 +8,14 @@ allowBuilds:
 # Eş bağımlılık uyumsuzlukları kurulumu durdurmasın; uyarı olarak geçilir.
 strictPeerDependencies: false
 autoInstallPeers: true
+
+# Geçişli bağımlılıkların sürüm zorlaması.
+#
+# Bunlar yalnızca geliştirme araçlarının getirdiği bağımlılıklardır ve üretim
+# paketine girmez; yine de yamalı sürüme zorlanır ki zafiyet taraması temiz kalsın
+# ve geliştirme makinelerinde bilinen açık bulunmasın.
+overrides:
+  # vitest'in getirdiği vite: GHSA-fx2h-pf6j-xcff ve ilgili uyarılar
+  vite: '>=6.4.3'
+  # drizzle-kit'in getirdiği eski esbuild
+  esbuild: '>=0.25.0'

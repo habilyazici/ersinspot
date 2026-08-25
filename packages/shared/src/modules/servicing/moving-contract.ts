@@ -27,15 +27,22 @@ import {
 // ---------------------------------------------------------------------------
 
 /**
- * Nakliye adresi. Standart adresten farklı olarak kat ve asansör bilgisi taşır;
- * bunlar fiyatlandırmanın girdisidir.
+ * Nakliye noktası: adres + bina erişim bilgisi.
+ *
+ * Kat ve asansör, adresin parçası değil işin zorluğunun parçasıdır — "burası
+ * neresi" ile "bu iş ne kadar zahmetli" farklı sorulardır. Veritabanında da
+ * ayrı tutulurlar: adres `request_addresses` tablosunda, erişim bilgisi
+ * `moving_request_details` sütunlarında.
  */
-export const movingAddressSchema = z.object({
-  district: servicedDistrictSchema,
-  neighborhood: requiredText('Mahalle', 2, 100),
-  street: requiredText('Sokak/Cadde', 2, 150),
-  buildingNo: requiredText('Bina no', 1, 20),
-  apartmentNo: optionalText(20),
+export const movingLocationSchema = z.object({
+  address: z.object({
+    district: servicedDistrictSchema,
+    neighborhood: requiredText('Mahalle', 2, 100),
+    street: requiredText('Sokak/Cadde', 2, 150),
+    buildingNo: requiredText('Bina no', 1, 20),
+    apartmentNo: optionalText(20),
+    directions: optionalText(300),
+  }),
   /** Zemin kat için 0, bodrum için negatif değer. */
   floor: z
     .number({
@@ -46,10 +53,9 @@ export const movingAddressSchema = z.object({
     .min(-3, { message: 'Geçersiz kat.' })
     .max(50, { message: 'Geçersiz kat.' }),
   hasElevator: z.boolean({ required_error: 'Asansör bilgisi zorunludur.' }),
-  directions: optionalText(300),
 });
 
-export type MovingAddressInput = z.infer<typeof movingAddressSchema>;
+export type MovingLocationInput = z.infer<typeof movingLocationSchema>;
 
 // ---------------------------------------------------------------------------
 // Eşya listesi
@@ -102,8 +108,8 @@ export const createMovingRequestSchema = z
     houseSize: z.enum(HOUSE_SIZES, {
       errorMap: () => ({ message: 'Lütfen ev büyüklüğünü seçin.' }),
     }),
-    fromAddress: movingAddressSchema,
-    toAddress: movingAddressSchema,
+    fromLocation: movingLocationSchema,
+    toLocation: movingLocationSchema,
     /** Tercih edilen taşınma tarihi. Kesin randevu, teklif onaylandıktan sonra verilir. */
     preferredDate: appointmentDateSchema,
     preferredTimeSlot: timeSlotSchema.optional(),
@@ -118,10 +124,10 @@ export const createMovingRequestSchema = z
   })
   .refine(
     (data) =>
-      data.fromAddress.district !== data.toAddress.district ||
-      data.fromAddress.street !== data.toAddress.street ||
-      data.fromAddress.buildingNo !== data.toAddress.buildingNo,
-    { message: 'Çıkış ve varış adresi aynı olamaz.', path: ['toAddress'] },
+      data.fromLocation.address.district !== data.toLocation.address.district ||
+      data.fromLocation.address.street !== data.toLocation.address.street ||
+      data.fromLocation.address.buildingNo !== data.toLocation.address.buildingNo,
+    { message: 'Çıkış ve varış adresi aynı olamaz.', path: ['toLocation'] },
   );
 
 export type CreateMovingRequestInput = z.infer<typeof createMovingRequestSchema>;
@@ -133,10 +139,10 @@ export type CreateMovingRequestInput = z.infer<typeof createMovingRequestSchema>
 export const movingRequestSchema = serviceRequestBaseSchema.extend({
   kind: z.literal('moving'),
   houseSize: z.enum(HOUSE_SIZES),
-  fromAddress: movingAddressSchema,
-  toAddress: movingAddressSchema,
+  fromLocation: movingLocationSchema,
+  toLocation: movingLocationSchema,
   preferredDate: z.string(),
-  preferredTimeSlot: z.string().nullable(),
+  preferredTimeSlot: timeSlotSchema.nullable(),
   items: z.array(
     movingItemSchema.extend({
       id: uuidSchema,

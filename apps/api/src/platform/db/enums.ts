@@ -26,7 +26,7 @@ import {
   UPLOAD_PURPOSES,
   WARRANTY_STATUSES,
 } from '@ersinspot/shared';
-import { HOUSE_SIZES } from '@ersinspot/shared';
+import { HOUSE_SIZES, IZMIR_DISTRICTS } from '@ersinspot/shared';
 
 export const userRoleEnum = pgEnum('user_role', USER_ROLES);
 
@@ -49,5 +49,67 @@ export const contactSubjectEnum = pgEnum('contact_subject', CONTACT_SUBJECTS);
 export const blogCategoryEnum = pgEnum('blog_category', BLOG_CATEGORIES);
 export const uploadPurposeEnum = pgEnum('upload_purpose', UPLOAD_PURPOSES);
 
+/**
+ * İzmir ilçeleri.
+ *
+ * Adresin ilçe alanı serbest metin değil, kapalı bir kümedir. Eski şemada ilçe
+ * `jsonb` içinde metin olarak duruyordu; "Buca" ile "buca" farklı sayıldığı için
+ * ücretsiz teslimat kuralı bazen çalışmıyordu.
+ */
+export const izmirDistrictEnum = pgEnum('izmir_district', IZMIR_DISTRICTS);
+
 /** Bir olayı kimin oluşturduğu: müşteri, personel veya otomatik sistem. */
 export const actorEnum = pgEnum('event_actor', ['customer', 'staff', 'system'] as const);
+
+/**
+ * Hizmet talebindeki adresin rolü.
+ *
+ * Nakliyede iki adres vardır (çıkış ve varış); teknik serviste ve satış
+ * talebinde tek adres. Rol sütunu, tek tabloda hepsini tutmayı ve "bu talebin
+ * çıkış adresi hangisi" sorusunu belirsizlik olmadan yanıtlamayı sağlar.
+ */
+export const requestAddressRoleEnum = pgEnum('request_address_role', [
+  'moving_from',
+  'moving_to',
+  'service_location',
+  'pickup',
+] as const);
+
+/**
+ * SSS gruplama başlıkları.
+ *
+ * Serbest metin yerine kapalı küme: "Siparişler" ve "Sipariş" gibi varyasyonlar
+ * çoğalıp gruplamayı bozmasın.
+ */
+export const faqCategoryEnum = pgEnum('faq_category', [
+  'orders',
+  'delivery',
+  'payment',
+  'products',
+  'technical_service',
+  'moving',
+  'selling',
+  'account',
+] as const);
+
+/** Site ayarının değer tipi. Okuma tarafının doğru dönüşümü yapmasını sağlar. */
+export const settingValueTypeEnum = pgEnum('setting_value_type', [
+  'string',
+  'number',
+  'boolean',
+  'time',
+] as const);
+
+/**
+ * Ödeme kaydının durumu.
+ *
+ * Havale/EFT'de ödeme beklenir ve personel gelen parayı elle eşleştirir;
+ * kapıda ödemede tahsilat teslimatta yapılır. İkisinde de "para geldi mi"
+ * sorusunun kaydı tutulmalıdır.
+ */
+export const paymentStatusEnum = pgEnum('payment_status', [
+  'pending',
+  'confirmed',
+  'refunded',
+  'failed',
+] as const);
