@@ -1,0 +1,67 @@
+name: Güvenlik
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Her pazartesi 06:00 UTC — yeni açıklanan zafiyetleri yakalamak için.
+    - cron: '0 6 * * 1'
+
+jobs:
+  bagimliliklar:
+    name: Bağımlılık zafiyet taraması
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Zafiyet taraması
+        # Yüksek ve kritik seviyedeki açıklar derlemeyi başarısız kılar.
+        run: pnpm audit --audit-level high
+
+  codeql:
+    name: CodeQL statik analizi
+    runs-on: ubuntu-latest
+
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+
+      - uses: github/codeql-action/analyze@v3
+
+  sizdirilan-sirlar:
+    name: Sızdırılmış sır taraması
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Gitleaks tüm geçmişi tarayabilsin diye.
+          fetch-depth: 0
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

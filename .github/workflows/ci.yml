@@ -1,0 +1,143 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Aynı dal için yeni bir çalıştırma başladığında öncekini iptal et.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # CI'da üretim dışı, sabit bir anahtar kullanılır.
+  SESSION_SECRET: ci-ortami-icin-sabit-ve-yeterince-uzun-test-anahtari-0123456789
+  API_ORIGIN: http://localhost:3000
+  WEB_ORIGIN: http://localhost:3001
+  STORAGE_PUBLIC_URL: http://localhost:3000/files
+
+jobs:
+  kalite:
+    name: Tip kontrolü, lint ve birim testleri
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Bağımlılıkları kur
+        run: pnpm install --frozen-lockfile
+
+      - name: Biçim kontrolü
+        run: pnpm format:check
+
+      - name: Tip kontrolü
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Birim testleri
+        run: pnpm --filter @ersinspot/shared test
+
+      - name: Modül sınırlarını doğrula
+        # Sınır ihlalinin gerçekten engellendiğini kanıtlar: kural sessizce
+        # devre dışı kalırsa bu adım fark eder.
+        run: |
+          mkdir -p apps/api/src/modules/ordering/application
+          cat > apps/api/src/modules/ordering/application/__sinir-denemesi.ts <<'TS'
+          import { products } from '../../catalog/infrastructure/schema.ts';
+          export const deneme = products;
+          TS
+          if pnpm exec eslint apps/api/src/modules/ordering/application/__sinir-denemesi.ts; then
+            echo "HATA: modül sınırı ihlali engellenmedi. eslint.config.js kontrol edin."
+            rm -f apps/api/src/modules/ordering/application/__sinir-denemesi.ts
+            exit 1
+          fi
+          echo "Modül sınırı kuralı çalışıyor."
+          rm -f apps/api/src/modules/ordering/application/__sinir-denemesi.ts
+
+  entegrasyon:
+    name: Veritabanı entegrasyon testleri
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ersinspot
+          POSTGRES_PASSWORD: ersinspot_test
+          POSTGRES_DB: ersinspot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ersinspot -d ersinspot_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://ersinspot:ersinspot_test@localhost:5432/ersinspot_test
+      TEST_DATABASE_URL: postgresql://ersinspot:ersinspot_test@localhost:5432/ersinspot_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Bağımlılıkları kur
+        run: pnpm install --frozen-lockfile
+
+      - name: API testleri
+        # Test betiği migration'ı kendisi uygular.
+        run: pnpm --filter @ersinspot/api test
+
+  derleme:
+    name: Üretim derlemesi
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Bağımlılıkları kur
+        run: pnpm install --frozen-lockfile
+
+      - name: Derle
+        run: pnpm build
+
+      - name: Paket boyutunu raporla
+        run: |
+          if [ -d apps/web/dist ]; then
+            echo "### Derleme çıktısı" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            du -sh apps/web/dist >> $GITHUB_STEP_SUMMARY
+            find apps/web/dist -name '*.js' -o -name '*.css' | xargs ls -lh 2>/dev/null | awk '{print $5, $9}' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
