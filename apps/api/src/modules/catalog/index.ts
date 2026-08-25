@@ -1,19 +1,28 @@
 /**
  * catalog modülü — genel sözleşme.
  *
+ * Bu dosya, diğer modüllerin `catalog` hakkında görebildiği TEK yüzeydir.
+ * Tablolar, repository'ler ve iç yardımcılar bilinçli olarak dışa aktarılmaz.
+ *
  * Sahip olduğu tablolar:
  *   categories, brands, products, product_images, product_specs
  *
- * Kritik sorumluluk: ürün fiyatı ve satılabilirlik durumu YALNIZCA bu modülden
- * öğrenilir. `ordering` modülü `products` tablosunu okuyamaz; sipariş tutarının
+ * KRİTİK SORUMLULUK: ürün fiyatı ve satılabilirlik durumu yalnızca bu modülden
+ * öğrenilir. `ordering` modülü `products` tablosunu okuyamaz — sipariş tutarının
  * istemciden gelen fiyatla hesaplanması bu sınırla yapısal olarak engellenir.
- *
- * Planlanan sözleşme:
- *   getPurchasableProducts(ids)  — fiyat ve uygunluk; sipariş oluşturmada kullanılır
- *   reserveProducts(ids, tx)     — sipariş verilince rezerve eder
- *   releaseProducts(ids, tx)     — sipariş iptalinde serbest bırakır
- *   markAsSold(ids, tx)          — teslimatta satıldı işaretler
- *   createFromSellRequest(input) — kabul edilen satış talebini ürüne çevirir
+ * Eski kod tabanında bu sınır olmadığı için herhangi bir ürün 1 TL'ye sipariş
+ * edilebiliyordu.
  */
 
-export {};
+// HTTP yönlendiricisi — app.ts tarafından bağlanır.
+export { catalogRoutes } from './api/routes.ts';
+
+// Diğer modüllerin kullandığı işlemler.
+export {
+  getPurchasableProducts,
+  reserveProducts,
+  releaseProducts,
+  markProductsAsSold,
+} from './application/inventory-service.ts';
+
+export type { PurchasableProduct } from './application/inventory-service.ts';

@@ -23,6 +23,7 @@ import {
   securityHeaders,
 } from './platform/http/security.ts';
 import { authRoutes } from './modules/identity/index.ts';
+import { catalogRoutes } from './modules/catalog/index.ts';
 
 export type AppVariables = AuthVariables & ValidatedVariables;
 
@@ -61,6 +62,14 @@ export function createApp() {
   // Yetkilendirme uç bazında yapılır: /login herkese açık, /me oturum gerektirir.
 
   app.route('/api/auth', authRoutes);
+
+  // -------------------------------------------------------------------------
+  // Katalog
+  // -------------------------------------------------------------------------
+  // Ürün vitrini herkese açık; /admin/* uçları personel yetkisi gerektirir.
+  // Yetki, modülün rota tanımlarında bildirilir.
+
+  app.route('/api', catalogRoutes);
 
   return app;
 }

@@ -25,12 +25,16 @@ export async function resetDatabase(): Promise<void> {
   await sql`
     TRUNCATE TABLE
       login_attempts, sessions, password_reset_tokens, email_verification_tokens,
-      cart_items, favorites, order_events, order_items, orders,
+      customer_addresses,
+      cart_items, favorites, payments, order_events, order_items,
+      order_addresses, orders,
       request_events, request_appointments, request_quotes, request_photos,
+      request_addresses,
       moving_request_items, moving_request_details, technical_service_details,
       sell_request_details, service_requests,
       product_specs, product_images, products, brands, categories,
-      contact_messages, blog_posts, faqs, uploaded_files, site_settings,
+      contact_messages, blog_post_tags, blog_posts, tags, faqs,
+      uploaded_files, site_settings,
       users
     RESTART IDENTITY CASCADE
   `;

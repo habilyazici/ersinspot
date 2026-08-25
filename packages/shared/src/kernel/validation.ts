@@ -198,12 +198,34 @@ export const dateOnlySchema = z
     { message: 'Geçersiz tarih.' },
   );
 
-/** Randevu saat aralığı: "09:00-11:00". */
-export const timeSlotSchema = z
+/** Günün saati: "09:00" biçiminde, 24 saatlik. */
+export const timeOfDaySchema = z
   .string()
-  .regex(/^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/, {
-    message: 'Geçersiz saat aralığı.',
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'Saat SS:DD biçiminde olmalıdır.' });
+
+/**
+ * Randevu saat aralığı.
+ *
+ * Başlangıç ve bitiş ayrı alanlardır. Tek metin ("09:00-11:00") olarak
+ * taşındığında aralıklar karşılaştırılamaz, sıralanamaz ve çakışma kontrolü
+ * yapılamaz; veritabanında da iki ayrı `time` sütununda tutulur.
+ */
+export const timeSlotSchema = z
+  .object({
+    startTime: timeOfDaySchema,
+    endTime: timeOfDaySchema,
+  })
+  .refine((slot) => slot.startTime < slot.endTime, {
+    message: 'Bitiş saati başlangıçtan sonra olmalıdır.',
+    path: ['endTime'],
   });
+
+export type TimeSlot = z.infer<typeof timeSlotSchema>;
+
+/** Saat aralığını kullanıcıya gösterilecek metne çevirir: "09:00 - 11:00". */
+export function formatTimeSlot(slot: TimeSlot): string {
+  return `${slot.startTime} - ${slot.endTime}`;
+}
 
 /**
  * Randevu tarihini doğrular: geçmiş bir gün seçilemez ve en fazla 60 gün

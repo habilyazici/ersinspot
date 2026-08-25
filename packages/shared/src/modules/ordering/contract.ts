@@ -180,7 +180,7 @@ export const orderSchema = z.object({
   deliveryMethod: z.enum(DELIVERY_METHODS),
   deliveryAddress: addressSchema.nullable(),
   deliveryDate: z.string().nullable(),
-  deliveryTimeSlot: z.string().nullable(),
+  deliveryTimeSlot: timeSlotSchema.nullable(),
 
   paymentMethod: z.enum(PAYMENT_METHODS),
 

@@ -148,7 +148,7 @@ export const technicalServiceRequestSchema = serviceRequestBaseSchema.extend({
   problemDescription: z.string(),
   address: addressSchema,
   preferredDate: z.string(),
-  preferredTimeSlot: z.string().nullable(),
+  preferredTimeSlot: timeSlotSchema.nullable(),
   /** Keşif ücreti (kuruş). Talep oluşturulduğu andaki tutar sabitlenir. */
   inspectionFee: z.number().int(),
   /** Teknisyenin yerinde yaptığı tespit. Yalnızca keşif sonrası dolar. */

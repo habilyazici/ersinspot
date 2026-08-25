@@ -10,8 +10,9 @@
  *    saklar. Ürün sonradan silinse veya fiyatı değişse bile geçmiş sipariş
  *    olduğu gibi kalır — muhasebe ve müşteri güveni için zorunlu.
  *
- * 3. Teslimat adresi `jsonb` olarak saklanır. Adres, siparişin o anki fotoğrafıdır;
- *    kullanıcı profil adresini sonradan değiştirse bile sipariş etkilenmez.
+ * 3. Teslimat adresi ayrı bir tabloda ve gerçek sütunlarda tutulur (bkz.
+ *    `orderAddresses`). Adres, siparişin o anki fotoğrafıdır; kullanıcı adres
+ *    defterindeki kaydı sonradan değiştirse bile sipariş etkilenmez.
  */
 
 import { sql } from 'drizzle-orm';
@@ -20,21 +21,22 @@ import {
   date,
   index,
   integer,
-  jsonb,
   pgTable,
   text,
+  time,
   timestamp,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import type { AddressInput } from '@ersinspot/shared';
 import { users } from '../../identity/infrastructure/schema.ts';
+import { addressColumns } from '../../../platform/db/columns.ts';
 import { products } from '../../catalog/infrastructure/schema.ts';
 import {
   actorEnum,
   deliveryMethodEnum,
   orderStatusEnum,
   paymentMethodEnum,
+  paymentStatusEnum,
   productConditionEnum,
 } from '../../../platform/db/enums.ts';
 
@@ -122,11 +124,16 @@ export const orders = pgTable(
 
     deliveryMethod: deliveryMethodEnum().notNull(),
 
-    /** Mağazadan teslim alımda null. */
-    deliveryAddress: jsonb().$type<AddressInput>(),
-
+    /**
+     * Teslimat günü ve saat aralığı.
+     *
+     * Saat aralığı metin yerine iki `time` sütununda tutulur: metin olarak
+     * ("09:00-11:00") saklandığında aralıklar karşılaştırılamaz, sıralanamaz ve
+     * "bugün 14:00'te kaç teslimat var" sorgusu yazılamaz.
+     */
     deliveryDate: date(),
-    deliveryTimeSlot: text(),
+    deliveryStartTime: time(),
+    deliveryEndTime: time(),
 
     paymentMethod: paymentMethodEnum().notNull(),
 
@@ -164,9 +171,15 @@ export const orderItems = pgTable(
     /** Ürün silinirse null olur; sipariş kaleminin kendisi kopya bilgiyle ayakta kalır. */
     productId: uuid().references(() => products.id, { onDelete: 'set null' }),
 
-    // Sipariş anındaki ürün bilgisinin kopyası.
+    /*
+     * Sipariş anındaki ürün bilgisinin kopyası.
+     *
+     * Görsel, URL olarak değil depolama anahtarı olarak saklanır: URL
+     * yapılandırmadan türetilir ve depolama sunucusu değiştiğinde geçmiş
+     * siparişlerin görselleri kırılırdı.
+     */
     titleSnapshot: text().notNull(),
-    imageUrlSnapshot: text(),
+    imageStorageKeySnapshot: text(),
     conditionSnapshot: productConditionEnum().notNull(),
 
     /** Sipariş anındaki birim fiyat. Ürün fiyatı sonradan değişse bile sabit kalır. */
@@ -202,4 +215,88 @@ export const orderEvents = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index('order_events_order_created_idx').on(table.orderId, table.createdAt)],
+);
+
+/**
+ * Siparişin teslimat adresi.
+ *
+ * Ayrı tabloda ve değişmezdir: sipariş anındaki adresin fotoğrafıdır. Müşteri
+ * adres defterindeki kaydı sonradan düzenlese veya silse bile siparişin adresi
+ * olduğu gibi kalır.
+ *
+ * `jsonb` yerine gerçek sütunlar kullanılır. Adres alanları sorgulanır —
+ * "Bornova'ya kaç sipariş gitti", "hangi mahallede yoğunuz" — ve `jsonb`
+ * içinde bunlar indekslenemez, ilçe kısıtı uygulanamaz.
+ *
+ * Mağazadan teslim alınan siparişlerde satır oluşturulmaz.
+ */
+export const orderAddresses = pgTable(
+  'order_addresses',
+  {
+    /** Sipariş başına en fazla bir adres: birincil anahtar aynı zamanda yabancı anahtardır. */
+    orderId: uuid()
+      .primaryKey()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+
+    ...addressColumns,
+
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // Bölge bazlı raporlama ve teslimat planlaması için.
+    index('order_addresses_district_idx').on(table.district),
+  ],
+);
+
+/**
+ * Ödeme kayıtları.
+ *
+ * `orders.payment_method` ödemenin NASIL yapılacağını söyler; bu tablo
+ * ödemenin GERÇEKLEŞTİĞİNİ kaydeder. İkisi farklı sorulardır ve eski tasarımda
+ * ikincisinin cevabı hiçbir yerde tutulmuyordu.
+ *
+ * Havale/EFT'de personel, bankaya gelen parayı siparişle elle eşleştirir;
+ * `reference` alanı havale açıklamasını taşır ve eşleştirmenin izini bırakır.
+ * Kapıda ödemede tahsilat teslimatta yapılır ve teslim eden kişi kaydeder.
+ *
+ * Bir siparişin birden çok ödeme kaydı olabilir: kısmi ödeme, iade veya
+ * başarısız denemenin ardından ikinci deneme.
+ */
+export const payments = pgTable(
+  'payments',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+
+    orderId: uuid()
+      .notNull()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+
+    method: paymentMethodEnum().notNull(),
+    status: paymentStatusEnum().notNull().default('pending'),
+
+    /** Kuruş cinsinden. İade kayıtlarında negatif olabilir. */
+    amountKurus: bigint({ mode: 'number' }).notNull(),
+
+    /**
+     * Havale açıklaması veya dekont numarası. Personelin gelen parayı
+     * siparişle eşleştirirken girdiği referans.
+     */
+    reference: text(),
+
+    /** Ödemenin onaylandığı an. Onaylanmamış kayıtlarda null. */
+    confirmedAt: timestamp({ withTimezone: true }),
+
+    /** Ödemeyi kaydeden personel. Denetim izi. */
+    recordedByUserId: uuid().references(() => users.id, { onDelete: 'set null' }),
+
+    note: text(),
+
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('payments_order_idx').on(table.orderId),
+    // Muhasebe ekranı: belirli bir tarihteki onaylanmış tahsilatlar.
+    index('payments_status_confirmed_idx').on(table.status, table.confirmedAt),
+  ],
 );
