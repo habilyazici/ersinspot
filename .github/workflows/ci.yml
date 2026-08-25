@@ -26,9 +26,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Sürüm, package.json'daki packageManager alanından okunur.
+      # Burada ayrıca belirtmek ERR_PNPM_BAD_PM_VERSION hatasına yol açar.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v4
         with:
@@ -94,9 +94,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Sürüm, package.json'daki packageManager alanından okunur.
+      # Burada ayrıca belirtmek ERR_PNPM_BAD_PM_VERSION hatasına yol açar.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v4
         with:
@@ -117,9 +117,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Sürüm, package.json'daki packageManager alanından okunur.
+      # Burada ayrıca belirtmek ERR_PNPM_BAD_PM_VERSION hatasına yol açar.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v4
         with:
