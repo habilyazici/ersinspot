@@ -6,15 +6,15 @@ müşteriden ürün alımı.
 
 ## Teknolojiler
 
-| Katman | Seçim |
-|---|---|
-| Dil | TypeScript (strict) |
-| Sunucu | Hono (Node.js 22+) |
-| Veritabanı | PostgreSQL 16 + Drizzle ORM |
-| Doğrulama | Zod — sunucu ve tarayıcı aynı şemayı paylaşır |
-| Kimlik | argon2id + httpOnly çerezde opak oturum jetonu |
-| Arayüz | React 18 + Vite + Tailwind |
-| Paket yöneticisi | pnpm workspace |
+| Katman           | Seçim                                          |
+| ---------------- | ---------------------------------------------- |
+| Dil              | TypeScript (strict)                            |
+| Sunucu           | Hono (Node.js 22+)                             |
+| Veritabanı       | PostgreSQL 16 + Drizzle ORM                    |
+| Doğrulama        | Zod — sunucu ve tarayıcı aynı şemayı paylaşır  |
+| Kimlik           | argon2id + httpOnly çerezde opak oturum jetonu |
+| Arayüz           | React 18 + Vite + Tailwind                     |
+| Paket yöneticisi | pnpm workspace                                 |
 
 Mimari **modüler monolittir**: tek süreç olarak dağıtılır, ancak içeride iş
 alanına göre ayrılmış ve sınırları lint ile zorunlu kılınmış modüllerden oluşur.
@@ -36,18 +36,18 @@ pnpm dev                  # API ve arayüzü birlikte başlatır
 
 ## Sık kullanılan komutlar
 
-| Komut | Açıklama |
-|---|---|
-| `pnpm dev` | API ve arayüzü birlikte çalıştırır |
-| `pnpm check` | Tip kontrolü + lint + testler — commit öncesi çalıştırın |
-| `pnpm typecheck` | Yalnızca tip kontrolü |
-| `pnpm lint` | ESLint (modül sınırları dahil) |
-| `pnpm test` | Tüm testler |
-| `pnpm format` | Prettier ile biçimlendirir |
-| `pnpm db:generate` | Şema değişikliğinden migration üretir |
-| `pnpm db:migrate` | Migration'ları uygular |
-| `pnpm db:reset` | Veritabanını sıfırdan kurar (veri silinir) |
-| `pnpm db:studio` | Drizzle Studio'yu açar |
+| Komut              | Açıklama                                                 |
+| ------------------ | -------------------------------------------------------- |
+| `pnpm dev`         | API ve arayüzü birlikte çalıştırır                       |
+| `pnpm check`       | Tip kontrolü + lint + testler — commit öncesi çalıştırın |
+| `pnpm typecheck`   | Yalnızca tip kontrolü                                    |
+| `pnpm lint`        | ESLint (modül sınırları dahil)                           |
+| `pnpm test`        | Tüm testler                                              |
+| `pnpm format`      | Prettier ile biçimlendirir                               |
+| `pnpm db:generate` | Şema değişikliğinden migration üretir                    |
+| `pnpm db:migrate`  | Migration'ları uygular                                   |
+| `pnpm db:reset`    | Veritabanını sıfırdan kurar (veri silinir)               |
+| `pnpm db:studio`   | Drizzle Studio'yu açar                                   |
 
 ## Testler
 

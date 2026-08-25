@@ -10,7 +10,7 @@
     "dev": "pnpm --parallel --filter \"./apps/*\" dev",
     "dev:api": "pnpm --filter @ersinspot/api dev",
     "dev:web": "pnpm --filter @ersinspot/web dev",
-    "build": "pnpm -r build",
+    "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
