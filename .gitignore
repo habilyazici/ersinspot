@@ -1,1 +1,29 @@
-node_modules
+# Bağımlılıklar
+node_modules/
+
+# Derleme çıktısı
+dist/
+build/
+*.tsbuildinfo
+
+# Ortam değişkenleri — asla commit'lenmez
+.env
+.env.local
+.env.*.local
+
+# Loglar
+*.log
+npm-debug.log*
+
+# Editör / işletim sistemi
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Supabase yerel geliştirme
+supabase/.branches/
+supabase/.temp/
+
+# Eski kod — yalnızca referans, migrasyon bitince silinecek
+legacy/
