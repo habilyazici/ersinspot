@@ -1,0 +1,36 @@
+name: Hata bildirimi
+description: Beklenmeyen bir davranış bildirin
+labels: [hata]
+body:
+  - type: textarea
+    id: ozet
+    attributes:
+      label: Ne oldu?
+      description: Beklenen ve gerçekleşen davranışı yazın.
+    validations:
+      required: true
+
+  - type: textarea
+    id: adimlar
+    attributes:
+      label: Yeniden üretme adımları
+      placeholder: |
+        1. ...
+        2. ...
+        3. Hata görünüyor
+    validations:
+      required: true
+
+  - type: input
+    id: izleme
+    attributes:
+      label: İzleme kodu
+      description: Hata ekranında gösterilen kod (varsa).
+
+  - type: dropdown
+    id: ortam
+    attributes:
+      label: Ortam
+      options: [Üretim, Test, Yerel geliştirme]
+    validations:
+      required: true
