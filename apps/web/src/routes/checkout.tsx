@@ -135,9 +135,7 @@ export default function CheckoutPage() {
     const carriedDate: unknown = getValues(dateFrom as 'delivery.deliveryDate');
     setValue(
       dateTo as 'delivery.deliveryDate',
-      typeof carriedDate === 'string' && carriedDate !== ''
-        ? carriedDate
-        : earliestDeliveryDate(),
+      typeof carriedDate === 'string' && carriedDate !== '' ? carriedDate : earliestDeliveryDate(),
     );
 
     const carriedSlot: unknown = getValues(slotFrom as 'delivery.deliveryTimeSlot');
@@ -170,9 +168,9 @@ export default function CheckoutPage() {
       bulunduğu ilçe varsayılır; kullanıcı seçince tutar güncellenir.
     */
     const chosen: string | undefined = district;
-    const selectedDistrict = (chosen === undefined || chosen === ''
-      ? 'Buca'
-      : chosen) as IzmirDistrict;
+    const selectedDistrict = (
+      chosen === undefined || chosen === '' ? 'Buca' : chosen
+    ) as IzmirDistrict;
 
     return calculateOrderTotals(lines, {
       method: deliveryMethod ?? 'home_delivery',
@@ -385,7 +383,10 @@ export default function CheckoutPage() {
                     ? 'delivery.deliveryTimeSlot'
                     : 'delivery.pickupTimeSlot';
 
-                  setValue(`${path}.startTime` as 'delivery.deliveryTimeSlot.startTime', slot.startTime);
+                  setValue(
+                    `${path}.startTime` as 'delivery.deliveryTimeSlot.startTime',
+                    slot.startTime,
+                  );
                   setValue(`${path}.endTime` as 'delivery.deliveryTimeSlot.endTime', slot.endTime);
                 }}
               >
@@ -491,8 +492,8 @@ export default function CheckoutPage() {
           </Button>
 
           <p className="text-xs text-slate-500">
-            Siparişi onayladığınızda ürünler sizin için ayrılır ve en kısa sürede sizinle
-            iletişime geçilir.
+            Siparişi onayladığınızda ürünler sizin için ayrılır ve en kısa sürede sizinle iletişime
+            geçilir.
           </p>
         </aside>
       </form>

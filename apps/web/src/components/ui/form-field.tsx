@@ -1,4 +1,9 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import type {
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from 'react';
 import { forwardRef, useId } from 'react';
 import { cn } from '@/lib/utils.ts';
 
@@ -18,7 +23,11 @@ interface FieldWrapperProps {
   hint?: string;
   error?: string | undefined;
   required?: boolean;
-  children: (ids: { inputId: string; describedBy: string | undefined; invalid: boolean }) => ReactNode;
+  children: (ids: {
+    inputId: string;
+    describedBy: string | undefined;
+    invalid: boolean;
+  }) => ReactNode;
   className?: string;
 }
 
