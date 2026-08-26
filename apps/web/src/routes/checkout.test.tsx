@@ -23,8 +23,10 @@ import type { Cart, CreateOrderInput } from '@ersinspot/shared';
  * Intl, simge ile sayı arasına bölünemez boşluk koyar; düz dizge karşılaştırması
  * bu yüzden başarısız olur.
  */
-const money = (expected: string) => (_content: string, element: Element | null): boolean =>
-  element?.textContent?.replace(/\u00a0/g, ' ') === expected;
+const money =
+  (expected: string) =>
+  (_content: string, element: Element | null): boolean =>
+    element?.textContent?.replace(/\u00a0/g, ' ') === expected;
 
 /** Bugünden 30 gün sonrası: randevu için geçerli aralıkta (en fazla 60 gün). */
 function validAppointmentDate(): string {

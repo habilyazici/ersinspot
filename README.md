@@ -36,19 +36,19 @@ pnpm dev                  # API ve arayüzü birlikte başlatır
 
 ## Sık kullanılan komutlar
 
-| Komut              | Açıklama                                                 |
-| ------------------ | -------------------------------------------------------- |
-| `pnpm dev`         | API ve arayüzü birlikte çalıştırır                       |
-| `pnpm check`       | Tip kontrolü + lint + testler — commit öncesi çalıştırın |
-| `pnpm typecheck`   | Yalnızca tip kontrolü                                    |
-| `pnpm lint`        | ESLint (modül sınırları dahil)                           |
-| `pnpm test`        | Tüm testler                                              |
-| `pnpm build`       | Üretim derlemesi — `pnpm check` bunu kapsamaz            |
-| `pnpm format`      | Prettier ile biçimlendirir                               |
-| `pnpm db:generate` | Şema değişikliğinden migration üretir                    |
-| `pnpm db:migrate`  | Migration'ları uygular                                   |
-| `pnpm db:reset`    | Veritabanını sıfırdan kurar (veri silinir)               |
-| `pnpm db:studio`   | Drizzle Studio'yu açar                                   |
+| Komut              | Açıklama                                                |
+| ------------------ | ------------------------------------------------------- |
+| `pnpm dev`         | API ve arayüzü birlikte çalıştırır                      |
+| `pnpm check`       | Biçim + tip + lint + testler — commit öncesi çalıştırın |
+| `pnpm typecheck`   | Yalnızca tip kontrolü                                   |
+| `pnpm lint`        | ESLint (modül sınırları dahil)                          |
+| `pnpm test`        | Tüm testler                                             |
+| `pnpm build`       | Üretim derlemesi — `pnpm check` bunu kapsamaz           |
+| `pnpm format`      | Prettier ile biçimlendirir                              |
+| `pnpm db:generate` | Şema değişikliğinden migration üretir                   |
+| `pnpm db:migrate`  | Migration'ları uygular                                  |
+| `pnpm db:reset`    | Veritabanını sıfırdan kurar (veri silinir)              |
+| `pnpm db:studio`   | Drizzle Studio'yu açar                                  |
 
 ## Testler
 

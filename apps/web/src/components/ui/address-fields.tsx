@@ -47,11 +47,7 @@ export function AddressFields<TValues extends FieldValues>({
         label="İlçe"
         required
         error={errorOf('district')}
-        hint={
-          servicedOnly
-            ? 'Listede olmayan ilçelerde henüz hizmet vermiyoruz.'
-            : undefined
-        }
+        hint={servicedOnly ? 'Listede olmayan ilçelerde henüz hizmet vermiyoruz.' : undefined}
         {...register(field('district'))}
       >
         <option value="">Seçiniz</option>

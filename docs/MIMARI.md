@@ -123,14 +123,14 @@ Aşağıdaki liste elle tutulmaz: `apps/api/src/mimari.test.ts` bu tabloyu okur 
 her satırı modül şemalarıyla karşılaştırır. Yeni bir tablo eklendiğinde bu
 listeye yazılmazsa test düşer.
 
-| Modül       | Sahip olduğu tablolar                                                                                |
-| ----------- | ---------------------------------------------------------------------------------------------------- |
-| `identity`  | `users`, `sessions`, `customer_addresses`, `password_reset_tokens`, `email_verification_tokens`, `login_attempts` |
-| `catalog`   | `categories`, `brands`, `products`, `product_images`, `product_specs`                                |
-| `ordering`  | `cart_items`, `favorites`, `orders`, `order_items`, `order_addresses`, `order_events`, `payments`    |
+| Modül       | Sahip olduğu tablolar                                                                                                                                                                                                        |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `identity`  | `users`, `sessions`, `customer_addresses`, `password_reset_tokens`, `email_verification_tokens`, `login_attempts`                                                                                                            |
+| `catalog`   | `categories`, `brands`, `products`, `product_images`, `product_specs`                                                                                                                                                        |
+| `ordering`  | `cart_items`, `favorites`, `orders`, `order_items`, `order_addresses`, `order_events`, `payments`                                                                                                                            |
 | `servicing` | `service_requests`, `request_addresses`, `moving_request_details`, `moving_request_items`, `technical_service_details`, `sell_request_details`, `request_photos`, `request_quotes`, `request_appointments`, `request_events` |
-| `content`   | `blog_posts`, `tags`, `blog_post_tags`, `faqs`, `contact_messages`, `site_settings`                  |
-| `files`     | `uploaded_files`                                                                                     |
+| `content`   | `blog_posts`, `tags`, `blog_post_tags`, `faqs`, `contact_messages`, `site_settings`                                                                                                                                          |
+| `files`     | `uploaded_files`                                                                                                                                                                                                             |
 
 Bir modül, sahibi olmadığı tabloya **yazamaz**. Okuma da yapmaz — ihtiyacı olan
 veriyi sahip modülün sözleşmesinden ister.
