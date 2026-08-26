@@ -9,24 +9,24 @@
 
 import { pgEnum } from 'drizzle-orm/pg-core';
 import {
+  BLOG_CATEGORIES,
+  CONTACT_SUBJECTS,
   DELIVERY_METHODS,
+  DEVICE_TYPES,
+  FAQ_CATEGORIES,
+  HOUSE_SIZES,
+  IZMIR_DISTRICTS,
   ORDER_STATUSES,
   PAYMENT_METHODS,
+  PROBLEM_CATEGORIES,
   PRODUCT_CONDITIONS,
   PRODUCT_STATUSES,
   REQUEST_STATUSES,
   SERVICE_KINDS,
-  USER_ROLES,
-} from '@ersinspot/shared';
-import {
-  BLOG_CATEGORIES,
-  CONTACT_SUBJECTS,
-  DEVICE_TYPES,
-  PROBLEM_CATEGORIES,
   UPLOAD_PURPOSES,
+  USER_ROLES,
   WARRANTY_STATUSES,
 } from '@ersinspot/shared';
-import { FAQ_CATEGORIES, HOUSE_SIZES, IZMIR_DISTRICTS } from '@ersinspot/shared';
 
 export const userRoleEnum = pgEnum('user_role', USER_ROLES);
 

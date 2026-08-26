@@ -31,6 +31,7 @@ const RegisterPage = lazy(() => import('./routes/register.tsx'));
 const CartPage = lazy(() => import('./routes/cart.tsx'));
 const CheckoutPage = lazy(() => import('./routes/checkout.tsx'));
 const MyOrdersPage = lazy(() => import('./routes/my-orders.tsx'));
+const OrderDetailPage = lazy(() => import('./routes/order-detail.tsx'));
 
 /**
  * Oturum düştüğünde giriş sayfasına yönlendirir.
@@ -90,6 +91,14 @@ export function App() {
                   element={
                     <RequireAuth>
                       <MyOrdersPage />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/hesabim/siparislerim/:orderId"
+                  element={
+                    <RequireAuth>
+                      <OrderDetailPage />
                     </RequireAuth>
                   }
                 />
