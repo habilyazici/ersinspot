@@ -88,8 +88,16 @@ export const securityHeaders: MiddlewareHandler = async (c: Context, next: Next)
   // Yönlendirmelerde tam adres sızmasın.
   c.header('Referrer-Policy', 'no-referrer');
 
-  // API yanıtları önbelleğe alınmamalı: kişisel veri içerebilir.
-  c.header('Cache-Control', 'no-store');
+  /*
+    API yanıtları önbelleğe alınmamalı: kişisel veri içerebilir.
+
+    Dosya sunumu istisnadır. Rota kendi `Cache-Control` başlığını yazar (dosya
+    adı değişmez, uzun önbellek güvenlidir) ve buradaki middleware `next()`
+    sonrasında çalıştığı için onu ezerdi.
+  */
+  if (c.res.headers.get('Cache-Control') === null) {
+    c.header('Cache-Control', 'no-store');
+  }
 
   if (isProduction) {
     // HTTPS zorunluluğu. Yalnızca üretimde; yerelde http kullanıldığı için eklenmez.

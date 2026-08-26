@@ -14,7 +14,8 @@ import { currentUser, requireAuth } from '../../../platform/http/auth.ts';
 import type { ValidatedVariables } from '../../../platform/http/validate.ts';
 import { params, validateParams } from '../../../platform/http/validate.ts';
 import { rateLimit } from '../../../platform/http/security.ts';
-import { fileTooLarge, validationFailed } from '../../../platform/errors/index.ts';
+import { fileTooLarge, notFound, validationFailed } from '../../../platform/errors/index.ts';
+import { isValidStorageKey, retrieve } from '../../../platform/storage.ts';
 import * as uploadService from '../application/upload-service.ts';
 
 type Variables = AuthVariables & ValidatedVariables;
@@ -91,3 +92,73 @@ filesRoutes.delete(
     return c.json({ success: true });
   },
 );
+
+// ---------------------------------------------------------------------------
+// Yerel dosya sunumu
+// ---------------------------------------------------------------------------
+
+/**
+ * Yerel sürücüde saklanan dosyaları sunar.
+ *
+ * `STORAGE_DRIVER=local` seçildiğinde dosyalar diskte durur ve onları HTTP'de
+ * gösteren bir şey olmalıdır. Denetimde bu eksikti: `STORAGE_PUBLIC_URL`
+ * `/files` adresini işaret ediyor, `resolveStorageUrl` o adresi üretiyor ama
+ * hiçbir rota onu karşılamıyordu — yerel sürücüyle yüklenen HER görsel 404
+ * veriyordu.
+ *
+ * Üretimde `STORAGE_DRIVER=s3` kullanılır ve dosyalar CDN'den sunulur; bu rota
+ * o durumda hiç bağlanmaz (bkz. `app.ts`).
+ *
+ * Oturum GEREKTİRMEZ: ürün görselleri vitrinde herkese açıktır ve depolama
+ * anahtarı rastgele UUID içerdiği için tahmin edilemez. Talep fotoğrafları da
+ * aynı yerde durur; bunları korumak gerekirse anahtar bazlı imzalı adres
+ * gerekir — o gün geldiğinde burası değişir.
+ */
+export const localFileRoutes = new Hono();
+
+/** Uzantıdan içerik türü. Kullanıcının bildirdiği türe güvenilmez. */
+const CONTENT_TYPE_BY_EXTENSION: Readonly<Record<string, string>> = {
+  jpg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  pdf: 'application/pdf',
+};
+
+localFileRoutes.get('/:key{.+}', async (c) => {
+  const key = c.req.param('key');
+
+  // Yol geçişi ve biçimsiz anahtar burada da denetlenir: savunma katmanları
+  // birbirine güvenmez.
+  if (!isValidStorageKey(key)) {
+    throw notFound('Dosya');
+  }
+
+  const data = await retrieve(key);
+
+  if (data === null) {
+    throw notFound('Dosya');
+  }
+
+  const extension = key.slice(key.lastIndexOf('.') + 1);
+  const contentType = CONTENT_TYPE_BY_EXTENSION[extension] ?? 'application/octet-stream';
+
+  /*
+    Baytlar yeni bir görünüme KOPYALANIR.
+
+    `retrieve` Node'un `readFile` çıktısını döndürür; küçük dosyalarda bu, çok
+    daha büyük ve PAYLAŞILAN bir havuz ArrayBuffer'ının içindeki bir görünümdür.
+    Alttaki tamponu doğrudan geçmek (`data.buffer`) ilgisiz bellek içeriğini
+    yanıta koyardı. Kopya, yalnızca bu dosyanın baytlarını içerir.
+  */
+  return c.body(new Uint8Array(data), 200, {
+    'Content-Type': contentType,
+    /*
+      Dosya adı içeriğe göre bir kez üretilir ve değişmez; uzun önbellek
+      güvenlidir. Genel güvenlik middleware'i tüm yanıtlara `no-store` yazar,
+      bu yüzden orada bu yol için istisna tanımlıdır.
+    */
+    'Cache-Control': 'public, max-age=31536000, immutable',
+    // Tarayıcı dosyayı indirmek yerine göstersin; tür yukarıda sabitlendi.
+    'Content-Disposition': 'inline',
+  });
+});
