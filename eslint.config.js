@@ -255,6 +255,57 @@ export default tseslint.config(
   },
 
   {
+    // Tarayıcı tarafında da aynı modül sınırları geçerli.
+    //
+    // Özellik modülleri (features/) backend modüllerini birebir yansıtır ve
+    // birbirlerinin iç dosyalarına erişemez; yalnızca index.ts sözleşmesini
+    // kullanır. Bu, backend'deki kuralın aynısıdır.
+    files: ['apps/web/src/features/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/features/*/*', '@/features/*/**'],
+              message:
+                'Özellik modülleri arasında erişim yalnızca genel sözleşme üzerinden yapılır: ' +
+                "import { useAuth } from '@/features/auth'. Ayrıntı için docs/MIMARI.md.",
+            },
+            {
+              group: ['../*/api.ts', '../*/use-*.ts', '../*/components/*'],
+              message:
+                'Başka bir özellik modülünün iç dosyasına göreli yolla erişilemez. ' +
+                'Genel sözleşmeyi kullanın: @/features/<ad>.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
+    // Sayfalar özellik modüllerinin sözleşmesini kullanır; iç dosyalarına
+    // erişemez.
+    files: ['apps/web/src/routes/**/*.tsx', 'apps/web/src/components/**/*.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/features/*/*', '@/features/*/**'],
+              message:
+                'Özellik modülüne yalnızca sözleşmesinden erişin: ' +
+                "import { useAuth } from '@/features/auth'.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
     // Paylaşılan paketin çekirdeği hiçbir modüle bağımlı olamaz.
     files: ['packages/shared/src/kernel/**/*.ts'],
     rules: {
