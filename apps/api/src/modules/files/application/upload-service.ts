@@ -15,7 +15,7 @@
  *  4. Bir kayda bağlanmayan yüklemeler yetim kalır ve bakım göreviyle silinir.
  */
 
-import { and, eq, isNull, lt } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lt } from 'drizzle-orm';
 import type { UploadPurpose, UserRole } from '@ersinspot/shared';
 import {
   ALLOWED_IMAGE_TYPES,
@@ -255,19 +255,29 @@ export async function cleanupOrphanedFiles(): Promise<number> {
 
   if (orphans.length === 0) return 0;
 
+  /*
+    Depolama silme dosya başınadır (API tek anahtar alır); veritabanı silme ise
+    tek ifadeye toplanır. Önceki hâlinde her yetim için ayrı bir DELETE
+    gidiyordu: 500 kayıtlık bir bakım turu 500 gidiş-dönüş demekti.
+
+    Depolamadan silme başarısız olsa bile kayıt silinir; kalan dosya bir sonraki
+    bakımda tekrar denenmez ama yer kaplar. Bu, tutarsız kayıt bırakmaktan iyidir.
+  */
   for (const orphan of orphans) {
-    // Depolamadan silme başarısız olsa bile kayıt silinir; kalan dosya bir
-    // sonraki bakımda tekrar denenmez ama yer kaplar. Bu, tutarsız kayıt
-    // bırakmaktan iyidir.
     await storage.remove(orphan.storageKey).catch((error: unknown) => {
       logger.warn('Yetim dosya depolamadan silinemedi', {
         storageKey: orphan.storageKey,
         error: String(error),
       });
     });
-
-    await db.delete(uploadedFiles).where(eq(uploadedFiles.storageKey, orphan.storageKey));
   }
+
+  await db.delete(uploadedFiles).where(
+    inArray(
+      uploadedFiles.storageKey,
+      orphans.map((orphan) => orphan.storageKey),
+    ),
+  );
 
   return orphans.length;
 }

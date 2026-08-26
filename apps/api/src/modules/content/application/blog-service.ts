@@ -22,6 +22,7 @@ import type {
 } from '@ersinspot/shared';
 import { paginate } from '@ersinspot/shared';
 import { db } from '../../../platform/db/client.ts';
+import type { Transaction } from '../../../platform/db/client.ts';
 import { alreadyExists, notFound } from '../../../platform/errors/index.ts';
 import { logger } from '../../../platform/observability/logger.ts';
 import { resolveUrl } from '../../files/index.ts';
@@ -216,9 +217,17 @@ export async function getPostBySlug(slug: string): Promise<BlogPost> {
  *
  * Etiket adları normalleştirilir: "Beyaz Eşya" ve "beyaz eşya" aynı etikettir.
  * Eski kodda etiketler dizi sütununda tutulduğu için bu varyasyonlar çoğalırdı.
+ *
+ * ÇAĞIRAN İŞLEMİ VERİR. Fonksiyon önce yazının tüm etiket bağlarını siler;
+ * araya bir hata girerse yazı etiketlerini kalıcı olarak kaybederdi. Yazı
+ * yazma işlemiyle aynı işlemde çalışması bu yüzden zorunludur.
  */
-async function syncTags(postId: string, tagNames: readonly string[]): Promise<void> {
-  await db.delete(blogPostTags).where(eq(blogPostTags.postId, postId));
+async function syncTags(
+  postId: string,
+  tagNames: readonly string[],
+  tx: Transaction,
+): Promise<void> {
+  await tx.delete(blogPostTags).where(eq(blogPostTags.postId, postId));
 
   if (tagNames.length === 0) return;
 
@@ -227,105 +236,121 @@ async function syncTags(postId: string, tagNames: readonly string[]): Promise<vo
     unique.set(slugifyTag(name), name.trim());
   }
 
-  const tagIds: string[] = [];
+  /*
+    Tüm etiketler tek ifadede yazılır.
 
-  for (const [slug, name] of unique) {
-    const [tag] = await db
-      .insert(tags)
-      .values({ name, slug })
-      .onConflictDoUpdate({ target: tags.slug, set: { name } })
-      .returning({ id: tags.id });
+    `set` içinde düz `{ name }` kullanılamaz: çok satırlı bir upsert'te bu, TÜM
+    çakışan satırlara aynı adı yazardı. `excluded.name` her satır için o satırın
+    kendi değerini gösterir.
+  */
+  const upserted = await tx
+    .insert(tags)
+    .values([...unique].map(([slug, name]) => ({ name, slug })))
+    .onConflictDoUpdate({ target: tags.slug, set: { name: sql`excluded.name` } })
+    .returning({ id: tags.id });
 
-    if (tag !== undefined) tagIds.push(tag.id);
-  }
-
-  await db.insert(blogPostTags).values(tagIds.map((tagId) => ({ postId, tagId })));
+  await tx.insert(blogPostTags).values(upserted.map((tag) => ({ postId, tagId: tag.id })));
 }
 
 export async function createPost(
   input: CreateBlogPostInput,
   author: { id: string; fullName: string },
 ): Promise<{ postId: string }> {
-  const existing = await db
-    .select({ id: blogPosts.id })
-    .from(blogPosts)
-    .where(eq(blogPosts.slug, input.slug))
-    .limit(1);
+  /*
+    Yazı ve etiketleri TEK işlemde yazılır. Ayrı yazıldığında, etiket adımı
+    başarısız olursa yazı etiketsiz olarak yayına giriyordu ve bu sessizce
+    oluyordu.
+  */
+  const postId = await db.transaction(async (tx) => {
+    const existing = await tx
+      .select({ id: blogPosts.id })
+      .from(blogPosts)
+      .where(eq(blogPosts.slug, input.slug))
+      .limit(1);
 
-  if (existing.length > 0) {
-    throw alreadyExists('Bu bağlantı adı başka bir yazıda kullanılıyor.');
-  }
+    if (existing.length > 0) {
+      throw alreadyExists('Bu bağlantı adı başka bir yazıda kullanılıyor.');
+    }
 
-  const [created] = await db
-    .insert(blogPosts)
-    .values({
-      slug: input.slug,
-      title: input.title,
-      excerpt: input.excerpt,
-      content: input.content,
-      coverImageStorageKey: input.coverImageStorageKey,
-      category: input.category,
-      authorName: author.fullName,
-      authorUserId: author.id,
-      readingMinutes: estimateReadingMinutes(input.content),
-      isPublished: input.isPublished,
-      // Veritabanı kısıtı: yayınlanmış yazının yayın tarihi olmalıdır.
-      publishedAt: input.isPublished ? new Date() : null,
-    })
-    .returning({ id: blogPosts.id });
+    const [created] = await tx
+      .insert(blogPosts)
+      .values({
+        slug: input.slug,
+        title: input.title,
+        excerpt: input.excerpt,
+        content: input.content,
+        coverImageStorageKey: input.coverImageStorageKey,
+        category: input.category,
+        authorName: author.fullName,
+        authorUserId: author.id,
+        readingMinutes: estimateReadingMinutes(input.content),
+        isPublished: input.isPublished,
+        // Veritabanı kısıtı: yayınlanmış yazının yayın tarihi olmalıdır.
+        publishedAt: input.isPublished ? new Date() : null,
+      })
+      .returning({ id: blogPosts.id });
 
-  if (created === undefined) {
-    throw new Error('Blog yazısı oluşturulamadı.');
-  }
+    if (created === undefined) {
+      throw new Error('Blog yazısı oluşturulamadı.');
+    }
 
-  await syncTags(created.id, input.tags);
+    await syncTags(created.id, input.tags, tx);
 
-  logger.info('Blog yazısı oluşturuldu', { postId: created.id, slug: input.slug });
+    return created.id;
+  });
 
-  return { postId: created.id };
+  logger.info('Blog yazısı oluşturuldu', { postId, slug: input.slug });
+
+  return { postId };
 }
 
 export async function updatePost(postId: string, input: UpdateBlogPostInput): Promise<void> {
-  const rows = await db
-    .select({ isPublished: blogPosts.isPublished, publishedAt: blogPosts.publishedAt })
-    .from(blogPosts)
-    .where(eq(blogPosts.id, postId))
-    .limit(1);
+  await db.transaction(async (tx) => {
+    const rows = await tx
+      .select({ isPublished: blogPosts.isPublished, publishedAt: blogPosts.publishedAt })
+      .from(blogPosts)
+      .where(eq(blogPosts.id, postId))
+      .limit(1);
 
-  const existing = rows[0];
+    const existing = rows[0];
 
-  if (existing === undefined) {
-    throw notFound('Yazı');
-  }
+    if (existing === undefined) {
+      throw notFound('Yazı');
+    }
 
-  // İlk kez yayınlanıyorsa yayın tarihi şimdi; zaten yayındaysa korunur.
-  const publishedAt =
-    input.isPublished === true && !existing.isPublished
-      ? new Date()
-      : input.isPublished === false
-        ? null
-        : existing.publishedAt;
+    // İlk kez yayınlanıyorsa yayın tarihi şimdi; zaten yayındaysa korunur.
+    const publishedAt =
+      input.isPublished === true && !existing.isPublished
+        ? new Date()
+        : input.isPublished === false
+          ? null
+          : existing.publishedAt;
 
-  await db
-    .update(blogPosts)
-    .set({
-      ...(input.slug === undefined ? {} : { slug: input.slug }),
-      ...(input.title === undefined ? {} : { title: input.title }),
-      ...(input.excerpt === undefined ? {} : { excerpt: input.excerpt }),
-      ...(input.content === undefined
-        ? {}
-        : { content: input.content, readingMinutes: estimateReadingMinutes(input.content) }),
-      ...(input.coverImageStorageKey === undefined
-        ? {}
-        : { coverImageStorageKey: input.coverImageStorageKey }),
-      ...(input.category === undefined ? {} : { category: input.category }),
-      ...(input.isPublished === undefined ? {} : { isPublished: input.isPublished, publishedAt }),
-    })
-    .where(eq(blogPosts.id, postId));
+    await tx
+      .update(blogPosts)
+      .set({
+        ...(input.slug === undefined ? {} : { slug: input.slug }),
+        ...(input.title === undefined ? {} : { title: input.title }),
+        ...(input.excerpt === undefined ? {} : { excerpt: input.excerpt }),
+        ...(input.content === undefined
+          ? {}
+          : { content: input.content, readingMinutes: estimateReadingMinutes(input.content) }),
+        ...(input.coverImageStorageKey === undefined
+          ? {}
+          : { coverImageStorageKey: input.coverImageStorageKey }),
+        ...(input.category === undefined ? {} : { category: input.category }),
+        ...(input.isPublished === undefined ? {} : { isPublished: input.isPublished, publishedAt }),
+      })
+      .where(eq(blogPosts.id, postId));
 
-  if (input.tags !== undefined) {
-    await syncTags(postId, input.tags);
-  }
+    /*
+      Etiket eşitleme aynı işlemde: önce mevcut bağlar silinir. Ayrı işlemde
+      çalışsaydı araya giren bir hata yazıyı etiketsiz bırakırdı.
+    */
+    if (input.tags !== undefined) {
+      await syncTags(postId, input.tags, tx);
+    }
+  });
 
   logger.info('Blog yazısı güncellendi', { postId });
 }

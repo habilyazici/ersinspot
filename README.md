@@ -43,6 +43,7 @@ pnpm dev                  # API ve arayüzü birlikte başlatır
 | `pnpm typecheck`   | Yalnızca tip kontrolü                                    |
 | `pnpm lint`        | ESLint (modül sınırları dahil)                           |
 | `pnpm test`        | Tüm testler                                              |
+| `pnpm build`       | Üretim derlemesi — `pnpm check` bunu kapsamaz            |
 | `pnpm format`      | Prettier ile biçimlendirir                               |
 | `pnpm db:generate` | Şema değişikliğinden migration üretir                    |
 | `pnpm db:migrate`  | Migration'ları uygular                                   |
@@ -60,9 +61,14 @@ verinizi silmezler.
 
 ```bash
 pnpm test                                # hepsi
-pnpm --filter @ersinspot/shared test     # birim testleri (veritabanı gerekmez)
-pnpm --filter @ersinspot/api test        # entegrasyon testleri
+pnpm --filter @ersinspot/shared test     # alan kuralları (veritabanı gerekmez)
+pnpm --filter @ersinspot/web test        # arayüz ve yönlendirme (jsdom)
+pnpm --filter @ersinspot/api test        # entegrasyon (gerçek PostgreSQL)
 ```
+
+`pnpm check` tip kontrolü, lint ve testleri kapsar ama **üretim derlemesini
+kapsamaz**. Derleme yapılandırmasına dokunduysanız `pnpm build` de çalıştırın:
+paket çözümleme sorunları yalnızca orada görünür.
 
 ## Katkı
 

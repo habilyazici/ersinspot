@@ -77,12 +77,20 @@ const envSchema = z
           message: 'Üretimde geliştirme anahtarı kullanılamaz. Yeni bir anahtar üretin.',
         });
       }
-      if (env.API_ORIGIN.startsWith('http://') && !env.API_ORIGIN.includes('localhost')) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['API_ORIGIN'],
-          message: 'Üretimde API_ORIGIN https olmalıdır.',
-        });
+      /*
+        Her iki kaynak da https olmalıdır. WEB_ORIGIN yalnızca CORS listesi
+        değil: oturum çerezi `Secure` bayrağıyla yazıldığı için http bir
+        arayüz kaynağı çerezi hiç alamaz ve giriş sessizce çalışmaz.
+      */
+      for (const key of ['API_ORIGIN', 'WEB_ORIGIN'] as const) {
+        const origin = env[key];
+        if (origin.startsWith('http://') && !origin.includes('localhost')) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [key],
+            message: `Üretimde ${key} https olmalıdır.`,
+          });
+        }
       }
     }
   });
