@@ -10,6 +10,17 @@ export default defineConfig({
     alias: { '@': path.resolve(import.meta.dirname, './src') },
   },
 
+  /*
+   * Bağımlılık ön-paketleme hedefi.
+   *
+   * Geliştirme sunucusu bağımlılıkları ayrıca paketler ve varsayılan hedefi
+   * derleme hedefinden farklıdır. Hizalanmazsa modern söz dizimi kullanan
+   * paketler geliştirmede çözümlenemez — üretim derlemesi çalışsa bile.
+   */
+  optimizeDeps: {
+    esbuildOptions: { target: 'es2022' },
+  },
+
   build: {
     target: 'es2022',
     sourcemap: true,
