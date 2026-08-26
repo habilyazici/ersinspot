@@ -141,6 +141,24 @@ export async function listBrands(): Promise<BrandSummary[]> {
     }));
 }
 
+/**
+ * Kategoriyi kimliğe göre getirir.
+ *
+ * `servicing` modülü satış talebinin kategorisini göstermek için kullanır;
+ * `categories` tablosuna doğrudan erişemez.
+ */
+export async function getCategoryById(
+  categoryId: string,
+): Promise<{ id: string; name: string; slug: string } | null> {
+  const rows = await db
+    .select({ id: categories.id, name: categories.name, slug: categories.slug })
+    .from(categories)
+    .where(eq(categories.id, categoryId))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
 /** Kategori bağlantı adından kimliği bulur. Bulunamazsa null. */
 export async function findCategoryIdBySlug(slug: string): Promise<string | null> {
   const rows = await db

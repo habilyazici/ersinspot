@@ -24,6 +24,8 @@ import {
   releaseProducts,
   reserveProducts,
 } from './application/inventory-service.ts';
+import { getCategoryById } from './application/category-service.ts';
+import { createProductFromSellRequest } from './application/product-writer.ts';
 
 /**
  * Diğer modüllerin kullandığı işlemler.
@@ -32,10 +34,15 @@ import {
  * biçiminde görünür ve hangi modülün sorumluluğunda olduğu okunurken belli olur.
  */
 export const catalog = {
+  // ordering: sipariş oluştururken fiyat ve uygunluk sorar, envanteri günceller
   getPurchasableProducts,
   reserveProducts,
   releaseProducts,
   markProductsAsSold,
+
+  // servicing: satış talebini katalog kaydına dönüştürür, kategori bilgisi alır
+  createProductFromSellRequest,
+  getCategoryById,
 } as const;
 
 export type { PurchasableProduct } from './application/inventory-service.ts';
