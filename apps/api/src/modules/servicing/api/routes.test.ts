@@ -458,6 +458,81 @@ describe('teklif ve randevu akışı', () => {
     expect(row?.status).toBe('quoted');
   });
 
+  /*
+    Durum makinesi geçişin SIRASINI belirler, ön koşulunu değil.
+
+    Denetimde `requiresQuote` ve `requiresAppointment` kurallarının yazılmış
+    ama hiçbir yerden çağrılmamış olduğu bulundu: personel, teklif satırı
+    olmadan talebi "kabul edildi", randevu satırı olmadan "randevu verildi"
+    yapabiliyordu. Müşteri o zaman fiyatı olmayan bir kabul veya tarihi olmayan
+    bir randevu görürdü.
+  */
+  it('teklif yokken talep kabul edilmiş sayılamaz', async () => {
+    const requestId = await createMoving();
+
+    // Teklif oluşturmadan doğrudan "quoted" durumuna geçir.
+    const toQuoted = await request(`/api/admin/requests/${requestId}/status`, {
+      method: 'PATCH',
+      cookie: staffCookie,
+      body: JSON.stringify({ status: 'reviewing' }),
+    });
+    expect(toQuoted.status).toBe(200);
+
+    await request(`/api/admin/requests/${requestId}/status`, {
+      method: 'PATCH',
+      cookie: staffCookie,
+      body: JSON.stringify({ status: 'quoted' }),
+    });
+
+    const response = await request(`/api/admin/requests/${requestId}/status`, {
+      method: 'PATCH',
+      cookie: staffCookie,
+      body: JSON.stringify({ status: 'accepted' }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(((await response.json()) as { error: { message: string } }).error.message).toContain(
+      'teklif',
+    );
+
+    const [row] = await db
+      .select({ status: serviceRequests.status })
+      .from(serviceRequests)
+      .where(eq(serviceRequests.id, requestId));
+
+    expect(row?.status).not.toBe('accepted');
+  });
+
+  it('randevu yokken talep planlanmış sayılamaz', async () => {
+    const requestId = await createMoving();
+    await quote(requestId);
+
+    await request(`/api/requests/${requestId}/respond`, {
+      method: 'POST',
+      cookie: customerCookie,
+      body: JSON.stringify({ decision: 'accept' }),
+    });
+
+    // Randevu oluşturmadan doğrudan "scheduled" durumuna geçmeye çalış.
+    const response = await request(`/api/admin/requests/${requestId}/status`, {
+      method: 'PATCH',
+      cookie: staffCookie,
+      body: JSON.stringify({ status: 'scheduled' }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(((await response.json()) as { error: { message: string } }).error.message).toContain(
+      'randevu',
+    );
+
+    const [row] = await db
+      .select({ status: serviceRequests.status })
+      .from(serviceRequests)
+      .where(eq(serviceRequests.id, requestId));
+
+    expect(row?.status).toBe('accepted');
+  });
+
   it('müşteri teklifi kabul edebilir', async () => {
     const requestId = await createMoving();
     await quote(requestId);

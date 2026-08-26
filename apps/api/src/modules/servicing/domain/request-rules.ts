@@ -11,7 +11,7 @@
  * bulunmuyordu.
  */
 
-import type { RequestStatus, ServiceKind, UserRole } from '@ersinspot/shared';
+import type { RequestStatus, UserRole } from '@ersinspot/shared';
 import {
   CUSTOMER_CANCELLABLE_REQUEST_STATUSES,
   REQUEST_STATUS_TRANSITIONS,
@@ -78,17 +78,6 @@ export function isQuoteExpired(validUntil: string, now: Date = new Date()): bool
   const expiry = new Date(`${validUntil}T23:59:59.999Z`);
   return expiry.getTime() < now.getTime();
 }
-
-/**
- * Talep türüne göre takip numarası ön eki.
- *
- * Müşteri numaraya bakarak hangi hizmete ait olduğunu anlayabilir.
- */
-export const REFERENCE_PREFIX: Readonly<Record<ServiceKind, string>> = {
-  moving: 'NAK',
-  technical_service: 'TSV',
-  sell_request: 'SAT',
-};
 
 /**
  * Bir müşterinin aynı anda açık tutabileceği talep sayısı.
