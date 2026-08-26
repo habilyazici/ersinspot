@@ -4,15 +4,18 @@
  * Sahip olduğu tablolar:
  *   uploaded_files
  *
- * Yükleme, depolama soyutlaması (yerelde disk, üretimde S3 uyumlu) ve yetim
- * dosya temizliği. Eski kod tabanında yükleme ve silme uçları tamamen
- * korumasızdı ve beş bucket'ın hepsi herkese açıktı — profil fotoğrafları ve
- * nakliye için çekilen ev içi fotoğrafları dahil.
- *
- * Planlanan sözleşme:
- *   attachFiles(storageKeys, tx)  — dosyaları bir kayda bağlar, yetim olmaktan çıkarır
- *   resolveUrl(storageKey)        — görüntüleme adresi üretir
- *   deleteFile(storageKey)        — sahiplik doğrulandıktan sonra siler
+ * Yükleme, depolama soyutlaması ve yetim dosya temizliği. Depolama sürücüsünün
+ * kendisi altyapıdadır (`platform/storage.ts`); bu modül kayıtların ve yükleme
+ * politikasının sahibidir.
  */
 
-export {};
+export { filesRoutes } from './api/routes.ts';
+
+/** Dosyaları bir kayda bağlar; yetim olmaktan çıkarır. */
+export { attachFiles } from './application/upload-service.ts';
+
+/** Depolama anahtarından görüntüleme adresi üretir. */
+export { resolveUrl } from './application/upload-service.ts';
+
+/** Bakım görevi: bir kayda bağlanmamış eski yüklemeleri siler. */
+export { cleanupOrphanedFiles } from './application/upload-service.ts';

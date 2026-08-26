@@ -15,6 +15,7 @@ import { logger } from './platform/observability/logger.ts';
 import { startMaintenance, stopMaintenance } from './platform/maintenance.ts';
 import { pruneExpiredSessions } from './modules/identity/index.ts';
 import { releaseExpiredReservations } from './modules/catalog/index.ts';
+import { cleanupOrphanedFiles } from './modules/files/index.ts';
 
 const app = createApp();
 
@@ -39,6 +40,11 @@ const maintenanceTasks = [
     name: 'suresi-gecmis-rezervasyonlari-serbest-birak',
     intervalMs: 15 * 60 * 1000,
     run: releaseExpiredReservations,
+  },
+  {
+    name: 'yetim-dosyalari-temizle',
+    intervalMs: 6 * 60 * 60 * 1000,
+    run: cleanupOrphanedFiles,
   },
 ];
 

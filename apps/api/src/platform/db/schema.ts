@@ -18,5 +18,6 @@ export * from '../../modules/catalog/infrastructure/schema.ts';
 export * from '../../modules/ordering/infrastructure/schema.ts';
 export * from '../../modules/servicing/infrastructure/schema.ts';
 export * from '../../modules/content/infrastructure/schema.ts';
+export * from '../../modules/files/infrastructure/schema.ts';
 
 export * from './relations.ts';

@@ -555,9 +555,7 @@ export async function insertAppointment(
  * Yönetim takviminde doluluk göstermek ve çakışan randevu verilmesini
  * engellemek için.
  */
-export async function findAppointmentsOnDate(
-  date: string,
-): Promise<
+export async function findAppointmentsOnDate(date: string): Promise<
   {
     requestId: string;
     referenceNumber: string;

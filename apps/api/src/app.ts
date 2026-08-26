@@ -26,6 +26,8 @@ import { authRoutes } from './modules/identity/index.ts';
 import { catalogRoutes } from './modules/catalog/index.ts';
 import { orderingRoutes } from './modules/ordering/index.ts';
 import { servicingRoutes } from './modules/servicing/index.ts';
+import { contentRoutes } from './modules/content/index.ts';
+import { filesRoutes } from './modules/files/index.ts';
 
 export type AppVariables = AuthVariables & ValidatedVariables;
 
@@ -89,6 +91,16 @@ export function createApp() {
   // Tek istisna nakliye fiyat tahmini: üye olmamış ziyaretçi de sorabilir.
 
   app.route('/api', servicingRoutes);
+
+  // -------------------------------------------------------------------------
+  // İçerik ve dosyalar
+  // -------------------------------------------------------------------------
+  // Blog, SSS ve site ayarları vitrinde herkese açık; yazma uçları personel
+  // yetkisi ister. İletişim formu oturumsuzdur ve hız sınırıyla korunur.
+  // Dosya yükleme oturum gerektirir ve amaç bazında yetki denetlenir.
+
+  app.route('/api', contentRoutes);
+  app.route('/api', filesRoutes);
 
   return app;
 }
