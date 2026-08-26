@@ -49,16 +49,6 @@ export function canCancelOrder(status: OrderStatus, role: UserRole): boolean {
   return (CUSTOMER_CANCELLABLE_ORDER_STATUSES as readonly OrderStatus[]).includes(status);
 }
 
-/**
- * Sipariş bu durumdayken ürünleri rezerve tutulmalı mı?
- *
- * Teslim edilmiş siparişte ürünler `sold`, iptal edilmişte `for_sale` olur;
- * arada kalan tüm durumlarda rezerve kalırlar.
- */
-export function shouldHoldReservation(status: OrderStatus): boolean {
-  return status !== 'delivered' && status !== 'cancelled';
-}
-
 /** Bu duruma geçildiğinde ürünler satıldı sayılır. */
 export function completesSale(status: OrderStatus): boolean {
   return status === 'delivered';

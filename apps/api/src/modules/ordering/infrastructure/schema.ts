@@ -15,7 +15,6 @@
  *    defterindeki kaydı sonradan değiştirse bile sipariş etkilenmez.
  */
 
-import { sql } from 'drizzle-orm';
 import {
   bigint,
   date,
@@ -94,13 +93,6 @@ export const favorites = pgTable(
 // ---------------------------------------------------------------------------
 // Siparişler
 // ---------------------------------------------------------------------------
-
-/**
- * Sipariş numarası dizisi. Veritabanı seviyesinde tutulur ki eşzamanlı iki
- * sipariş aynı numarayı alamasın. Eski kodda numara `Date.now()` ile üretiliyordu;
- * aynı milisaniyede gelen iki sipariş çakışabilirdi.
- */
-export const orderNumberSequence = sql`order_number_seq`;
 
 export const orders = pgTable(
   'orders',

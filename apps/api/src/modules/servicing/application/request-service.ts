@@ -36,6 +36,8 @@ import {
   canRespondToQuote,
   canTransitionRequest,
   isQuoteExpired,
+  requiresAppointment,
+  requiresQuote,
 } from '../domain/request-rules.ts';
 import * as detailRepository from '../infrastructure/detail-repository.ts';
 import * as repository from '../infrastructure/request-repository.ts';
@@ -351,6 +353,34 @@ export async function changeRequestStatus(
 
     if (!canTransitionRequest(row.status, newStatus)) {
       throw invalidTransition(row.status, newStatus, 'Talep');
+    }
+
+    /*
+      Durum makinesi geçişin SIRASINI belirler, ön koşulunu değil.
+
+      `createQuote` ve `scheduleAppointment` durumu kendileri ilerletir ve
+      ilgili satırı da yazarlar. Ama durum bu uçtan da değiştirilebildiği için
+      teklif satırı olmadan "kabul edildi", randevu satırı olmadan "randevu
+      verildi" yazmak mümkündü: müşteri fiyatı olmayan bir kabul veya tarihi
+      olmayan bir randevu görürdü.
+
+      Kurallar (`requiresQuote`, `requiresAppointment`) baştan yazılmıştı ama
+      hiçbir yerden çağrılmıyordu; denetimde bulundu.
+    */
+    if (requiresQuote(newStatus)) {
+      const quote = await repository.findCurrentQuote(requestId, tx);
+
+      if (quote === null) {
+        throw businessRule('Bu talep için geçerli bir teklif yok. Önce teklif oluşturun.');
+      }
+    }
+
+    if (requiresAppointment(newStatus)) {
+      const appointment = await repository.findCurrentAppointment(requestId, tx);
+
+      if (appointment === null) {
+        throw businessRule('Bu talep için planlanmış bir randevu yok. Önce randevu oluşturun.');
+      }
     }
 
     await repository.updateStatus(requestId, newStatus, tx);
