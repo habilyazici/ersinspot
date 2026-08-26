@@ -25,6 +25,7 @@ import {
 import { authRoutes } from './modules/identity/index.ts';
 import { catalogRoutes } from './modules/catalog/index.ts';
 import { orderingRoutes } from './modules/ordering/index.ts';
+import { servicingRoutes } from './modules/servicing/index.ts';
 
 export type AppVariables = AuthVariables & ValidatedVariables;
 
@@ -79,6 +80,15 @@ export function createApp() {
   // numarasıyla sipariş durumu sorgulamadır. Yetki modülün rota tanımlarında.
 
   app.route('/api', orderingRoutes);
+
+  // -------------------------------------------------------------------------
+  // Hizmet talepleri
+  // -------------------------------------------------------------------------
+  // Nakliye, teknik servis ve satış talebi. Talep oluşturma oturum ve e-posta
+  // doğrulaması gerektirir; /admin/* uçları personel yetkisi ister.
+  // Tek istisna nakliye fiyat tahmini: üye olmamış ziyaretçi de sorabilir.
+
+  app.route('/api', servicingRoutes);
 
   return app;
 }
