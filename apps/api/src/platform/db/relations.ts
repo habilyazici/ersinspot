@@ -47,8 +47,8 @@ import {
   blogPosts,
   contactMessages,
   tags,
-  uploadedFiles,
 } from '../../modules/content/infrastructure/schema.ts';
+import { uploadedFiles } from '../../modules/files/infrastructure/schema.ts';
 
 // ---------------------------------------------------------------------------
 // Kimlik

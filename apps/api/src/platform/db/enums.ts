@@ -26,7 +26,7 @@ import {
   UPLOAD_PURPOSES,
   WARRANTY_STATUSES,
 } from '@ersinspot/shared';
-import { HOUSE_SIZES, IZMIR_DISTRICTS } from '@ersinspot/shared';
+import { FAQ_CATEGORIES, HOUSE_SIZES, IZMIR_DISTRICTS } from '@ersinspot/shared';
 
 export const userRoleEnum = pgEnum('user_role', USER_ROLES);
 
@@ -81,16 +81,7 @@ export const requestAddressRoleEnum = pgEnum('request_address_role', [
  * Serbest metin yerine kapalı küme: "Siparişler" ve "Sipariş" gibi varyasyonlar
  * çoğalıp gruplamayı bozmasın.
  */
-export const faqCategoryEnum = pgEnum('faq_category', [
-  'orders',
-  'delivery',
-  'payment',
-  'products',
-  'technical_service',
-  'moving',
-  'selling',
-  'account',
-] as const);
+export const faqCategoryEnum = pgEnum('faq_category', FAQ_CATEGORIES);
 
 /** Site ayarının değer tipi. Okuma tarafının doğru dönüşümü yapmasını sağlar. */
 export const settingValueTypeEnum = pgEnum('setting_value_type', [

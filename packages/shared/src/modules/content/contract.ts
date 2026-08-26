@@ -161,7 +161,13 @@ export const createBlogPostSchema = z.object({
   title: requiredText('Başlık', 5, 160),
   excerpt: requiredText('Özet', 20, 400),
   content: requiredText('İçerik', 100, 50_000),
-  coverImageUrl: z.string().url().nullable().default(null),
+  /**
+   * Kapak görselinin depolama anahtarı — URL değil.
+   *
+   * URL yapılandırmadan türetilir; depolama sunucusu değişse kayıtlı adresler
+   * kırılırdı.
+   */
+  coverImageStorageKey: z.string().max(300).nullable().default(null),
   category: z.enum(BLOG_CATEGORIES),
   tags: z
     .array(requiredText('Etiket', 1, 40))
@@ -188,11 +194,42 @@ export type BlogListQuery = z.infer<typeof blogListQuerySchema>;
 // Sıkça sorulan sorular
 // ---------------------------------------------------------------------------
 
+/**
+ * SSS gruplama başlıkları.
+ *
+ * Serbest metin değil kapalı küme: metin olsaydı "Siparişler" ve "Sipariş"
+ * gibi varyasyonlar çoğalır, gruplama bozulurdu. Veritabanında da enum olarak
+ * tanımlıdır.
+ */
+export const FAQ_CATEGORIES = [
+  'orders',
+  'delivery',
+  'payment',
+  'products',
+  'technical_service',
+  'moving',
+  'selling',
+  'account',
+] as const;
+
+export type FaqCategory = (typeof FAQ_CATEGORIES)[number];
+
+export const FAQ_CATEGORY_LABELS: Readonly<Record<FaqCategory, string>> = {
+  orders: 'Siparişler',
+  delivery: 'Teslimat',
+  payment: 'Ödeme',
+  products: 'Ürünler',
+  technical_service: 'Teknik Servis',
+  moving: 'Nakliye',
+  selling: 'Ürün Satışı',
+  account: 'Hesabım',
+};
+
 export const faqSchema = z.object({
   id: uuidSchema,
   question: z.string(),
   answer: z.string(),
-  category: z.string(),
+  category: z.enum(FAQ_CATEGORIES),
   displayOrder: z.number().int(),
 });
 
@@ -201,7 +238,9 @@ export type Faq = z.infer<typeof faqSchema>;
 export const createFaqSchema = z.object({
   question: requiredText('Soru', 5, 300),
   answer: requiredText('Cevap', 10, 3000),
-  category: requiredText('Kategori', 2, 60),
+  category: z.enum(FAQ_CATEGORIES, {
+    errorMap: () => ({ message: 'Lütfen listeden bir kategori seçin.' }),
+  }),
   displayOrder: z.number().int().min(0).default(0),
 });
 
