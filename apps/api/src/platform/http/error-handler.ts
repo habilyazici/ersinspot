@@ -120,11 +120,31 @@ export const errorHandler: ErrorHandler = (error: unknown, c: Context) => {
 
   // 4) Hono'nun kendi istisnaları (gövde boyutu, yöntem uyuşmazlığı vb.).
   if (error instanceof HTTPException) {
+    /*
+      Mesaj yalnızca istemci hatalarında (4xx) aktarılır. 5xx bir HTTPException
+      sunucu tarafı bir arızayı anlatır ve metni iç ayrıntı taşıyabilir; bu
+      dosyanın kuralı gereği dışarı çıkmaz.
+    */
+    const isClientError = error.status >= 400 && error.status < 500;
+
     const appError = new AppError(error.status === 404 ? 'not_found' : 'business_rule_violated', {
-      message: error.status === 404 ? ERROR_MESSAGES.not_found : error.message,
+      ...(error.status === 404
+        ? { message: ERROR_MESSAGES.not_found }
+        : isClientError
+          ? { message: error.message }
+          : {}),
     });
 
-    logger.debug('HTTP istisnası', { ...requestInfo, status: error.status });
+    if (isClientError) {
+      logger.debug('HTTP istisnası', { ...requestInfo, status: error.status });
+    } else {
+      logger.error('HTTP istisnası', {
+        ...requestInfo,
+        status: error.status,
+        cause: error.message,
+      });
+    }
+
     return c.json(buildBody(appError, undefined), error.status);
   }
 
