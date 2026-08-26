@@ -29,6 +29,7 @@ const RegisterPage = lazy(() => import('./routes/register.tsx'));
 
 // Hesap
 const CartPage = lazy(() => import('./routes/cart.tsx'));
+const CheckoutPage = lazy(() => import('./routes/checkout.tsx'));
 const MyOrdersPage = lazy(() => import('./routes/my-orders.tsx'));
 
 /**
@@ -73,6 +74,14 @@ export function App() {
                   element={
                     <RequireAuth>
                       <CartPage />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/odeme"
+                  element={
+                    <RequireAuth>
+                      <CheckoutPage />
                     </RequireAuth>
                   }
                 />

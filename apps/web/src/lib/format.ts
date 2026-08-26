@@ -9,7 +9,7 @@
 import { money } from '@ersinspot/shared';
 import type { Kurus } from '@ersinspot/shared';
 
-/** Kuruş cinsinden tutarı para biçiminde yazar: "24.500,00 ₺". */
+/** Kuruş cinsinden tutarı para biçiminde yazar: "₺24.500", "₺24.500,50". */
 export function formatPrice(kurus: number, options?: { compact?: boolean }): string {
   return money.format(money.fromKurus(kurus), {
     hideDecimalsWhenWhole: options?.compact ?? true,
