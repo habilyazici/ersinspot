@@ -47,8 +47,13 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Birim testleri
+      # Veritabanı gerektirmeyen testler. API testleri ayrı işte, Postgres
+      # servisiyle birlikte çalışır.
+      - name: Paylaşılan paket testleri
         run: pnpm --filter @ersinspot/shared test
+
+      - name: Arayüz testleri
+        run: pnpm --filter @ersinspot/web test
 
       - name: Modül sınırlarını doğrula
         # Sınır ihlalinin gerçekten engellendiğini kanıtlar: kural sessizce

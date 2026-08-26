@@ -34,7 +34,15 @@ export default defineConfig({
          * React.lazy ile ayrıca yapılıyor.
          */
         manualChunks: {
-          react: ['react', 'react-dom', 'react-router', 'react-router-dom'],
+          /*
+           * Yalnızca doğrudan bağımlılıklar listelenir. `react-router`,
+           * `react-router-dom` üzerinden gelen dolaylı bir bağımlılıktır;
+           * pnpm'in katı node_modules düzeninde apps/web içinden çözümlenemez
+           * ve Rollup "Could not resolve entry module" hatası verir. Rollup
+           * onu zaten yalnızca react-router-dom'dan erişilebildiği için aynı
+           * parçaya yerleştirir.
+           */
+          react: ['react', 'react-dom', 'react-router-dom'],
           query: ['@tanstack/react-query'],
         },
       },

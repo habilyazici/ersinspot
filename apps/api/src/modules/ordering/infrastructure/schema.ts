@@ -187,7 +187,18 @@ export const orderItems = pgTable(
     quantity: integer().notNull(),
     lineTotalKurus: bigint({ mode: 'number' }).notNull(),
   },
-  (table) => [index('order_items_order_id_idx').on(table.orderId)],
+  (table) => [
+    index('order_items_order_id_idx').on(table.orderId),
+
+    /*
+      Çift satış tetikleyicisi (`check_product_not_in_active_order`) HER kalem
+      eklemesinde `WHERE product_id = ...` sorgusu yapar. İndeks olmadan bu,
+      sipariş açan her istekte tüm tablonun taranması demektir; üstelik satır
+      kilitlerini tutan işlemin içinde. Tablo büyüdükçe sipariş oluşturma
+      doğrusal olarak yavaşlar.
+    */
+    index('order_items_product_id_idx').on(table.productId),
+  ],
 );
 
 /**
