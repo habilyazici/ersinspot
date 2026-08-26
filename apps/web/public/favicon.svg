@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Ersin Spot">
+  <title>Ersin Spot</title>
+  <!--
+    Marka işareti: lacivert zemin, turuncu "E".
+
+    16 pikselde okunabilirlik için tek harf kullanılır; iki harf ("ES") bu
+    boyutta lekeye dönüşür. Renkler globals.css'teki belirteçlerle aynıdır:
+    lacivert #1e3a8a (brand-navy-800), turuncu #f97316 (brand-orange-500).
+  -->
+  <rect width="32" height="32" rx="7" fill="#1e3a8a"/>
+  <path d="M11 8h11v4.4h-6.4v3.4h5.8v4.3h-5.8v3.5H22V28H11z" fill="#f97316" transform="translate(0,-2)"/>
+</svg>
