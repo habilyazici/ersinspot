@@ -119,9 +119,14 @@ export const createTechnicalServiceRequestSchema = z
     preferredTimeSlot: timeSlotSchema.optional(),
     photos: z.array(requestPhotoInputSchema).max(10).default([]),
     customerNote: optionalText(1000),
-    /** Keşif ücretinin kabul edildiğinin onayı. */
-    acceptedInspectionFee: z.literal(true, {
-      errorMap: () => ({ message: 'Devam etmek için keşif ücretini onaylamalısınız.' }),
+    /**
+     * Keşif ücretinin kabul edildiğinin onayı.
+     *
+     * Literal yerine boolean + kontrol: literal, girdi tipini de `true` yapar
+     * ve işaretsiz onay kutusu temsil edilemez.
+     */
+    acceptedInspectionFee: z.boolean().refine((accepted) => accepted, {
+      message: 'Devam etmek için keşif ücretini onaylamalısınız.',
     }),
   })
   .refine(

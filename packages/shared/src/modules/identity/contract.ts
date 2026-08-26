@@ -26,9 +26,16 @@ export const registerSchema = z
     phone: phoneSchema,
     password: passwordSchema,
     passwordConfirm: z.string(),
-    /** Kullanım koşullarının kabul edilmesi zorunludur. */
-    acceptedTerms: z.literal(true, {
-      errorMap: () => ({ message: 'Devam etmek için kullanım koşullarını kabul etmelisiniz.' }),
+    /**
+     * Kullanım koşullarının kabul edilmesi zorunludur.
+     *
+     * `z.literal(true)` yerine `boolean` + kontrol kullanılır: literal, GİRDİ
+     * tipini de `true` yapar ve işaretsiz onay kutusu (`false`) hiç temsil
+     * edilemez. Form açıldığında kutu işaretsizdir; girdi tipi bunu
+     * karşılamalıdır.
+     */
+    acceptedTerms: z.boolean().refine((accepted) => accepted, {
+      message: 'Devam etmek için kullanım koşullarını kabul etmelisiniz.',
     }),
   })
   .refine((data) => data.password === data.passwordConfirm, {
