@@ -16,6 +16,7 @@ import { Hono } from 'hono';
 import type { AuthVariables } from './platform/http/auth.ts';
 import type { ValidatedVariables } from './platform/http/validate.ts';
 import { errorHandler, notFoundHandler } from './platform/http/error-handler.ts';
+import { env } from './platform/config/env.ts';
 import {
   corsMiddleware,
   csrfProtection,
@@ -27,7 +28,7 @@ import { catalogRoutes } from './modules/catalog/index.ts';
 import { orderingRoutes } from './modules/ordering/index.ts';
 import { servicingRoutes } from './modules/servicing/index.ts';
 import { contentRoutes } from './modules/content/index.ts';
-import { filesRoutes } from './modules/files/index.ts';
+import { filesRoutes, localFileRoutes } from './modules/files/index.ts';
 
 export type AppVariables = AuthVariables & ValidatedVariables;
 
@@ -101,6 +102,23 @@ export function createApp() {
 
   app.route('/api', contentRoutes);
   app.route('/api', filesRoutes);
+
+  /*
+    Yerel depolamada dosyaları sunan rota.
+
+    Adres `STORAGE_PUBLIC_URL`'den türetilir; iki yerde ayrı ayrı yazılsaydı
+    biri değiştiğinde diğeri sessizce kopardı — denetimde bulunan sorun tam
+    olarak buydu (adres üretiliyordu ama karşılayan rota yoktu).
+
+    S3 sürücüsünde dosyalar CDN'den sunulur, bu rota hiç bağlanmaz.
+  */
+  if (env.STORAGE_DRIVER === 'local') {
+    const publicPath = new URL(env.STORAGE_PUBLIC_URL).pathname.replace(/\/$/, '');
+
+    if (publicPath !== '') {
+      app.route(publicPath, localFileRoutes);
+    }
+  }
 
   return app;
 }

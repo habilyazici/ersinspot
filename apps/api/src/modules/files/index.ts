@@ -11,6 +11,14 @@
 
 export { filesRoutes } from './api/routes.ts';
 
+/**
+ * Yerel sürücüde saklanan dosyaları sunan rotalar.
+ *
+ * Yalnızca `STORAGE_DRIVER=local` iken bağlanır; üretimde dosyalar CDN'den
+ * sunulur.
+ */
+export { localFileRoutes } from './api/routes.ts';
+
 /** Dosyaları bir kayda bağlar; yetim olmaktan çıkarır. */
 export { attachFiles } from './application/upload-service.ts';
 
