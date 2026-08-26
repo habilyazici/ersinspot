@@ -8,6 +8,8 @@ export default function NotFoundPage() {
     <div className="mx-auto max-w-2xl px-4 py-20">
       <EmptyState
         icon={SearchX}
+        // Sayfanın tek içeriği; başlık h1 olmalı.
+        headingLevel={1}
         title="Sayfa bulunamadı"
         description="Aradığınız sayfa taşınmış veya kaldırılmış olabilir."
         action={

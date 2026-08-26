@@ -2,12 +2,13 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, PackageCheck, ShieldCheck, Truck, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
+import { ErrorState } from '@/components/ui/error-state.tsx';
 import { Spinner } from '@/components/ui/spinner.tsx';
 import { ProductCard, useProducts } from '@/features/catalog';
 
 /** Anasayfa: vitrin, hizmetler ve güven unsurları. */
 export default function HomePage() {
-  const { data, isLoading } = useProducts({ pageSize: 8, sort: 'newest' });
+  const { data, isLoading, isError, error, refetch } = useProducts({ pageSize: 8, sort: 'newest' });
 
   return (
     <>
@@ -105,6 +106,13 @@ export default function HomePage() {
           <div className="flex justify-center py-16">
             <Spinner label="Ürünler yükleniyor" />
           </div>
+        ) : isError ? (
+          /*
+            Ağ hatası ile boş katalog ayrı şeylerdir. Önceki hâlinde ikisi de
+            "henüz ürün yok" gösteriyordu: sunucuya ulaşılamadığında kullanıcı
+            mağazanın boş olduğunu sanıyordu ve tekrar deneme yolu yoktu.
+          */
+          <ErrorState error={error} onRetry={() => void refetch()} />
         ) : data === undefined || data.items.length === 0 ? (
           <EmptyState
             title="Henüz ürün yok"
