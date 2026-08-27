@@ -145,3 +145,34 @@ export const TextAreaField = forwardRef<
     </FormField>
   );
 });
+
+/**
+ * Form bölümü.
+ *
+ * Bir arada anlam taşıyan alanları gruplar. `<section>` + `<h2>` yerine
+ * `<fieldset>` + `<legend>` kullanılır: ekran okuyucu her alanı okurken grubun
+ * adını da bildirir, başlık ise böyle çalışmaz.
+ *
+ * Her formda elle yazıldığında aralıklar ve başlık boyutu ayrışıyordu.
+ */
+export function FormSection({
+  legend,
+  description,
+  children,
+  className,
+}: {
+  legend: string;
+  description?: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <fieldset className={cn('space-y-4', className)}>
+      <legend className="text-sm font-semibold text-slate-900">{legend}</legend>
+
+      {description === undefined ? null : <p className="text-sm text-slate-600">{description}</p>}
+
+      {children}
+    </fieldset>
+  );
+}

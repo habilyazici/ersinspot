@@ -17,3 +17,5 @@ export {
 } from './api.ts';
 
 export type { CreateOrderResult, PublicOrderStatus } from './api.ts';
+
+export { OrderTotals } from './order-totals.tsx';

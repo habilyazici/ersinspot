@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, ImageOff, ShieldCheck, ShoppingCart } from 'lucide-react';
 import { ApiError, PRODUCT_CONDITION_LABELS, PRODUCT_STATUS_LABELS } from '@ersinspot/shared';
+import { PageContainer } from '@/components/ui/page.tsx';
 import { Button } from '@/components/ui/button.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
@@ -42,7 +43,7 @@ export default function ProductDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <PageContainer width="wide">
       <Button asChild variant="ghost" size="sm" className="mb-4">
         <Link to="/urunler">
           <ArrowLeft aria-hidden="true" />
@@ -174,6 +175,6 @@ export default function ProductDetailPage() {
           ) : null}
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

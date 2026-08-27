@@ -30,14 +30,16 @@ import {
 import type { CreateOrderInput, IzmirDistrict } from '@ersinspot/shared';
 import { AddressFields } from '@/components/ui/address-fields.tsx';
 import { Button } from '@/components/ui/button.tsx';
+import { Card } from '@/components/ui/card.tsx';
+import { RadioCards } from '@/components/ui/choice-field.tsx';
+import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
-import { SelectField, TextAreaField, TextField } from '@/components/ui/form-field.tsx';
+import { FormSection, SelectField, TextAreaField, TextField } from '@/components/ui/form-field.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { findError } from '@/lib/form.ts';
 import { formatPrice } from '@/lib/format.ts';
-import { cn } from '@/lib/utils.ts';
 import { useAuth } from '@/features/auth';
-import { useCart, useCreateOrder } from '@/features/ordering';
+import { OrderTotals, useCart, useCreateOrder } from '@/features/ordering';
 
 /** Teslimat ve mağazadan alım için sunulan saat aralıkları. */
 const TIME_SLOTS = [
@@ -104,6 +106,7 @@ export default function CheckoutPage() {
   // Teslimat yöntemi ve ilçe değişince tutar yeniden hesaplanır.
   const deliveryMethod = useWatch({ control, name: 'delivery.method' });
   const district = useWatch({ control, name: 'delivery.address.district' });
+  const paymentMethod = useWatch({ control, name: 'paymentMethod' });
 
   const selectedSlotStart =
     useWatch({
@@ -182,7 +185,7 @@ export default function CheckoutPage() {
 
   if (cart === undefined || cart.items.length === 0) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-16">
+      <PageContainer width="prose">
         <EmptyState
           title="Sepetiniz boş"
           description="Sipariş verebilmek için önce sepetinize ürün ekleyin."
@@ -192,13 +195,13 @@ export default function CheckoutPage() {
             </Button>
           }
         />
-      </div>
+      </PageContainer>
     );
   }
 
   if (cart.hasUnavailableItems) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-16">
+      <PageContainer width="prose">
         <EmptyState
           icon={AlertTriangle}
           title="Sepetinizde satışta olmayan ürün var"
@@ -209,7 +212,7 @@ export default function CheckoutPage() {
             </Button>
           }
         />
-      </div>
+      </PageContainer>
     );
   }
 
@@ -250,12 +253,16 @@ export default function CheckoutPage() {
   const isHomeDelivery = deliveryMethod === 'home_delivery';
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold text-slate-900">Siparişi Tamamla</h1>
+    <PageContainer width="form">
+      <PageHeader
+        backTo={{ to: '/sepet', label: 'Sepet' }}
+        title="Siparişi Tamamla"
+        description="Teslimat ve iletişim bilgilerinizi girin. Tutar, siparişi onayladığınızda kesinleşir."
+      />
 
       <form
         onSubmit={(event) => void handleSubmit(onSubmit)(event)}
-        className="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem]"
+        className="mt-8 grid gap-6 lg:grid-cols-[1fr_20rem]"
       >
         <div className="space-y-8">
           {errors.root === undefined ? null : (
@@ -268,9 +275,7 @@ export default function CheckoutPage() {
           )}
 
           {/* İletişim */}
-          <fieldset className="space-y-4">
-            <legend className="text-sm font-semibold text-slate-900">İletişim Bilgileri</legend>
-
+          <FormSection legend="İletişim Bilgileri">
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField
                 label="Ad Soyad"
@@ -291,48 +296,27 @@ export default function CheckoutPage() {
                 {...register('contact.phone')}
               />
             </div>
-          </fieldset>
+          </FormSection>
 
-          {/* Teslimat yöntemi */}
-          <fieldset className="space-y-3">
-            <legend className="text-sm font-semibold text-slate-900">Teslimat Yöntemi</legend>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              {(
-                [
-                  { value: 'home_delivery', icon: Truck },
-                  { value: 'store_pickup', icon: Store },
-                ] as const
-              ).map((option) => (
-                <label
-                  key={option.value}
-                  className={cn(
-                    'flex cursor-pointer gap-3 rounded-xl border p-4 transition-colors',
-                    deliveryMethod === option.value
-                      ? 'border-brand-orange-500 bg-brand-orange-50'
-                      : 'border-slate-200 hover:border-slate-300',
-                  )}
-                >
-                  <input
-                    type="radio"
-                    value={option.value}
-                    className="mt-1 size-4"
-                    {...register('delivery.method')}
-                  />
-
-                  <span>
-                    <span className="flex items-center gap-2 font-medium text-slate-900">
-                      <option.icon className="size-4" aria-hidden="true" />
-                      {DELIVERY_METHOD_LABELS[option.value].label}
-                    </span>
-                    <span className="mt-1 block text-sm text-slate-600">
-                      {DELIVERY_METHOD_LABELS[option.value].description}
-                    </span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <RadioCards
+            legend="Teslimat Yöntemi"
+            value={deliveryMethod}
+            field={register('delivery.method')}
+            options={[
+              {
+                value: 'home_delivery',
+                icon: Truck,
+                label: DELIVERY_METHOD_LABELS.home_delivery.label,
+                description: DELIVERY_METHOD_LABELS.home_delivery.description,
+              },
+              {
+                value: 'store_pickup',
+                icon: Store,
+                label: DELIVERY_METHOD_LABELS.store_pickup.label,
+                description: DELIVERY_METHOD_LABELS.store_pickup.description,
+              },
+            ]}
+          />
 
           {/* Adres — yalnızca adrese teslimatta */}
           {isHomeDelivery ? (
@@ -345,11 +329,7 @@ export default function CheckoutPage() {
           ) : null}
 
           {/* Tarih ve saat */}
-          <fieldset className="space-y-4">
-            <legend className="text-sm font-semibold text-slate-900">
-              {isHomeDelivery ? 'Teslimat Zamanı' : 'Mağazadan Alım Zamanı'}
-            </legend>
-
+          <FormSection legend={isHomeDelivery ? 'Teslimat Zamanı' : 'Mağazadan Alım Zamanı'}>
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField
                 label="Tarih"
@@ -397,38 +377,21 @@ export default function CheckoutPage() {
                 ))}
               </SelectField>
             </div>
-          </fieldset>
+          </FormSection>
 
-          {/* Ödeme */}
-          <fieldset className="space-y-3">
-            <legend className="text-sm font-semibold text-slate-900">Ödeme Yöntemi</legend>
-
-            <div className="space-y-2">
-              {PAYMENT_METHODS.map((method) => (
-                <label
-                  key={method}
-                  className="flex cursor-pointer gap-3 rounded-lg border border-slate-200 p-4 hover:border-slate-300"
-                >
-                  <input
-                    type="radio"
-                    value={method}
-                    className="mt-1 size-4"
-                    {...register('paymentMethod')}
-                  />
-
-                  <span>
-                    <span className="flex items-center gap-2 font-medium text-slate-900">
-                      <CreditCard className="size-4" aria-hidden="true" />
-                      {PAYMENT_METHOD_LABELS[method].label}
-                    </span>
-                    <span className="mt-1 block text-sm text-slate-600">
-                      {PAYMENT_METHOD_LABELS[method].description}
-                    </span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <RadioCards
+            legend="Ödeme Yöntemi"
+            columns={1}
+            value={paymentMethod}
+            field={register('paymentMethod')}
+            error={errors.paymentMethod?.message}
+            options={PAYMENT_METHODS.map((method) => ({
+              value: method,
+              icon: CreditCard,
+              label: PAYMENT_METHOD_LABELS[method].label,
+              description: PAYMENT_METHOD_LABELS[method].description,
+            }))}
+          />
 
           <TextAreaField
             label="Sipariş Notu"
@@ -438,8 +401,7 @@ export default function CheckoutPage() {
           />
         </div>
 
-        {/* Özet */}
-        <aside className="h-fit space-y-4 rounded-xl border border-slate-200 bg-white p-5 lg:sticky lg:top-20">
+        <Card padding="md" sticky className="space-y-4">
           <h2 className="font-semibold text-slate-900">Sipariş Özeti</h2>
 
           <ul className="space-y-2 border-b border-slate-200 pb-3">
@@ -452,28 +414,11 @@ export default function CheckoutPage() {
           </ul>
 
           {totals === null ? null : (
-            <dl className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-slate-600">Ara toplam</dt>
-                <dd className="font-medium">{formatPrice(totals.subtotal)}</dd>
-              </div>
-
-              <div className="flex justify-between">
-                <dt className="text-slate-600">Teslimat</dt>
-                <dd className="font-medium">
-                  {totals.deliveryFee === 0 ? (
-                    <span className="text-brand-teal-700">Ücretsiz</span>
-                  ) : (
-                    formatPrice(totals.deliveryFee)
-                  )}
-                </dd>
-              </div>
-
-              <div className="flex justify-between border-t border-slate-200 pt-2 text-base">
-                <dt className="font-semibold text-slate-900">Toplam</dt>
-                <dd className="font-bold text-brand-orange-600">{formatPrice(totals.total)}</dd>
-              </div>
-            </dl>
+            <OrderTotals
+              subtotal={totals.subtotal}
+              deliveryFee={totals.deliveryFee}
+              total={totals.total}
+            />
           )}
 
           {isHomeDelivery && totals !== null && totals.deliveryFee > 0 ? (
@@ -495,8 +440,8 @@ export default function CheckoutPage() {
             Siparişi onayladığınızda ürünler sizin için ayrılır ve en kısa sürede sizinle iletişime
             geçilir.
           </p>
-        </aside>
+        </Card>
       </form>
-    </div>
+    </PageContainer>
   );
 }

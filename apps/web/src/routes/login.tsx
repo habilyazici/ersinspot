@@ -4,6 +4,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ApiError, loginSchema } from '@ersinspot/shared';
 import type { LoginInput } from '@ersinspot/shared';
+import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
 import { Button } from '@/components/ui/button.tsx';
 import { useAuth, useLogin } from '@/features/auth';
 
@@ -53,14 +54,18 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md px-4 py-12 sm:px-6">
-      <h1 className="text-2xl font-bold text-slate-900">Giriş Yap</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        Hesabınız yok mu?{' '}
-        <Link to="/kayit" className="font-medium text-brand-navy-700 hover:underline">
-          Ücretsiz kayıt olun
-        </Link>
-      </p>
+    <PageContainer width="narrow">
+      <PageHeader
+        title="Giriş Yap"
+        description={
+          <>
+            Hesabınız yok mu?{' '}
+            <Link to="/kayit" className="font-medium text-brand-navy-700 hover:underline">
+              Ücretsiz kayıt olun
+            </Link>
+          </>
+        }
+      />
 
       <form onSubmit={(event) => void handleSubmit(onSubmit)(event)} className="mt-8 space-y-4">
         {errors.root === undefined ? null : (
@@ -132,6 +137,6 @@ export default function LoginPage() {
           Giriş Yap
         </Button>
       </form>
-    </div>
+    </PageContainer>
   );
 }

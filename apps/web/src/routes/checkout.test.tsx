@@ -16,6 +16,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cart, CreateOrderInput } from '@ersinspot/shared';
+import type * as OrderingModule from '@/features/ordering';
 
 /**
  * Para biçimi eşleştirici.
@@ -60,7 +61,13 @@ vi.mock('@/features/auth', () => ({
   useAuth: () => ({ user: { fullName: 'Ayşe Yılmaz', phone: '+905071940550' } }),
 }));
 
-vi.mock('@/features/ordering', () => ({
+/*
+  Yalnızca ağ hook'ları taklit edilir; `OrderTotals` gerçek bileşendir.
+  Test ekranda görünen tutarı okuyor — o tutarı üreten kodun taklit olması
+  testi anlamsız kılardı.
+*/
+vi.mock('@/features/ordering', async (importOriginal) => ({
+  ...(await importOriginal<typeof OrderingModule>()),
   useCart: () => ({ data: cart.current, isLoading: false }),
   useCreateOrder: () => ({ mutate: mockMutate, isPending: false }),
 }));

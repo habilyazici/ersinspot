@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import { ImageOff, Package } from 'lucide-react';
 import { ORDER_STATUS_LABELS } from '@ersinspot/shared';
+import { Card } from '@/components/ui/card.tsx';
 import { Button } from '@/components/ui/button.tsx';
+import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
@@ -16,8 +18,11 @@ export default function MyOrdersPage() {
   if (isError) return <ErrorState error={error} onRetry={() => void refetch()} />;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold text-slate-900">Siparişlerim</h1>
+    <PageContainer>
+      <PageHeader
+        title="Siparişlerim"
+        description="Verdiğiniz siparişlerin durumunu buradan izleyebilirsiniz."
+      />
 
       {data === undefined || data.items.length === 0 ? (
         <EmptyState
@@ -31,13 +36,10 @@ export default function MyOrdersPage() {
           }
         />
       ) : (
-        <ul className="mt-6 space-y-3">
+        <ul className="mt-8 space-y-3">
           {data.items.map((order) => (
-            <li key={order.id}>
-              <Link
-                to={`/hesabim/siparislerim/${order.id}`}
-                className="flex gap-4 rounded-xl border border-slate-200 bg-white p-4 transition-shadow hover:shadow-card"
-              >
+            <Card as="li" key={order.id} interactive className="p-0">
+              <Link to={`/hesabim/siparislerim/${order.id}`} className="flex gap-4 p-4">
                 <div className="size-16 shrink-0 overflow-hidden rounded-lg bg-slate-100">
                   {order.previewImageUrl === null ? (
                     <div className="flex h-full items-center justify-center">
@@ -66,10 +68,10 @@ export default function MyOrdersPage() {
                   {formatPrice(order.total)}
                 </p>
               </Link>
-            </li>
+            </Card>
           ))}
         </ul>
       )}
-    </div>
+    </PageContainer>
   );
 }
