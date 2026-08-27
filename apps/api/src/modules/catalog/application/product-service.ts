@@ -34,6 +34,7 @@ function toProductImage(row: ProductImageRow) {
   return {
     id: row.id,
     url: resolveStorageUrl(row.storageKey),
+    storageKey: row.storageKey,
     altText: row.altText,
     displayOrder: row.displayOrder,
   };

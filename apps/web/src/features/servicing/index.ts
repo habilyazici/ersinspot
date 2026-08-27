@@ -22,3 +22,5 @@ export {
 } from './api.ts';
 
 export type { CreateRequestResult } from './api.ts';
+
+export { RequestInfo } from './request-info.tsx';

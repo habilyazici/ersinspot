@@ -13,19 +13,14 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { CalendarCheck, ClipboardList, Home, MapPin, Package, Receipt, Wrench } from 'lucide-react';
+import { CalendarCheck, ClipboardList, MapPin, Receipt } from 'lucide-react';
 import {
   ApiError,
   CUSTOMER_CANCELLABLE_REQUEST_STATUSES,
-  DEVICE_TYPE_LABELS,
-  HOUSE_SIZE_LABELS,
-  PRODUCT_CONDITION_LABELS,
-  PROBLEM_CATEGORY_LABELS,
   REQUEST_STATUS_LABELS,
   SERVICE_KIND_LABELS,
-  WARRANTY_STATUS_LABELS,
 } from '@ersinspot/shared';
-import type { RequestStatus, ServiceRequest } from '@ersinspot/shared';
+import type { RequestStatus } from '@ersinspot/shared';
 import { Button } from '@/components/ui/button.tsx';
 import { Card, DetailList, Timeline } from '@/components/ui/card.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
@@ -33,115 +28,12 @@ import { TextAreaField } from '@/components/ui/form-field.tsx';
 import { PageContainer, PageHeader, Section } from '@/components/ui/page.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { StatusBadge } from '@/components/ui/status-badge.tsx';
-import {
-  formatAddress,
-  formatDate,
-  formatDateTime,
-  formatPrice,
-  formatTimeSlot,
-} from '@/lib/format.ts';
-import type { DetailRow } from '@/components/ui/card.tsx';
-import { useCancelRequest, useRequest, useRespondToQuote } from '@/features/servicing';
+import { formatDate, formatDateTime, formatPrice, formatTimeSlot } from '@/lib/format.ts';
+import { RequestInfo, useCancelRequest, useRequest, useRespondToQuote } from '@/features/servicing';
 
 /** Müşteri bu talebi kendisi iptal edebilir mi? Kural sunucuyla ortak. */
 function isCancellable(status: RequestStatus): boolean {
   return (CUSTOMER_CANCELLABLE_REQUEST_STATUSES as readonly RequestStatus[]).includes(status);
-}
-
-/**
- * Türe özgü bilgi satırları.
- *
- * `kind` ayrımlı birleşimin ayırıcısıdır; TypeScript her dalda hangi alanların
- * mevcut olduğunu buradan bilir. Yeni bir talep türü eklendiğinde bu switch
- * derlenmez ve eksik dal derleme anında görünür.
- */
-function detailRows(request: ServiceRequest): {
-  icon: typeof Home;
-  /** `DetailList` boş satırları kendisi atar; koşullu satırlar burada `null` bırakılır. */
-  rows: readonly (DetailRow | null)[];
-} {
-  switch (request.kind) {
-    case 'moving':
-      return {
-        icon: Home,
-        rows: [
-          { term: 'Ev büyüklüğü', value: HOUSE_SIZE_LABELS[request.houseSize] },
-          {
-            term: 'Çıkış adresi',
-            value: `${formatAddress(request.fromLocation.address)} · ${String(request.fromLocation.floor)}. kat${request.fromLocation.hasElevator ? ' (asansörlü)' : ''}`,
-            stacked: true,
-          },
-          {
-            term: 'Varış adresi',
-            value: `${formatAddress(request.toLocation.address)} · ${String(request.toLocation.floor)}. kat${request.toLocation.hasElevator ? ' (asansörlü)' : ''}`,
-            stacked: true,
-          },
-          { term: 'Tercih edilen tarih', value: formatDate(request.preferredDate) },
-          { term: 'Eşya sayısı', value: `${String(request.items.length)} kalem` },
-          { term: 'Ambalajlama', value: request.needsPacking ? 'İsteniyor' : 'İstenmiyor' },
-          { term: 'Montaj', value: request.needsAssembly ? 'İsteniyor' : 'İstenmiyor' },
-          { term: 'İlk tahmin', value: formatPrice(request.estimatedTotal) },
-        ],
-      };
-
-    case 'technical_service':
-      return {
-        icon: Wrench,
-        rows: [
-          {
-            term: 'Cihaz',
-            value:
-              request.customDeviceType ??
-              `${DEVICE_TYPE_LABELS[request.deviceType]} · ${request.brand}`,
-          },
-          request.model === null ? null : { term: 'Model', value: request.model },
-          { term: 'Garanti', value: WARRANTY_STATUS_LABELS[request.warrantyStatus] },
-          { term: 'Arıza türü', value: PROBLEM_CATEGORY_LABELS[request.problemCategory] },
-          { term: 'Arıza açıklaması', value: request.problemDescription, stacked: true },
-          { term: 'Adres', value: formatAddress(request.address), stacked: true },
-          { term: 'Tercih edilen tarih', value: formatDate(request.preferredDate) },
-          { term: 'Keşif ücreti', value: formatPrice(request.inspectionFee) },
-          request.diagnosis === null
-            ? null
-            : { term: 'Teknisyen tespiti', value: request.diagnosis, stacked: true },
-        ],
-      };
-
-    case 'sell_request':
-      return {
-        icon: Package,
-        rows: [
-          { term: 'Ürün', value: request.title },
-          { term: 'Kategori', value: request.category.name },
-          { term: 'Marka', value: request.brand },
-          request.model === null ? null : { term: 'Model', value: request.model },
-          { term: 'Durum', value: PRODUCT_CONDITION_LABELS[request.condition].label },
-          request.purchaseYear === null
-            ? null
-            : { term: 'Alım yılı', value: String(request.purchaseYear) },
-          { term: 'Açıklama', value: request.description, stacked: true },
-          {
-            term: 'Yanında gelenler',
-            value:
-              [
-                request.hasBox ? 'kutusu' : null,
-                request.hasAccessories ? 'aksesuarları' : null,
-                request.hasWarranty ? 'garanti belgesi' : null,
-              ]
-                .filter((item): item is string => item !== null)
-                .join(', ') || 'yok',
-          },
-          request.askingPrice === null
-            ? null
-            : { term: 'Beklediğiniz fiyat', value: formatPrice(request.askingPrice) },
-          {
-            term: 'Teslim alma adresi',
-            value: formatAddress(request.pickupAddress),
-            stacked: true,
-          },
-        ],
-      };
-  }
 }
 
 export default function RequestDetailPage() {
@@ -162,8 +54,6 @@ export default function RequestDetailPage() {
       </PageContainer>
     );
   }
-
-  const { icon: KindIcon, rows } = detailRows(request);
 
   function respond(decision: 'accept' | 'reject'): void {
     respondToQuote.mutate(
@@ -223,32 +113,7 @@ export default function RequestDetailPage() {
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_18rem]">
         <div className="space-y-8">
-          <Section title="Talep Bilgileri" icon={KindIcon}>
-            <Card>
-              <DetailList rows={rows} />
-            </Card>
-          </Section>
-
-          {/* Nakliyede eşya listesi ayrı gösterilir: satır sayısı değişkendir. */}
-          {request.kind !== 'moving' ? null : (
-            <Section title="Taşınacak Eşyalar" icon={ClipboardList}>
-              <Card>
-                <ul className="space-y-1 text-sm">
-                  {request.items.map((item) => (
-                    <li key={item.id} className="flex justify-between gap-4">
-                      <span className="text-slate-700">
-                        {item.name}
-                        {item.needsDisassembly ? ' (söküm gerekli)' : ''}
-                      </span>
-                      <span className="shrink-0 font-medium text-slate-900">
-                        {item.quantity} adet
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            </Section>
-          )}
+          <RequestInfo request={request} />
 
           {request.customerNote === null ? null : (
             <Section title="Notunuz" icon={MapPin}>

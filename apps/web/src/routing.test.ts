@@ -33,15 +33,7 @@ const API_SRC = path.resolve(import.meta.dirname, '../../api/src');
  *
  * Her biri planlanan bir sayfadır; yazıldığında bu listeden çıkarılır.
  */
-const PLANNED_PAGES = [
-  // Yönetim paneli yazılıyor; her sayfa tamamlandığında bu listeden çıkar.
-  '/yonetim/talepler', // talep listesi
-  '/yonetim/mesajlar', // iletişim mesajları
-  '/yonetim/urunler', // ürün yönetimi
-  '/yonetim/blog', // blog yönetimi
-  '/yonetim/sss', // SSS yönetimi
-  '/yonetim/ayarlar', // site ayarları
-] as const;
+const PLANNED_PAGES: readonly string[] = [];
 
 /** Kaynak ağacındaki tüm .ts/.tsx dosyaları (testler hariç). */
 function sourceFiles(dir: string): string[] {
@@ -250,8 +242,12 @@ describe('Yönlendirme bütünlüğü', () => {
   it('her rota bir sayfa bileşenine bağlıdır', () => {
     const app = readFileSync(path.join(SRC, 'App.tsx'), 'utf8');
 
-    // `lazy(() => import('./routes/x.tsx'))` ile yüklenen her sayfa dosyası var mı?
-    const imported = [...app.matchAll(/import\('\.\/(routes\/[\w-]+\.tsx)'\)/g)].map(
+    /*
+      `lazy(() => import('./routes/x.tsx'))` ile yüklenen her sayfa dosyası var mı?
+      Yol alt dizin içerebilir (`routes/admin/orders.tsx`); eğik çizgi kalıba
+      dahildir, aksi hâlde panel sayfaları hiç denetlenmezdi.
+    */
+    const imported = [...app.matchAll(/import\('\.\/(routes\/[\w\-/]+\.tsx)'\)/g)].map(
       (match) => match[1] ?? '',
     );
 

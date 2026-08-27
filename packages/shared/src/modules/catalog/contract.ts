@@ -75,6 +75,15 @@ export type CreateBrandInput = z.infer<typeof createBrandSchema>;
 export const productImageSchema = z.object({
   id: uuidSchema,
   url: z.string().url(),
+  /**
+   * Görselin kalıcı depolama anahtarı.
+   *
+   * Yönetim panelindeki düzenleme formu ürünü yeniden gönderirken bu anahtarı
+   * kullanır; adresten geri çıkarmak, istemcinin depolama yapılandırmasını
+   * bilmesini gerektirirdi. Anahtar zaten adresin içinde göründüğü için ayrıca
+   * bir bilgi sızdırmaz.
+   */
+  storageKey: z.string(),
   /** Erişilebilirlik için görsel açıklaması. */
   altText: z.string(),
   displayOrder: z.number().int(),
