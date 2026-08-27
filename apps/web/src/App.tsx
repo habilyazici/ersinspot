@@ -30,6 +30,9 @@ const RegisterPage = lazy(() => import('./routes/register.tsx'));
 // Hesap
 const CartPage = lazy(() => import('./routes/cart.tsx'));
 const CheckoutPage = lazy(() => import('./routes/checkout.tsx'));
+const MovingPage = lazy(() => import('./routes/moving.tsx'));
+const MyRequestsPage = lazy(() => import('./routes/my-requests.tsx'));
+const RequestDetailPage = lazy(() => import('./routes/request-detail.tsx'));
 const MyOrdersPage = lazy(() => import('./routes/my-orders.tsx'));
 const OrderDetailPage = lazy(() => import('./routes/order-detail.tsx'));
 
@@ -79,6 +82,14 @@ export function App() {
                   }
                 />
                 <Route
+                  path="/nakliye"
+                  element={
+                    <RequireAuth>
+                      <MovingPage />
+                    </RequireAuth>
+                  }
+                />
+                <Route
                   path="/odeme"
                   element={
                     <RequireAuth>
@@ -91,6 +102,22 @@ export function App() {
                   element={
                     <RequireAuth>
                       <MyOrdersPage />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/hesabim/taleplerim"
+                  element={
+                    <RequireAuth>
+                      <MyRequestsPage />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/hesabim/taleplerim/:requestId"
+                  element={
+                    <RequireAuth>
+                      <RequestDetailPage />
                     </RequireAuth>
                   }
                 />

@@ -5,9 +5,13 @@
  * ürün satma talepleri.
  *
  * Üç talep türü ortak bir yaşam döngüsünü paylaşır (beklemede → inceleniyor →
- * teklif → kabul/ret → randevu → tamamlandı), bu yüzden listeleme, iptal ve
- * teklife yanıt verme tek yerde tanımlanır. Türe özgü olan yalnızca oluşturma
- * ve detay okumadır.
+ * teklif → kabul/ret → randevu → tamamlandı). Listeleme, DETAY OKUMA, iptal ve
+ * teklife yanıt verme bu yüzden tek yerde tanımlanır; türe özgü olan yalnızca
+ * oluşturmadır.
+ *
+ * Tür başına ayrı detay hook'ları da yazılabilirdi ama üçü de aynı önbellek
+ * anahtarını kullanırdı (`servicingKeys.request(id)`) ve farklı şekiller aynı
+ * girdiye yazardı. Tek hook, tek şekil.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -15,13 +19,11 @@ import type {
   CreateMovingRequestInput,
   CreateSellRequestInput,
   CreateTechnicalServiceRequestInput,
-  MovingRequest,
   Paginated,
   RequestListQuery,
   RespondToQuoteInput,
-  SellRequest,
+  ServiceRequest,
   ServiceRequestSummary,
-  TechnicalServiceRequest,
 } from '@ersinspot/shared';
 import { apiRequest } from '@/lib/api';
 
@@ -52,6 +54,24 @@ export function useMyRequests(filters: Partial<RequestListQuery> = {}) {
   });
 }
 
+/**
+ * Türden bağımsız talep detayı.
+ *
+ * Liste üç türü birlikte döndürür; detay da tek adresten okunur. Yanıt `kind`
+ * alanıyla ayrışan bir birleşimdir, arayüz hangi alanların mevcut olduğunu o
+ * alandan çıkarır.
+ */
+export function useRequest(requestId: string) {
+  return useQuery({
+    queryKey: servicingKeys.request(requestId),
+    queryFn: async () => {
+      const response = await apiRequest<{ request: ServiceRequest }>(`/api/requests/${requestId}`);
+      return response.request;
+    },
+    enabled: requestId !== '',
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Nakliye
 // ---------------------------------------------------------------------------
@@ -70,19 +90,6 @@ export function useCreateMovingRequest() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: servicingKeys.all });
     },
-  });
-}
-
-export function useMovingRequest(requestId: string) {
-  return useQuery({
-    queryKey: servicingKeys.request(requestId),
-    queryFn: async () => {
-      const response = await apiRequest<{ request: MovingRequest }>(
-        `/api/moving/requests/${requestId}`,
-      );
-      return response.request;
-    },
-    enabled: requestId !== '',
   });
 }
 
@@ -107,19 +114,6 @@ export function useCreateTechnicalServiceRequest() {
   });
 }
 
-export function useTechnicalServiceRequest(requestId: string) {
-  return useQuery({
-    queryKey: servicingKeys.request(requestId),
-    queryFn: async () => {
-      const response = await apiRequest<{ request: TechnicalServiceRequest }>(
-        `/api/technical-service/requests/${requestId}`,
-      );
-      return response.request;
-    },
-    enabled: requestId !== '',
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Ürün satma
 // ---------------------------------------------------------------------------
@@ -138,19 +132,6 @@ export function useCreateSellRequest() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: servicingKeys.all });
     },
-  });
-}
-
-export function useSellRequest(requestId: string) {
-  return useQuery({
-    queryKey: servicingKeys.request(requestId),
-    queryFn: async () => {
-      const response = await apiRequest<{ request: SellRequest }>(
-        `/api/sell-requests/${requestId}`,
-      );
-      return response.request;
-    },
-    enabled: requestId !== '',
   });
 }
 
