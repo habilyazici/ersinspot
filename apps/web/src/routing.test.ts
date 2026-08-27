@@ -26,11 +26,7 @@ const SRC = path.resolve(import.meta.dirname);
  *
  * Her biri planlanan bir sayfadır; yazıldığında bu listeden çıkarılır.
  */
-const PLANNED_PAGES = [
-  '/sss', // sıkça sorulan sorular
-  '/sifremi-unuttum', // şifre sıfırlama isteği
-  '/kullanim-kosullari', // kullanım koşulları metni
-] as const;
+const PLANNED_PAGES = [] as const;
 
 /** Kaynak ağacındaki tüm .ts/.tsx dosyaları (testler hariç). */
 function sourceFiles(dir: string): string[] {
