@@ -30,9 +30,21 @@ pnpm install
 cp .env.example .env      # değerleri doldurun
 pnpm db:up                # PostgreSQL'i ayağa kaldırır
 pnpm db:migrate           # şemayı uygular
+pnpm db:seed              # örnek veri: ürünler, SSS, blog, hesaplar
 
 pnpm dev                  # API ve arayüzü birlikte başlatır
 ```
+
+Tohumlama üç hesap oluşturur; üçünün şifresi de `gelistirme-sifresi-123`:
+
+| Rol      | E-posta                  |
+| -------- | ------------------------ |
+| Yönetici | `yonetici@ersinspot.com` |
+| Personel | `personel@ersinspot.com` |
+| Müşteri  | `musteri@ornek.com`      |
+
+Betik `NODE_ENV=production` iken çalışmayı reddeder ve tekrar çalıştırıldığında
+veri çoğaltmaz.
 
 ## Sık kullanılan komutlar
 

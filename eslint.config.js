@@ -116,7 +116,9 @@ export default tseslint.config(
       'apps/api/src/platform/observability/logger.ts',
       'apps/api/src/platform/db/migrate.ts',
       'apps/api/src/platform/db/migrate-test.ts',
-      'apps/api/src/platform/db/seed.ts',
+      // Tohumlama bileşim kökündedir: birden çok modüle dokunduğu için
+      // platform katmanında duramaz.
+      'apps/api/src/seed.ts',
     ],
     rules: { 'no-console': 'off' },
   },
