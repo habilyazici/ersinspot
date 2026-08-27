@@ -117,6 +117,25 @@ describe('Markdown görüntüleyici', () => {
     expect(container.querySelector('a')).toBeNull();
   });
 
+  it('gömülü kimlik bilgisi taşıyan adresi reddeder', () => {
+    /*
+      `https://kullanici:sifre@kotu-site.com` bağlantının nereye gittiğini
+      gizler; kullanıcı adı kısmı tanıdık bir alan adı gibi yazılarak kimlik
+      avında kullanılır.
+    */
+    const container = show('[banka](https://www.guvenli-banka.com@kotu-site.com)');
+
+    expect(container.querySelector('a')).toBeNull();
+  });
+
+  it('yol ve çapa bilgisini korur', () => {
+    const container = show('[bölüm](https://ornek.com/rehber?x=1#bolum-2)');
+
+    expect(container.querySelector('a')?.getAttribute('href')).toBe(
+      'https://ornek.com/rehber?x=1#bolum-2',
+    );
+  });
+
   it('https bağlantısını yeni sekmede ve rel korumasıyla açar', () => {
     const container = show('[site](https://ornek.com)');
     const anchor = container.querySelector('a');
