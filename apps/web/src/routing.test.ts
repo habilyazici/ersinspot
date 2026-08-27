@@ -33,7 +33,15 @@ const API_SRC = path.resolve(import.meta.dirname, '../../api/src');
  *
  * Her biri planlanan bir sayfadır; yazıldığında bu listeden çıkarılır.
  */
-const PLANNED_PAGES = [] as const;
+const PLANNED_PAGES = [
+  // Yönetim paneli yazılıyor; her sayfa tamamlandığında bu listeden çıkar.
+  '/yonetim/talepler', // talep listesi
+  '/yonetim/mesajlar', // iletişim mesajları
+  '/yonetim/urunler', // ürün yönetimi
+  '/yonetim/blog', // blog yönetimi
+  '/yonetim/sss', // SSS yönetimi
+  '/yonetim/ayarlar', // site ayarları
+] as const;
 
 /** Kaynak ağacındaki tüm .ts/.tsx dosyaları (testler hariç). */
 function sourceFiles(dir: string): string[] {
@@ -45,16 +53,96 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-/** App.tsx içindeki `path="..."` tanımları. */
+/**
+ * `element={...}` özniteliklerini kaynaktan çıkarır.
+ *
+ * Öznitelik kendi içinde `<RequireStaff>` gibi JSX taşır; `>` karakterine
+ * bakan bir düzenli ifade orada kırılır. Süslü parantezler sayılarak
+ * çıkarıldığında geriye yalnızca `<Route path="..." >` iskeleti kalır ve
+ * ayrıştırma önemsizleşir.
+ */
+function stripElementAttributes(source: string): string {
+  let result = '';
+  let index = 0;
+
+  while (index < source.length) {
+    const start = source.indexOf('element={', index);
+
+    if (start === -1) {
+      result += source.slice(index);
+      break;
+    }
+
+    result += source.slice(index, start);
+
+    let depth = 0;
+    let cursor = start + 'element='.length;
+
+    do {
+      const char = source[cursor];
+      if (char === '{') depth += 1;
+      else if (char === '}') depth -= 1;
+      cursor += 1;
+    } while (depth > 0 && cursor < source.length);
+
+    index = cursor;
+  }
+
+  return result;
+}
+
+/**
+ * App.tsx içindeki rota yolları, İÇ İÇE OLANLAR ÇÖZÜLMÜŞ hâlde.
+ *
+ * `<Route path="/yonetim">` altındaki `<Route path="siparisler">` gerçekte
+ * `/yonetim/siparisler` adresine karşılık gelir. Düz bir `path="..."` taraması
+ * bunu göremez ve tanımlı bir rotayı "yok" sayar.
+ */
 function definedRoutes(): string[] {
-  const app = readFileSync(path.join(SRC, 'App.tsx'), 'utf8');
-  return [...app.matchAll(/path="([^"]*)"/g)].map((match) => match[1] ?? '');
+  const source = stripElementAttributes(readFileSync(path.join(SRC, 'App.tsx'), 'utf8'));
+
+  const routes: string[] = [];
+  const parents: string[] = [];
+
+  for (const token of source.matchAll(/<Route\b([^>]*?)(\/?)>|<\/Route>/g)) {
+    if (token[0] === '</Route>') {
+      parents.pop();
+      continue;
+    }
+
+    const attributes = token[1] ?? '';
+    const selfClosing = token[2] === '/';
+    const prefix = parents.at(-1) ?? '';
+    const own = /path="([^"]*)"/.exec(attributes)?.[1];
+
+    if (own === undefined) {
+      // `<Route index />` — ebeveynin kendi adresi.
+      if (/\bindex\b/.test(attributes)) routes.push(prefix === '' ? '/' : prefix);
+      if (!selfClosing) parents.push(prefix);
+      continue;
+    }
+
+    const full = own.startsWith('/') ? own : `${prefix}/${own}`;
+    routes.push(full);
+    if (!selfClosing) parents.push(full);
+  }
+
+  return routes;
+}
+
+/**
+ * Bağlantıyı karşılaştırılabilir hâle getirir.
+ *
+ * Sorgu dizesi atılır (rota onu görmez) ve şablon değişkenleri (`${id}`)
+ * herhangi bir parça yerine geçen sabit bir simgeye çevrilir.
+ */
+function normalizeLink(link: string): string {
+  return (link.replace(/\$\{[^}]*\}/g, 'X').split('?')[0] ?? '').replace(/\/$/, '') || '/';
 }
 
 /** Bir adres tanımlı rotalardan biriyle eşleşiyor mu? */
 function isReachable(link: string, routes: readonly string[]): boolean {
-  // Şablon değişkenleri (`${id}`) herhangi bir parça yerine geçer.
-  const target = (link.replace(/\$\{[^}]*\}/g, 'X').split('?')[0] ?? '').replace(/\/$/, '') || '/';
+  const target = normalizeLink(link);
 
   return routes.some((route) => {
     if (route === '*') return false; // 404 yakalayıcı; ulaşılabilirlik saymaz
@@ -130,10 +218,21 @@ describe('Yönlendirme bütünlüğü', () => {
 
   it('her iç bağlantının tanımlı bir rotası vardır', () => {
     const routes = definedRoutes();
-    const planned = new Set<string>(PLANNED_PAGES);
+
+    /*
+      Planlanan bir sayfa ALT ADRESLERİNİ de kapsar: `/yonetim/talepler` henüz
+      yazılmadıysa `/yonetim/talepler/:id` de yazılmamış demektir. Aksi hâlde
+      liste her alt adres için ayrı satır taşımak zorunda kalırdı.
+    */
+    const isPlanned = (link: string): boolean => {
+      const target = normalizeLink(link);
+      return PLANNED_PAGES.some(
+        (planned) => target === planned || target.startsWith(`${planned}/`),
+      );
+    };
 
     const broken = internalLinks()
-      .filter(({ link }) => !isReachable(link, routes) && !planned.has(link))
+      .filter(({ link }) => !isReachable(link, routes) && !isPlanned(link))
       .map(({ link, file }) => `${link}  (${file})`);
 
     expect(broken).toEqual([]);

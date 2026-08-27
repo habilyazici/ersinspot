@@ -4,6 +4,7 @@
 
 export {
   orderingKeys,
+  useAdminOrders,
   useAddToCart,
   useCancelOrder,
   useCart,
@@ -14,6 +15,7 @@ export {
   useOrder,
   useOrderTracking,
   useRemoveFromCart,
+  useUpdateOrderStatus,
 } from './api.ts';
 
 export type { CreateOrderResult, PublicOrderStatus } from './api.ts';

@@ -14,7 +14,7 @@ import { queryClient, setSessionExpiredHandler } from '@/lib/api';
 import { AppErrorBoundary } from '@/components/layout/error-boundary.tsx';
 import { SiteLayout } from '@/components/layout/site-layout.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
-import { RequireAuth } from '@/features/auth';
+import { RequireAuth, RequireStaff } from '@/features/auth';
 
 // Vitrin sayfaları
 const HomePage = lazy(() => import('./routes/home.tsx'));
@@ -28,7 +28,12 @@ const LoginPage = lazy(() => import('./routes/login.tsx'));
 const RegisterPage = lazy(() => import('./routes/register.tsx'));
 
 // Hesap
+import { AdminLayout } from '@/components/layout/admin-layout.tsx';
+
 const AccountPage = lazy(() => import('./routes/account.tsx'));
+const AdminDashboardPage = lazy(() => import('./routes/admin/dashboard.tsx'));
+const AdminOrdersPage = lazy(() => import('./routes/admin/orders.tsx'));
+const AdminOrderDetailPage = lazy(() => import('./routes/admin/order-detail.tsx'));
 const BlogPage = lazy(() => import('./routes/blog.tsx'));
 const BlogDetailPage = lazy(() => import('./routes/blog-detail.tsx'));
 const CartPage = lazy(() => import('./routes/cart.tsx'));
@@ -176,6 +181,26 @@ export function App() {
                     </RequireAuth>
                   }
                 />
+
+                {/*
+                  Yönetim paneli.
+
+                  Yetki TEK YERDE kesilir: `RequireStaff` dış rotada durur, alt
+                  sayfalarda tekrar kontrol edilmez. İki yerde kontrol etmek,
+                  birinin unutulması hâlinde diğerine güvenmeye yol açar.
+                */}
+                <Route
+                  path="/yonetim"
+                  element={
+                    <RequireStaff>
+                      <AdminLayout />
+                    </RequireStaff>
+                  }
+                >
+                  <Route index element={<AdminDashboardPage />} />
+                  <Route path="siparisler" element={<AdminOrdersPage />} />
+                  <Route path="siparisler/:orderId" element={<AdminOrderDetailPage />} />
+                </Route>
 
                 <Route path="*" element={<NotFoundPage />} />
               </Route>
