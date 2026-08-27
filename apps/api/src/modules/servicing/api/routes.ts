@@ -95,6 +95,17 @@ const estimateInputSchema = z.object({
   needsAssembly: z.coerce.boolean(),
 });
 
+/**
+ * Nakliye fiyat tahmini.
+ *
+ * Tarayıcı uygulaması BU UCU KULLANMAZ: aynı hesabı paylaşılan
+ * `estimateMoving` fonksiyonuyla yerinde yapar, böylece her tuş vuruşunda ağ
+ * isteği gitmez. Hesap tek yerde tanımlı olduğu için iki taraf ayrışamaz.
+ *
+ * Uç yine de durur ve testlidir: tarayıcı dışından (mobil uygulama, üçüncü
+ * taraf) sorulabilmesi gerekir ve sunucunun kendi kaydettiği tahmin de aynı
+ * fonksiyondan gelir. Kullanılmıyor diye ölü kod sayılmamalıdır.
+ */
 servicingRoutes.get(
   '/moving/estimate',
   rateLimit(60, 15 * 60 * 1000, 'nakliye-tahmin'),
@@ -118,16 +129,6 @@ servicingRoutes.post(
   },
 );
 
-servicingRoutes.get(
-  '/moving/requests/:id',
-  requireAuth,
-  validateParams(idParamSchema),
-  async (c) => {
-    const { id } = params(c, idParamSchema);
-    return c.json({ request: await movingService.getMovingRequest(id, currentUser(c)) });
-  },
-);
-
 // ---------------------------------------------------------------------------
 // Teknik servis
 // ---------------------------------------------------------------------------
@@ -142,18 +143,6 @@ servicingRoutes.post(
     const input = body(c, createTechnicalServiceRequestSchema);
     const result = await technicalService.createTechnicalServiceRequest(currentUser(c).id, input);
     return c.json({ request: result }, 201);
-  },
-);
-
-servicingRoutes.get(
-  '/technical-service/requests/:id',
-  requireAuth,
-  validateParams(idParamSchema),
-  async (c) => {
-    const { id } = params(c, idParamSchema);
-    return c.json({
-      request: await technicalService.getTechnicalServiceRequest(id, currentUser(c)),
-    });
   },
 );
 
@@ -174,11 +163,6 @@ servicingRoutes.post(
   },
 );
 
-servicingRoutes.get('/sell-requests/:id', requireAuth, validateParams(idParamSchema), async (c) => {
-  const { id } = params(c, idParamSchema);
-  return c.json({ request: await sellRequestService.getSellRequest(id, currentUser(c)) });
-});
-
 // ---------------------------------------------------------------------------
 // Ortak müşteri işlemleri
 // ---------------------------------------------------------------------------
@@ -188,6 +172,12 @@ servicingRoutes.get('/sell-requests/:id', requireAuth, validateParams(idParamSch
  *
  * Liste (`GET /api/requests`) üç türü birlikte döndürür; detay da tek adresten
  * okunur. Yanıt `kind` alanıyla ayrışan bir birleşimdir.
+ *
+ * Önceden tür başına ayrı üç uç vardı (`/moving/requests/:id` gibi). Bu uç
+ * yazıldıktan sonra üçü de kullanılmaz hâle geldi ve kaldırıldılar: aynı işi
+ * yapan dört adres, birinde yapılan bir düzeltmenin diğerlerine
+ * uygulanmaması demektir. Sahiplik denetimi ve veri okuma zaten ortak
+ * servislerdedir; kaldırılan yalnızca yönlendirme yüzeyidir.
  */
 servicingRoutes.get('/requests/:id', requireAuth, validateParams(idParamSchema), async (c) => {
   const { id } = params(c, idParamSchema);

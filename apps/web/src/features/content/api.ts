@@ -31,6 +31,7 @@ export const contentKeys = {
   blog: (filters: Partial<BlogListQuery>) => ['content', 'blog', filters] as const,
   post: (slug: string) => ['content', 'post', slug] as const,
   faqs: ['content', 'faqs'] as const,
+  blogTags: ['content', 'blog', 'tags'] as const,
 };
 
 /**
@@ -93,6 +94,25 @@ export function useSubmitContactMessage() {
   return useMutation({
     mutationFn: (input: CreateContactMessageInput) =>
       apiRequest<{ success: boolean }>('/api/contact', { method: 'POST', body: input }),
+  });
+}
+
+/**
+ * Kullanılan blog etiketleri, yazı sayısıyla birlikte.
+ *
+ * Yalnızca en az bir yayınlanmış yazıya bağlı etiketler döner; boş bir etikete
+ * tıklamak kullanıcıyı boş bir listeye götürürdü.
+ */
+export function useBlogTags() {
+  return useQuery({
+    queryKey: contentKeys.blogTags,
+    queryFn: async () => {
+      const response = await apiRequest<{
+        tags: { name: string; slug: string; postCount: number }[];
+      }>('/api/blog/tags');
+      return response.tags;
+    },
+    staleTime: 10 * 60_000,
   });
 }
 

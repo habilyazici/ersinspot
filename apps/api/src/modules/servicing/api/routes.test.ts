@@ -384,10 +384,10 @@ describe('nakliye talebi', () => {
     expect(response.status).toBe(400);
   });
 
-  it('detayı iki adresle birlikte döner', async () => {
+  it('detayı iki adresi ve erişim bilgisini birlikte döndürür', async () => {
     const requestId = await createMoving();
 
-    const response = await request(`/api/moving/requests/${requestId}`, {
+    const response = await request(`/api/requests/${requestId}`, {
       cookie: customerCookie,
     });
 
@@ -665,7 +665,7 @@ describe('teklif ve randevu akışı', () => {
     await quote(requestId, 800_000);
     await quote(requestId, 900_000);
 
-    const response = await request(`/api/moving/requests/${requestId}`, {
+    const response = await request(`/api/requests/${requestId}`, {
       cookie: customerCookie,
     });
     const payload = (await response.json()) as { request: { quote: { amount: number } } };
@@ -728,7 +728,7 @@ describe('erişim yetkisi', () => {
     const other = await createTestUser({ email: 'diger@ornek.com', emailVerified: true });
     const otherCookie = await loginAs(other.email, other.password);
 
-    const response = await request(`/api/moving/requests/${requestId}`, { cookie: otherCookie });
+    const response = await request(`/api/requests/${requestId}`, { cookie: otherCookie });
     expect(response.status).toBe(403);
   });
 
@@ -741,7 +741,7 @@ describe('erişim yetkisi', () => {
       body: JSON.stringify({ note: 'Müşteri pazarlık yapıyor, gizli not' }),
     });
 
-    const response = await request(`/api/moving/requests/${requestId}`, {
+    const response = await request(`/api/requests/${requestId}`, {
       cookie: customerCookie,
     });
     const text = await response.text();
@@ -758,7 +758,7 @@ describe('erişim yetkisi', () => {
       body: JSON.stringify({ note: 'Müşteri pazarlık yapıyor' }),
     });
 
-    const response = await request(`/api/moving/requests/${requestId}`, { cookie: staffCookie });
+    const response = await request(`/api/requests/${requestId}`, { cookie: staffCookie });
     const text = await response.text();
 
     expect(text).toContain('pazarlık');
