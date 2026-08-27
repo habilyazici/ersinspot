@@ -54,8 +54,18 @@ export function SiteFooter() {
               </Link>
             </li>
             <li>
+              <Link to="/blog" className="hover:text-brand-orange-600">
+                Blog
+              </Link>
+            </li>
+            <li>
               <Link to="/sss" className="hover:text-brand-orange-600">
                 Sıkça Sorulan Sorular
+              </Link>
+            </li>
+            <li>
+              <Link to="/kullanim-kosullari" className="hover:text-brand-orange-600">
+                Kullanım Koşulları
               </Link>
             </li>
           </ul>

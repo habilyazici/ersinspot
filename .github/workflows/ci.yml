@@ -115,6 +115,17 @@ jobs:
         # Test betiği migration'ı kendisi uygular.
         run: pnpm --filter @ersinspot/api test
 
+      # Tohumlama, kurulum belgesinin bir parçasıdır: README onu çalıştırmayı
+      # söyler. Denetlenmezse sessizce çürür — nitekim bir süre betiğin kendisi
+      # hiç yoktu. İki kez çalıştırılır: ikincisi veri çoğaltmamalıdır.
+      - name: Tohumlama çalışıyor mu
+        run: |
+          pnpm db:migrate
+          pnpm db:seed
+          pnpm db:seed
+        env:
+          STORAGE_LOCAL_DIR: ./.storage-ci
+
   derleme:
     name: Üretim derlemesi
     runs-on: ubuntu-latest
