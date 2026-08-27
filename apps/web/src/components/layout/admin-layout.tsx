@@ -8,6 +8,10 @@
  * Erişim `RequireStaff` ile kesilir (bkz. `App.tsx`); burada ayrıca bir yetki
  * kontrolü YAPILMAZ. İki yerde kontrol etmek, birinin unutulması hâlinde
  * diğerine güvenmeye yol açar — kontrol tek yerde, rota tanımındadır.
+ *
+ * SAYFA KAPSAYICISINI BU DÜZEN SAĞLAR. Panel sayfaları kendi
+ * `PageContainer`'ını yazmaz; yazsalardı iki kapsayıcı iç içe geçer ve dolgu
+ * iki katına çıkardı.
  */
 
 import type { LucideIcon } from 'lucide-react';
@@ -22,6 +26,7 @@ import {
   Package,
   ShoppingBag,
 } from 'lucide-react';
+import { PageContainer } from '@/components/ui/page.tsx';
 import { cn } from '@/lib/utils.ts';
 import { useAuth } from '@/features/auth';
 import { useUnreadMessageCount } from '@/features/content';
@@ -52,7 +57,7 @@ export function AdminLayout() {
   const visibleLinks = LINKS.filter((link) => link.adminOnly !== true || user?.role === 'admin');
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[15rem_1fr] lg:px-8">
+    <PageContainer width="wide" className="grid gap-6 lg:grid-cols-[15rem_1fr]">
       <nav aria-label="Yönetim menüsü" className="lg:sticky lg:top-20 lg:h-fit">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Yönetim</p>
 
@@ -90,6 +95,6 @@ export function AdminLayout() {
       <div className="min-w-0">
         <Outlet />
       </div>
-    </div>
+    </PageContainer>
   );
 }

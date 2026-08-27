@@ -18,10 +18,22 @@ import { describe, expect, it } from 'vitest';
 const ROUTES = path.resolve(import.meta.dirname, '../../routes');
 const UI = path.resolve(import.meta.dirname);
 
-function pageFiles(): { name: string; source: string }[] {
-  return readdirSync(ROUTES)
-    .filter((name) => name.endsWith('.tsx') && !name.includes('.test.'))
-    .map((name) => ({ name, source: readFileSync(path.join(ROUTES, name), 'utf8') }));
+/**
+ * Tüm sayfa dosyaları, ALT DİZİNLER DAHİL.
+ *
+ * İlk sürüm yalnızca `routes/` kökünü tarıyordu; yönetim paneli
+ * `routes/admin/` altına yazılınca on bir sayfa sessizce denetim dışı kaldı.
+ * Bir tutarlılık testinin kapsamı daralırsa kendisi de bir yanılsama üretir.
+ */
+function pageFiles(dir: string = ROUTES, prefix = ''): { name: string; source: string }[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) return pageFiles(full, `${prefix}${entry.name}/`);
+    if (!entry.name.endsWith('.tsx') || entry.name.includes('.test.')) return [];
+
+    return [{ name: `${prefix}${entry.name}`, source: readFileSync(full, 'utf8') }];
+  });
 }
 
 describe('Arayüz tutarlılığı', () => {
@@ -34,9 +46,30 @@ describe('Arayüz tutarlılığı', () => {
   });
 
   it('her sayfa PageContainer kullanır', () => {
+    /*
+      Yönetim paneli sayfaları istisnadır: kapsayıcıyı `AdminLayout` sağlar.
+      Her sayfa ayrıca bir tane yazsaydı iki kapsayıcı iç içe geçer ve dolgu
+      iki katına çıkardı. Düzenin kendisi bir sonraki testte denetlenir.
+    */
     const offenders = pageFiles()
+      .filter(({ name }) => !name.startsWith('admin/'))
       .filter(({ source }) => !source.includes('<PageContainer'))
       .map(({ name }) => name);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('düzen bileşenleri de kendi kapsayıcı ölçüsünü yazmaz', () => {
+    /*
+      Kural yalnızca sayfalara uygulansaydı, ölçüyü bir düzene taşımak onu
+      denetimden kaçırmanın yolu olurdu — nitekim yönetim düzeni bir süre
+      kendi `max-w-7xl` değerini yazdı.
+    */
+    const LAYOUTS = path.resolve(import.meta.dirname, '../layout');
+
+    const offenders = readdirSync(LAYOUTS)
+      .filter((name) => name.endsWith('.tsx') && !name.includes('.test.'))
+      .filter((name) => /mx-auto\s+max-w-/.test(readFileSync(path.join(LAYOUTS, name), 'utf8')));
 
     expect(offenders).toEqual([]);
   });
