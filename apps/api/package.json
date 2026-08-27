@@ -1,0 +1,35 @@
+{
+  "name": "@ersinspot/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=../../.env src/server.ts",
+    "start": "node --env-file-if-exists=../../.env --import tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "pnpm db:migrate:test && vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx --env-file-if-exists=../../.env src/platform/db/migrate.ts",
+    "db:seed": "tsx --env-file-if-exists=../../.env src/seed.ts",
+    "db:studio": "drizzle-kit studio",
+    "db:migrate:test": "tsx src/platform/db/migrate-test.ts",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ersinspot/shared": "workspace:*",
+    "@hono/node-server": "^1.13.8",
+    "@node-rs/argon2": "^2.0.2",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.6.16",
+    "postgres": "^3.4.5",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.7"
+  }
+}

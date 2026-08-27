@@ -1,0 +1,153 @@
+/**
+ * Tasarım belirteçleri ve temel stiller.
+ *
+ * Eski kod tabanında `index.css` önceden derlenmiş 9.923 satırlık bir Tailwind
+ * çıktısıydı ve Tailwind kurulu değildi: kodda yeni bir sınıf yazıldığında
+ * derlenmiş dosyada karşılığı olmadığı için hiçbir şey olmuyordu. Asıl kaynak
+ * dosya (`styles/globals.css`) ise hiçbir yerden import edilmiyordu.
+ *
+ * Burada Tailwind v4 kaynak olarak kullanılır; belirteçler `@theme` içinde
+ * tanımlanır ve doğrudan yardımcı sınıf üretirler (`bg-brand-orange-500` gibi).
+ */
+
+@import 'tailwindcss';
+
+@theme {
+  /* ------------------------------------------------------------------
+   * Marka renkleri
+   *
+   * Eski siteden korunuyor: turuncu vurgu, lacivert gövde. Turuncu eylem
+   * çağrılarında ve fiyat vurgularında, lacivert başlık ve gezinmede kullanılır.
+   * ------------------------------------------------------------------ */
+
+  --color-brand-orange-50: #fff7ed;
+  --color-brand-orange-100: #ffedd5;
+  --color-brand-orange-200: #fed7aa;
+  --color-brand-orange-300: #fdba74;
+  --color-brand-orange-400: #fb923c;
+  --color-brand-orange-500: #f97316;
+  --color-brand-orange-600: #ea580c;
+  --color-brand-orange-700: #c2410c;
+  --color-brand-orange-800: #9a3412;
+  --color-brand-orange-900: #7c2d12;
+
+  --color-brand-navy-50: #eff6ff;
+  --color-brand-navy-100: #dbeafe;
+  --color-brand-navy-200: #bfdbfe;
+  --color-brand-navy-300: #93c5fd;
+  --color-brand-navy-400: #60a5fa;
+  --color-brand-navy-500: #3b82f6;
+  --color-brand-navy-600: #2563eb;
+  --color-brand-navy-700: #1e40af;
+  --color-brand-navy-800: #1e3a8a;
+  --color-brand-navy-900: #172554;
+
+  /* İkincil tonlar: sakin bölümler ve durum rozetleri için. */
+  --color-brand-teal-50: #f2f7f6;
+  --color-brand-teal-100: #e3eeec;
+  --color-brand-teal-500: #7fa99b;
+  --color-brand-teal-600: #66877c;
+  --color-brand-teal-700: #4c655d;
+
+  --color-brand-cream-50: #fdfcfb;
+  --color-brand-cream-100: #fbf9f6;
+  --color-brand-cream-200: #f8f5ef;
+  --color-brand-cream-500: #f1ede3;
+
+  /* ------------------------------------------------------------------
+   * Durum renkleri
+   *
+   * Marka renginden AYRIDIR. Turuncu bir uyarı değil, bir vurgudur; sipariş
+   * durumu için ayrı bir palet gerekir, aksi halde "hazırlanıyor" ile
+   * "sepete ekle" aynı görünürdü.
+   * ------------------------------------------------------------------ */
+
+  --color-state-pending-bg: #fef3c7;
+  --color-state-pending-fg: #92400e;
+  --color-state-progress-bg: #dbeafe;
+  --color-state-progress-fg: #1e40af;
+  --color-state-success-bg: #d1fae5;
+  --color-state-success-fg: #065f46;
+  --color-state-danger-bg: #fee2e2;
+  --color-state-danger-fg: #991b1b;
+  --color-state-neutral-bg: #f1f5f9;
+  --color-state-neutral-fg: #475569;
+
+  /* ------------------------------------------------------------------
+   * Tipografi
+   *
+   * Türkçe metinde okunabilirlik için sistem yazı tipi yığını kullanılır;
+   * harici yazı tipi yüklenmez, bu ilk açılışı hızlandırır.
+   * ------------------------------------------------------------------ */
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif;
+
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Yumuşak gölgeler: kart tabanlı düzende derinlik için. */
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.08), 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-card-hover: 0 10px 20px rgb(0 0 0 / 0.08), 0 3px 6px rgb(0 0 0 / 0.05);
+}
+
+/* --------------------------------------------------------------------
+ * Temel stiller
+ * -------------------------------------------------------------------- */
+
+@layer base {
+  html {
+    /* Sayfa kaydırıcısı her zaman görünsün: sayfa geçişlerinde içerik kaymaz. */
+    overflow-y: scroll;
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+    font-family: var(--font-sans);
+  }
+
+  /*
+   * Klavye odağı daima görünür.
+   *
+   * Eski kod tabanında odak halkası birçok yerde kaldırılmıştı ve klavyeyle
+   * gezinmek imkânsızdı. `:focus-visible` yalnızca klavye kullanımında
+   * göründüğü için fare kullanıcısını rahatsız etmez.
+   */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-orange-500;
+  }
+
+  /* Türkçe metinde uzun kelimeler taşmasın. */
+  p,
+  li,
+  dd {
+    @apply break-words;
+  }
+}
+
+@layer components {
+  /**
+   * Ekran okuyucuya görünür, gözle görünmez.
+   *
+   * "İçeriğe atla" bağlantısı ve yalnızca ikonla gösterilen düğmelerin
+   * etiketleri için.
+   */
+  .sr-only-focusable:not(:focus):not(:focus-within) {
+    @apply sr-only;
+  }
+}

@@ -1,0 +1,23 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # Küçük sürüm güncellemelerini tek PR'da topla — gürültüyü azaltır.
+      kucuk-guncellemeler:
+        update-types: ['minor', 'patch']
+    labels:
+      - bağımlılık
+
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: monthly
+    labels:
+      - bağımlılık
+      - ci

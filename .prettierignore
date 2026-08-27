@@ -1,0 +1,20 @@
+# Prettier'ın denetlemeyeceği yollar.
+#
+# Biçim denetimi CI'da zorunludur (`pnpm check` ve `pnpm format:check`); bu
+# yüzden burada yalnızca ÜRETİLMİŞ dosyalar yer alır. Elle yazılan hiçbir
+# dosya bu listeye eklenmez.
+
+# Derleme çıktısı.
+dist/
+build/
+coverage/
+
+# Eski kod tabanı: yalnızca başvuru için tutulur, depoya girmez.
+legacy/
+
+# Drizzle'ın ürettiği migration üstverisi.
+#
+# `drizzle-kit generate` bu dosyaları kendi biçiminde yazar. Biçim denetimine
+# dahil olsalardı her şema değişikliğinden sonra ayrıca `pnpm format`
+# çalıştırmak gerekirdi; unutulduğunda CI biçim adımında düşerdi.
+apps/api/src/platform/db/migrations/meta/
