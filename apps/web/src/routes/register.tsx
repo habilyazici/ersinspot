@@ -6,6 +6,7 @@ import { ApiError, registerSchema } from '@ersinspot/shared';
 import type { RegisterInput } from '@ersinspot/shared';
 
 type RegisterFormValues = RegisterInput;
+import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
 import { Button } from '@/components/ui/button.tsx';
 import { useAuth, useRegister } from '@/features/auth';
 
@@ -69,14 +70,18 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md px-4 py-12 sm:px-6">
-      <h1 className="text-2xl font-bold text-slate-900">Kayıt Ol</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        Zaten hesabınız var mı?{' '}
-        <Link to="/giris" className="font-medium text-brand-navy-700 hover:underline">
-          Giriş yapın
-        </Link>
-      </p>
+    <PageContainer width="narrow">
+      <PageHeader
+        title="Kayıt Ol"
+        description={
+          <>
+            Zaten hesabınız var mı?{' '}
+            <Link to="/giris" className="font-medium text-brand-navy-700 hover:underline">
+              Giriş yapın
+            </Link>
+          </>
+        }
+      />
 
       <form onSubmit={(event) => void handleSubmit(onSubmit)(event)} className="mt-8 space-y-4">
         {errors.root === undefined ? null : (
@@ -163,6 +168,6 @@ export default function RegisterPage() {
           Hesap Oluştur
         </Button>
       </form>
-    </div>
+    </PageContainer>
   );
 }

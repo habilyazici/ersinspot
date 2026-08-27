@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AlertTriangle, ImageOff, ShoppingCart, Trash2 } from 'lucide-react';
 import { ApiError, PRODUCT_CONDITION_LABELS } from '@ersinspot/shared';
+import { Card } from '@/components/ui/card.tsx';
+import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
 import { Button } from '@/components/ui/button.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
@@ -27,7 +29,7 @@ export default function CartPage() {
 
   if (cart.items.length === 0) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-16">
+      <PageContainer width="prose">
         <EmptyState
           icon={ShoppingCart}
           title="Sepetiniz boş"
@@ -38,7 +40,7 @@ export default function CartPage() {
             </Button>
           }
         />
-      </div>
+      </PageContainer>
     );
   }
 
@@ -54,8 +56,11 @@ export default function CartPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold text-slate-900">Sepetim</h1>
+    <PageContainer width="form">
+      <PageHeader
+        title="Sepetim"
+        description="Sipariş vermeden önce ürünlerinizi ve adetlerini gözden geçirin."
+      />
 
       {cart.hasUnavailableItems ? (
         <div
@@ -73,10 +78,7 @@ export default function CartPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem]">
         <ul className="space-y-3">
           {cart.items.map((item) => (
-            <li
-              key={item.productId}
-              className="flex gap-4 rounded-xl border border-slate-200 bg-white p-4"
-            >
+            <Card as="li" key={item.productId} className="flex gap-4">
               <div className="size-20 shrink-0 overflow-hidden rounded-lg bg-slate-100">
                 {item.coverImageUrl === null ? (
                   <div className="flex h-full items-center justify-center">
@@ -112,11 +114,11 @@ export default function CartPage() {
               >
                 <Trash2 aria-hidden="true" />
               </Button>
-            </li>
+            </Card>
           ))}
         </ul>
 
-        <aside className="h-fit rounded-xl border border-slate-200 bg-white p-5">
+        <Card as="aside" padding="md" className="h-fit">
           <h2 className="font-semibold text-slate-900">Sipariş Özeti</h2>
 
           <dl className="mt-4 space-y-2 text-sm">
@@ -139,8 +141,8 @@ export default function CartPage() {
             Teslimat ücreti ilçenize göre bir sonraki adımda hesaplanır. Buca içi teslimat
             ücretsizdir.
           </p>
-        </aside>
+        </Card>
       </div>
-    </div>
+    </PageContainer>
   );
 }

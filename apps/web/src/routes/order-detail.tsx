@@ -11,9 +11,9 @@
  */
 
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, ImageOff, MapPin, Package, Store, Truck } from 'lucide-react';
+import { ImageOff, MapPin, Package, ShoppingBag, Store, Truck } from 'lucide-react';
 import {
   ApiError,
   CUSTOMER_CANCELLABLE_ORDER_STATUSES,
@@ -24,6 +24,8 @@ import {
 } from '@ersinspot/shared';
 import type { OrderStatus } from '@ersinspot/shared';
 import { Button } from '@/components/ui/button.tsx';
+import { Card, DetailList, Timeline } from '@/components/ui/card.tsx';
+import { PageContainer, PageHeader, Section } from '@/components/ui/page.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { TextAreaField } from '@/components/ui/form-field.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
@@ -35,7 +37,7 @@ import {
   formatPrice,
   formatTimeSlot,
 } from '@/lib/format.ts';
-import { useCancelOrder, useOrder } from '@/features/ordering';
+import { OrderTotals, useCancelOrder, useOrder } from '@/features/ordering';
 
 /** Müşteri bu siparişi kendisi iptal edebilir mi? Kural sunucuyla ortak. */
 function isCancellable(status: OrderStatus): boolean {
@@ -44,7 +46,6 @@ function isCancellable(status: OrderStatus): boolean {
 
 export default function OrderDetailPage() {
   const { orderId = '' } = useParams<{ orderId: string }>();
-  const navigate = useNavigate();
   const { data: order, isLoading, isError, error, refetch } = useOrder(orderId);
   const cancelOrder = useCancelOrder();
 
@@ -55,9 +56,9 @@ export default function OrderDetailPage() {
 
   if (isError || order === undefined) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-16">
+      <PageContainer width="prose">
         <ErrorState error={error} onRetry={() => void refetch()} />
-      </div>
+      </PageContainer>
     );
   }
 
@@ -84,39 +85,27 @@ export default function OrderDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-      <button
-        type="button"
-        onClick={() => void navigate('/hesabim/siparislerim')}
-        className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900"
-      >
-        <ArrowLeft className="size-4" aria-hidden="true" />
-        Siparişlerim
-      </button>
-
-      {/* Başlık */}
-      <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Sipariş Detayı</h1>
-          <p className="mt-1 font-mono text-sm text-slate-500">{order.referenceNumber}</p>
-          <p className="mt-0.5 text-sm text-slate-500">{formatDate(order.createdAt)}</p>
-        </div>
-
-        <StatusBadge meta={statusMeta} withDescription />
-      </div>
+    <PageContainer>
+      <PageHeader
+        backTo={{ to: '/hesabim/siparislerim', label: 'Siparişlerim' }}
+        title="Sipariş Detayı"
+        meta={
+          <>
+            <span className="font-mono">{order.referenceNumber}</span>
+            <span aria-hidden="true">·</span>
+            <span>{formatDate(order.createdAt)}</span>
+          </>
+        }
+        aside={<StatusBadge meta={statusMeta} withDescription />}
+      />
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_18rem]">
         <div className="space-y-8">
           {/* Kalemler */}
-          <section>
-            <h2 className="text-sm font-semibold text-slate-900">Ürünler</h2>
-
-            <ul className="mt-3 space-y-3">
+          <Section title="Ürünler" icon={ShoppingBag}>
+            <ul className="space-y-3">
               {order.items.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex gap-4 rounded-xl border border-slate-200 bg-white p-4"
-                >
+                <Card as="li" key={item.id} className="flex gap-4">
                   <div className="size-16 shrink-0 overflow-hidden rounded-lg bg-slate-100">
                     {item.imageUrlSnapshot === null ? (
                       <div className="flex h-full items-center justify-center">
@@ -150,129 +139,70 @@ export default function OrderDetailPage() {
                   <p className="shrink-0 self-center font-semibold text-slate-900">
                     {formatPrice(item.lineTotal)}
                   </p>
-                </li>
+                </Card>
               ))}
             </ul>
-          </section>
+          </Section>
 
-          {/* Teslimat */}
-          <section>
-            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-              {isPickup ? (
-                <Store className="size-4" aria-hidden="true" />
-              ) : (
-                <Truck className="size-4" aria-hidden="true" />
-              )}
-              {DELIVERY_METHOD_LABELS[order.deliveryMethod].label}
-            </h2>
+          <Section
+            title={DELIVERY_METHOD_LABELS[order.deliveryMethod].label}
+            icon={isPickup ? Store : Truck}
+          >
+            <Card>
+              <DetailList
+                rows={[
+                  order.deliveryAddress !== null && {
+                    term: 'Adres',
+                    value: (
+                      <span className="flex gap-2">
+                        <MapPin
+                          className="mt-0.5 size-4 shrink-0 text-slate-400"
+                          aria-hidden="true"
+                        />
+                        {formatAddress(order.deliveryAddress)}
+                      </span>
+                    ),
+                    stacked: true,
+                  },
+                  {
+                    term: isPickup ? 'Alım günü' : 'Teslimat günü',
+                    value: order.deliveryDate === null ? '—' : formatDate(order.deliveryDate),
+                  },
+                  { term: 'Saat aralığı', value: formatTimeSlot(order.deliveryTimeSlot) },
+                  {
+                    term: 'İletişim',
+                    value: `${order.contactName} · ${order.contactPhone}`,
+                  },
+                  {
+                    term: 'Ödeme',
+                    value: PAYMENT_METHOD_LABELS[order.paymentMethod].label,
+                  },
+                  order.note !== null && { term: 'Notunuz', value: order.note, stacked: true },
+                ]}
+              />
+            </Card>
+          </Section>
 
-            <dl className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-white p-4 text-sm">
-              {order.deliveryAddress === null ? null : (
-                <div className="flex gap-2">
-                  <MapPin className="mt-0.5 size-4 shrink-0 text-slate-400" aria-hidden="true" />
-                  <div>
-                    <dt className="sr-only">Adres</dt>
-                    <dd className="text-slate-700">{formatAddress(order.deliveryAddress)}</dd>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-between gap-4">
-                <dt className="text-slate-600">{isPickup ? 'Alım günü' : 'Teslimat günü'}</dt>
-                <dd className="text-right font-medium text-slate-900">
-                  {order.deliveryDate === null ? '—' : formatDate(order.deliveryDate)}
-                </dd>
-              </div>
-
-              <div className="flex justify-between gap-4">
-                <dt className="text-slate-600">Saat aralığı</dt>
-                <dd className="text-right font-medium text-slate-900">
-                  {formatTimeSlot(order.deliveryTimeSlot)}
-                </dd>
-              </div>
-
-              <div className="flex justify-between gap-4">
-                <dt className="text-slate-600">İletişim</dt>
-                <dd className="text-right font-medium text-slate-900">
-                  {order.contactName} · {order.contactPhone}
-                </dd>
-              </div>
-
-              <div className="flex justify-between gap-4">
-                <dt className="text-slate-600">Ödeme</dt>
-                <dd className="text-right font-medium text-slate-900">
-                  {PAYMENT_METHOD_LABELS[order.paymentMethod].label}
-                </dd>
-              </div>
-
-              {order.note === null ? null : (
-                <div className="border-t border-slate-100 pt-2">
-                  <dt className="text-slate-600">Notunuz</dt>
-                  <dd className="mt-0.5 text-slate-700">{order.note}</dd>
-                </div>
-              )}
-            </dl>
-          </section>
-
-          {/* Durum geçmişi */}
-          <section>
-            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-              <Package className="size-4" aria-hidden="true" />
-              Sipariş Geçmişi
-            </h2>
-
-            <ol className="mt-3 space-y-4 border-l-2 border-slate-200 pl-5">
-              {order.timeline.map((event, index) => (
-                <li key={`${event.status}-${event.occurredAt}`} className="relative">
-                  <span
-                    className={
-                      // Son olay güncel durumdur; vurgulanır.
-                      index === order.timeline.length - 1
-                        ? 'absolute -left-[27px] top-1 size-3 rounded-full bg-brand-orange-500 ring-4 ring-brand-orange-100'
-                        : 'absolute -left-[25px] top-1.5 size-2 rounded-full bg-slate-300'
-                    }
-                    aria-hidden="true"
-                  />
-
-                  <p className="text-sm font-medium text-slate-900">
-                    {ORDER_STATUS_LABELS[event.status].label}
-                  </p>
-                  <p className="text-xs text-slate-500">{formatDateTime(event.occurredAt)}</p>
-                  {event.note === null ? null : (
-                    <p className="mt-1 text-sm text-slate-600">{event.note}</p>
-                  )}
-                </li>
-              ))}
-            </ol>
-          </section>
+          <Section title="Sipariş Geçmişi" icon={Package}>
+            <Timeline
+              formatTime={formatDateTime}
+              events={order.timeline.map((event) => ({
+                label: ORDER_STATUS_LABELS[event.status].label,
+                occurredAt: event.occurredAt,
+                note: event.note,
+              }))}
+            />
+          </Section>
         </div>
 
-        {/* Özet */}
-        <aside className="h-fit space-y-4 rounded-xl border border-slate-200 bg-white p-5 lg:sticky lg:top-20">
+        <Card padding="md" sticky className="space-y-4">
           <h2 className="font-semibold text-slate-900">Tutar</h2>
 
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-slate-600">Ara toplam</dt>
-              <dd className="font-medium">{formatPrice(order.subtotal)}</dd>
-            </div>
-
-            <div className="flex justify-between">
-              <dt className="text-slate-600">Teslimat</dt>
-              <dd className="font-medium">
-                {order.deliveryFee === 0 ? (
-                  <span className="text-brand-teal-700">Ücretsiz</span>
-                ) : (
-                  formatPrice(order.deliveryFee)
-                )}
-              </dd>
-            </div>
-
-            <div className="flex justify-between border-t border-slate-200 pt-2 text-base">
-              <dt className="font-semibold text-slate-900">Toplam</dt>
-              <dd className="font-bold text-brand-orange-600">{formatPrice(order.total)}</dd>
-            </div>
-          </dl>
+          <OrderTotals
+            subtotal={order.subtotal}
+            deliveryFee={order.deliveryFee}
+            total={order.total}
+          />
 
           {/*
             İptal yalnızca hazırlığa geçilmeden önce mümkün. Aynı kural sunucuda
@@ -323,8 +253,8 @@ export default function OrderDetailPage() {
               </div>
             )
           ) : null}
-        </aside>
+        </Card>
       </div>
-    </div>
+    </PageContainer>
   );
 }

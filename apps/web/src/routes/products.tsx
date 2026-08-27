@@ -7,6 +7,7 @@ import {
   PRODUCT_SORT_OPTIONS,
 } from '@ersinspot/shared';
 import type { ProductCondition, ProductSort } from '@ersinspot/shared';
+import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
 import { Button } from '@/components/ui/button.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
@@ -49,13 +50,12 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">İkinci El Ürünler</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Kontrol edilmiş, temiz ikinci el beyaz eşya ve elektronik.
-        </p>
-      </header>
+    <PageContainer width="wide">
+      <PageHeader
+        className="mb-8"
+        title="İkinci El Ürünler"
+        description="Kontrol edilmiş, temiz ikinci el beyaz eşya ve elektronik."
+      />
 
       <div className="grid gap-6 lg:grid-cols-[16rem_1fr]">
         {/* Filtreler */}
@@ -228,6 +228,6 @@ export default function ProductsPage() {
           )}
         </section>
       </div>
-    </div>
+    </PageContainer>
   );
 }

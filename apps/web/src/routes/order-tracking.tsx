@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { PackageSearch } from 'lucide-react';
 import { ORDER_STATUS_LABELS } from '@ersinspot/shared';
+import { Card } from '@/components/ui/card.tsx';
+import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
 import { Button } from '@/components/ui/button.tsx';
 import { StatusBadge } from '@/components/ui/status-badge.tsx';
 import { formatDate, formatDateTime } from '@/lib/format.ts';
@@ -29,14 +31,13 @@ export default function OrderTrackingPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
-      <header className="text-center">
-        <PackageSearch className="mx-auto size-10 text-brand-orange-500" aria-hidden="true" />
-        <h1 className="mt-3 text-2xl font-bold text-slate-900">Sipariş Takibi</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          Sipariş onayında size ilettiğimiz takip numarasını girin.
-        </p>
-      </header>
+    <PageContainer width="prose">
+      <PageHeader
+        align="center"
+        icon={PackageSearch}
+        title="Sipariş Takibi"
+        description="Sipariş onayında size ilettiğimiz takip numarasını girin."
+      />
 
       <form onSubmit={handleSubmit} className="mt-8 flex gap-2">
         <div className="flex-1">
@@ -66,7 +67,7 @@ export default function OrderTrackingPage() {
             </p>
           </div>
         ) : data === undefined ? null : (
-          <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-card">
+          <Card as="article" padding="lg" className="shadow-card">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="font-mono text-sm text-slate-500">{data.referenceNumber}</p>
@@ -116,9 +117,9 @@ export default function OrderTrackingPage() {
                 ))}
               </ol>
             </section>
-          </article>
+          </Card>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }
