@@ -34,6 +34,14 @@ const AccountPage = lazy(() => import('./routes/account.tsx'));
 const AdminDashboardPage = lazy(() => import('./routes/admin/dashboard.tsx'));
 const AdminOrdersPage = lazy(() => import('./routes/admin/orders.tsx'));
 const AdminOrderDetailPage = lazy(() => import('./routes/admin/order-detail.tsx'));
+const AdminRequestsPage = lazy(() => import('./routes/admin/requests.tsx'));
+const AdminRequestDetailPage = lazy(() => import('./routes/admin/request-detail.tsx'));
+const AdminMessagesPage = lazy(() => import('./routes/admin/messages.tsx'));
+const AdminFaqsPage = lazy(() => import('./routes/admin/faqs.tsx'));
+const AdminSettingsPage = lazy(() => import('./routes/admin/settings.tsx'));
+const AdminProductsPage = lazy(() => import('./routes/admin/products.tsx'));
+const AdminProductFormPage = lazy(() => import('./routes/admin/product-form.tsx'));
+const AdminBlogPage = lazy(() => import('./routes/admin/blog.tsx'));
 const BlogPage = lazy(() => import('./routes/blog.tsx'));
 const BlogDetailPage = lazy(() => import('./routes/blog-detail.tsx'));
 const CartPage = lazy(() => import('./routes/cart.tsx'));
@@ -200,6 +208,19 @@ export function App() {
                   <Route index element={<AdminDashboardPage />} />
                   <Route path="siparisler" element={<AdminOrdersPage />} />
                   <Route path="siparisler/:orderId" element={<AdminOrderDetailPage />} />
+                  <Route path="talepler" element={<AdminRequestsPage />} />
+                  <Route path="talepler/:requestId" element={<AdminRequestDetailPage />} />
+                  <Route path="urunler" element={<AdminProductsPage />} />
+                  {/*
+                    "yeni" ve bir ürün kimliği aynı rotaya düşer; form hangi
+                    işi yapacağını adresten anlar. Ayrı iki rota, aynı formun
+                    iki kez bağlanması demek olurdu.
+                  */}
+                  <Route path="urunler/:productId" element={<AdminProductFormPage />} />
+                  <Route path="mesajlar" element={<AdminMessagesPage />} />
+                  <Route path="blog" element={<AdminBlogPage />} />
+                  <Route path="sss" element={<AdminFaqsPage />} />
+                  <Route path="ayarlar" element={<AdminSettingsPage />} />
                 </Route>
 
                 <Route path="*" element={<NotFoundPage />} />
