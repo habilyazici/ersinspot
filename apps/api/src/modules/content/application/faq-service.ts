@@ -24,6 +24,7 @@ export async function listPublishedFaqs(): Promise<Faq[]> {
     answer: row.answer,
     category: row.category,
     displayOrder: row.displayOrder,
+    isPublished: row.isPublished,
   }));
 }
 
@@ -36,6 +37,7 @@ export async function listAllFaqs(): Promise<Faq[]> {
     answer: row.answer,
     category: row.category,
     displayOrder: row.displayOrder,
+    isPublished: row.isPublished,
   }));
 }
 
@@ -47,6 +49,7 @@ export async function createFaq(input: CreateFaqInput): Promise<{ faqId: string 
       answer: input.answer,
       category: input.category,
       displayOrder: input.displayOrder,
+      isPublished: input.isPublished,
     })
     .returning({ id: faqs.id });
 
@@ -58,14 +61,34 @@ export async function createFaq(input: CreateFaqInput): Promise<{ faqId: string 
 }
 
 export async function updateFaq(faqId: string, input: Partial<CreateFaqInput>): Promise<void> {
+  /*
+    Yazılacak sütunlar önce toplanır; boşsa güncelleme çalıştırılmaz. Boş bir
+    `set` Drizzle'da "No values to set" hatası verir ve istemci 500 görür.
+
+    Değişiklik yoksa da kaydın var olduğu doğrulanır: `PUT` var olmayan bir
+    kimliğe 404 dönmelidir, gövdesi boş olsa bile.
+  */
+  const values = {
+    ...(input.question === undefined ? {} : { question: input.question }),
+    ...(input.answer === undefined ? {} : { answer: input.answer }),
+    ...(input.category === undefined ? {} : { category: input.category }),
+    ...(input.displayOrder === undefined ? {} : { displayOrder: input.displayOrder }),
+    ...(input.isPublished === undefined ? {} : { isPublished: input.isPublished }),
+  };
+
+  if (Object.keys(values).length === 0) {
+    const existing = await db.select({ id: faqs.id }).from(faqs).where(eq(faqs.id, faqId)).limit(1);
+
+    if (existing.length === 0) {
+      throw notFound('Soru');
+    }
+
+    return;
+  }
+
   const updated = await db
     .update(faqs)
-    .set({
-      ...(input.question === undefined ? {} : { question: input.question }),
-      ...(input.answer === undefined ? {} : { answer: input.answer }),
-      ...(input.category === undefined ? {} : { category: input.category }),
-      ...(input.displayOrder === undefined ? {} : { displayOrder: input.displayOrder }),
-    })
+    .set(values)
     .where(eq(faqs.id, faqId))
     .returning({ id: faqs.id });
 

@@ -231,6 +231,14 @@ export const faqSchema = z.object({
   answer: z.string(),
   category: z.enum(FAQ_CATEGORIES),
   displayOrder: z.number().int(),
+  /**
+   * Vitrinde görünür mü?
+   *
+   * Herkese açık uçtan dönen kayıtlarda daima `true`'dur; alan asıl olarak
+   * yönetim listesinde anlam taşır. Blog yazısıyla aynı sözleşme: aynı
+   * modüldeki iki içerik türünün yayın durumu farklı yönetilemez.
+   */
+  isPublished: z.boolean(),
 });
 
 export type Faq = z.infer<typeof faqSchema>;
@@ -242,6 +250,15 @@ export const createFaqSchema = z.object({
     errorMap: () => ({ message: 'Lütfen listeden bir kategori seçin.' }),
   }),
   displayOrder: z.number().int().min(0).default(0),
+  /**
+   * Varsayılan yayında.
+   *
+   * SSS kaydı kısa ve tek başına anlamlıdır; blog yazısının aksine taslak
+   * hâlinde bekletilmesi olağan değildir. Yine de alan mevcut: bir soru
+   * geçici olarak kaldırılmak istendiğinde silmek yerine yayından
+   * çıkarılabilir, böylece metin kaybolmaz.
+   */
+  isPublished: z.boolean().default(true),
 });
 
 export type CreateFaqInput = z.infer<typeof createFaqSchema>;

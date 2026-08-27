@@ -15,6 +15,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { productSchema, productSummarySchema } from '@ersinspot/shared';
+import { eq } from 'drizzle-orm';
 import { db } from '../../../platform/db/client.ts';
 import { createTestUser, loginAs, request, resetDatabase } from '../../../test/helpers.ts';
 import {
@@ -320,6 +321,38 @@ describe('yönetim uçlarının yetkilendirmesi', () => {
 
     const response = await request('/api/admin/products', { cookie });
     expect(response.status).toBe(200);
+  });
+
+  it('yalnızca teknik özellik gönderen güncelleme çalışır', async () => {
+    /*
+      Kısmi güncellemede istek yalnızca AYRI TABLODAKİ alanları taşıyabilir:
+      görseller `product_images`, teknik özellikler `product_specs` içindedir.
+      `updateProduct` koşullu bir `set` nesnesi kuruyordu ve bu durumda nesne
+      boş kalıyor, Drizzle "No values to set" hatası fırlatıyordu — istemci
+      500 görüyordu. Aynı hata blog ve SSS güncellemelerinde de vardı.
+    */
+    const user = await createTestUser({ email: 'personel3@ersinspot.com', role: 'staff' });
+    const cookie = await loginAs(user.email, user.password);
+
+    const [product] = await db
+      .select({ id: products.id })
+      .from(products)
+      .where(eq(products.slug, PRODUCT_SLUG));
+
+    const response = await request(`/api/admin/products/${product?.id ?? ''}`, {
+      method: 'PUT',
+      cookie,
+      body: JSON.stringify({ specs: [{ key: 'Enerji Sınıfı', value: 'A+++' }] }),
+    });
+
+    expect(response.status).toBe(200);
+
+    const specs = await db
+      .select({ key: productSpecs.key, value: productSpecs.value })
+      .from(productSpecs)
+      .where(eq(productSpecs.productId, product?.id ?? ''));
+
+    expect(specs).toEqual([{ key: 'Enerji Sınıfı', value: 'A+++' }]);
   });
 
   it('yönetim listesi taslak ve satılmış ürünleri de gösterir', async () => {

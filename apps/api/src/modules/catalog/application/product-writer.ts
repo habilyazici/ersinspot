@@ -99,19 +99,27 @@ export async function updateProduct(productId: string, input: UpdateProductInput
     : undefined;
 
   await db.transaction(async (tx) => {
-    await tx
-      .update(products)
-      .set({
-        ...(input.title === undefined ? {} : { title: input.title }),
-        ...(input.description === undefined ? {} : { description: input.description }),
-        ...(input.price === undefined ? {} : { priceKurus: input.price }),
-        ...(input.condition === undefined ? {} : { condition: input.condition }),
-        ...(input.warrantyMonths === undefined ? {} : { warrantyMonths: input.warrantyMonths }),
-        ...(input.categoryId === undefined ? {} : { categoryId: input.categoryId }),
-        ...(input.brandId === undefined ? {} : { brandId: input.brandId }),
-        ...(slug === undefined ? {} : { slug }),
-      })
-      .where(eq(products.id, productId));
+    /*
+      Yazılacak sütunlar önce toplanır.
+
+      İstek yalnızca görsel veya teknik özellik listesi taşıyabilir; ikisi de
+      ayrı tablolardadır. O durumda `set` boş kalır ve Drizzle "No values to
+      set" hatası fırlatır — istemci 500 görür.
+    */
+    const values = {
+      ...(input.title === undefined ? {} : { title: input.title }),
+      ...(input.description === undefined ? {} : { description: input.description }),
+      ...(input.price === undefined ? {} : { priceKurus: input.price }),
+      ...(input.condition === undefined ? {} : { condition: input.condition }),
+      ...(input.warrantyMonths === undefined ? {} : { warrantyMonths: input.warrantyMonths }),
+      ...(input.categoryId === undefined ? {} : { categoryId: input.categoryId }),
+      ...(input.brandId === undefined ? {} : { brandId: input.brandId }),
+      ...(slug === undefined ? {} : { slug }),
+    };
+
+    if (Object.keys(values).length > 0) {
+      await tx.update(products).set(values).where(eq(products.id, productId));
+    }
 
     // Görseller verilmişse tamamen değiştirilir; kısmi güncelleme yerine
     // tam liste beklenir — sıralama da böyle korunur.
