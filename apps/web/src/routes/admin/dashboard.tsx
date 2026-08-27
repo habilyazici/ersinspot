@@ -11,9 +11,17 @@
  */
 
 import { Link } from 'react-router-dom';
-import { CalendarCheck, ClipboardList, Mail, Package, ShoppingBag } from 'lucide-react';
+import {
+  CalendarCheck,
+  ClipboardList,
+  Mail,
+  Package,
+  ShoppingBag,
+  TriangleAlert,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { REQUEST_STATUS_LABELS, SERVICE_KIND_LABELS } from '@ersinspot/shared';
+import { Button } from '@/components/ui/button.tsx';
 import { Card } from '@/components/ui/card.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { PageHeader, Section } from '@/components/ui/page.tsx';
@@ -72,8 +80,29 @@ export default function AdminDashboardPage() {
   const preparingOrders = useAdminOrders({ status: 'preparing', pageSize: 1 });
   const pendingRequests = useAdminRequests({ status: 'pending', pageSize: 5 });
   const draftProducts = useAdminProducts({ status: 'draft', pageSize: 1 });
-  const { data: unreadCount } = useUnreadMessageCount();
-  const { data: appointments } = useAppointmentsOnDate(today());
+  const unreadMessages = useUnreadMessageCount();
+  const todaysAppointments = useAppointmentsOnDate(today());
+
+  const unreadCount = unreadMessages.data;
+  const appointments = todaysAppointments.data;
+
+  /*
+    Bu sayfa altı ayrı sorgu yapar. Biri düşerse sayfanın tamamını hata
+    ekranına çevirmek yanlış olurdu — yüklenen kutular hâlâ işe yarar. Ama
+    sessizce "—" veya "kayıt yok" göstermek de yanlış: personel bekleyen iş
+    olmadığını sanır. Bu yüzden yüklenen gösterilir, düşenler için üstte bir
+    uyarı çıkar.
+  */
+  const queries = [
+    newOrders,
+    preparingOrders,
+    pendingRequests,
+    draftProducts,
+    unreadMessages,
+    todaysAppointments,
+  ];
+
+  const failed = queries.filter((query) => query.isError);
 
   return (
     <>
@@ -81,6 +110,30 @@ export default function AdminDashboardPage() {
         title="Genel Bakış"
         description="İşlem bekleyen kayıtlar. Sayıya tıklayarak ilgili listeye gidebilirsiniz."
       />
+
+      {failed.length === 0 ? null : (
+        <div
+          role="alert"
+          className="mt-6 flex flex-wrap items-center gap-3 rounded-lg bg-state-danger-bg px-4 py-3 text-sm text-state-danger-fg"
+        >
+          <TriangleAlert className="size-5 shrink-0" aria-hidden="true" />
+
+          <p className="min-w-0 flex-1">
+            Bazı bilgiler yüklenemedi ({failed.length}/{queries.length}). Aşağıda görünen sayılar
+            eksik olabilir.
+          </p>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              for (const query of failed) void query.refetch();
+            }}
+          >
+            Tekrar dene
+          </Button>
+        </div>
+      )}
 
       <ul className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -207,7 +260,9 @@ export default function AdminDashboardPage() {
         </Section>
       ) : null}
 
-      {newOrders.data?.totalItems === 0 &&
+      {/* "Bekleyen iş yok" ancak veriler GERÇEKTEN yüklendiyse söylenebilir. */}
+      {failed.length === 0 &&
+      newOrders.data?.totalItems === 0 &&
       pendingRequests.data?.totalItems === 0 &&
       unreadCount === 0 ? (
         <EmptyState

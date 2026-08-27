@@ -222,6 +222,25 @@ export const timeSlotSchema = z
 
 export type TimeSlot = z.infer<typeof timeSlotSchema>;
 
+/**
+ * Teslimat ve randevu için sunulan saat aralıkları.
+ *
+ * Mağazanın çalışma düzeninden gelen bir İŞ SABİTİDİR, arayüz ayrıntısı
+ * değil: sipariş teslimatı, mağazadan alım ve hizmet randevusu aynı aralıkları
+ * kullanır. Üç ekranda ayrı ayrı yazıldığında bir aralık değiştiğinde
+ * diğerlerinin unutulması kaçınılmazdı — nitekim üç kopya oluşmuştu.
+ *
+ * Aralıklar iki saatliktir: müşteriye dar bir pencere vermek ekibin trafik ve
+ * iş süresi değişkenliğiyle baş edememesine yol açar.
+ */
+export const APPOINTMENT_TIME_SLOTS = [
+  { startTime: '09:00', endTime: '11:00' },
+  { startTime: '11:00', endTime: '13:00' },
+  { startTime: '13:00', endTime: '15:00' },
+  { startTime: '15:00', endTime: '17:00' },
+  { startTime: '17:00', endTime: '19:00' },
+] as const satisfies readonly TimeSlot[];
+
 /** Saat aralığını kullanıcıya gösterilecek metne çevirir: "09:00 - 11:00". */
 export function formatTimeSlot(slot: TimeSlot): string {
   return `${slot.startTime} - ${slot.endTime}`;
