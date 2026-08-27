@@ -15,6 +15,7 @@ import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { CalendarPlus, ClipboardList, NotebookPen, Receipt, Stethoscope } from 'lucide-react';
 import {
+  APPOINTMENT_TIME_SLOTS,
   ApiError,
   REQUEST_STATUS_LABELS,
   REQUEST_STATUS_TRANSITIONS,
@@ -53,14 +54,6 @@ function earliestAppointment(): string {
   return date.toISOString().slice(0, 10);
 }
 
-const TIME_SLOTS = [
-  { startTime: '09:00', endTime: '11:00' },
-  { startTime: '11:00', endTime: '13:00' },
-  { startTime: '13:00', endTime: '15:00' },
-  { startTime: '15:00', endTime: '17:00' },
-  { startTime: '17:00', endTime: '19:00' },
-] as const;
-
 export default function AdminRequestDetailPage() {
   const { requestId = '' } = useParams<{ requestId: string }>();
   const { data: request, isLoading, isError, error, refetch } = useRequest(requestId);
@@ -76,7 +69,7 @@ export default function AdminRequestDetailPage() {
   const [quoteNote, setQuoteNote] = useState('');
 
   const [appointmentDate, setAppointmentDate] = useState(earliestAppointment());
-  const [slotStart, setSlotStart] = useState<string>(TIME_SLOTS[0].startTime);
+  const [slotStart, setSlotStart] = useState<string>(APPOINTMENT_TIME_SLOTS[0].startTime);
   const [appointmentNote, setAppointmentNote] = useState('');
 
   const [nextStatus, setNextStatus] = useState<RequestStatus | ''>('');
@@ -133,7 +126,7 @@ export default function AdminRequestDetailPage() {
   }
 
   function submitAppointment(): void {
-    const slot = TIME_SLOTS.find((entry) => entry.startTime === slotStart);
+    const slot = APPOINTMENT_TIME_SLOTS.find((entry) => entry.startTime === slotStart);
     if (slot === undefined) return;
 
     scheduleAppointment.mutate(
@@ -329,7 +322,7 @@ export default function AdminRequestDetailPage() {
                   setSlotStart(event.target.value);
                 }}
               >
-                {TIME_SLOTS.map((slot) => (
+                {APPOINTMENT_TIME_SLOTS.map((slot) => (
                   <option key={slot.startTime} value={slot.startTime}>
                     {slot.startTime} - {slot.endTime}
                   </option>

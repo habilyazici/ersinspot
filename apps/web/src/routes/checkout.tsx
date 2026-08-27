@@ -18,6 +18,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AlertTriangle, CreditCard, Store, Truck } from 'lucide-react';
 import {
+  APPOINTMENT_TIME_SLOTS,
   ApiError,
   DELIVERY_METHOD_LABELS,
   FREE_DELIVERY_THRESHOLD,
@@ -40,15 +41,6 @@ import { findError } from '@/lib/form.ts';
 import { formatPrice } from '@/lib/format.ts';
 import { useAuth } from '@/features/auth';
 import { OrderTotals, useCart, useCreateOrder } from '@/features/ordering';
-
-/** Teslimat ve mağazadan alım için sunulan saat aralıkları. */
-const TIME_SLOTS = [
-  { startTime: '09:00', endTime: '11:00' },
-  { startTime: '11:00', endTime: '13:00' },
-  { startTime: '13:00', endTime: '15:00' },
-  { startTime: '15:00', endTime: '17:00' },
-  { startTime: '17:00', endTime: '19:00' },
-] as const;
 
 /** Bugünden itibaren seçilebilecek en erken teslimat günü. */
 function earliestDeliveryDate(): string {
@@ -96,7 +88,7 @@ export default function CheckoutPage() {
           buildingNo: '',
         },
         deliveryDate: earliestDeliveryDate(),
-        deliveryTimeSlot: TIME_SLOTS[0],
+        deliveryTimeSlot: APPOINTMENT_TIME_SLOTS[0],
       },
       paymentMethod: 'cash_on_delivery',
       expectedTotal: 0,
@@ -115,7 +107,7 @@ export default function CheckoutPage() {
         deliveryMethod === 'store_pickup'
           ? 'delivery.pickupTimeSlot.startTime'
           : 'delivery.deliveryTimeSlot.startTime',
-    }) ?? TIME_SLOTS[0].startTime;
+    }) ?? APPOINTMENT_TIME_SLOTS[0].startTime;
 
   /*
     Teslimat yöntemi değişince randevu alanları AD DEĞİŞTİRİR:
@@ -144,7 +136,7 @@ export default function CheckoutPage() {
     const carriedSlot: unknown = getValues(slotFrom as 'delivery.deliveryTimeSlot');
     setValue(
       slotTo as 'delivery.deliveryTimeSlot',
-      isTimeSlot(carriedSlot) ? carriedSlot : { ...TIME_SLOTS[0] },
+      isTimeSlot(carriedSlot) ? carriedSlot : { ...APPOINTMENT_TIME_SLOTS[0] },
     );
   }, [deliveryMethod, getValues, setValue]);
 
@@ -356,7 +348,9 @@ export default function CheckoutPage() {
                 required
                 value={selectedSlotStart}
                 onChange={(event) => {
-                  const slot = TIME_SLOTS.find((entry) => entry.startTime === event.target.value);
+                  const slot = APPOINTMENT_TIME_SLOTS.find(
+                    (entry) => entry.startTime === event.target.value,
+                  );
                   if (slot === undefined) return;
 
                   const path = isHomeDelivery
@@ -370,7 +364,7 @@ export default function CheckoutPage() {
                   setValue(`${path}.endTime` as 'delivery.deliveryTimeSlot.endTime', slot.endTime);
                 }}
               >
-                {TIME_SLOTS.map((slot) => (
+                {APPOINTMENT_TIME_SLOTS.map((slot) => (
                   <option key={slot.startTime} value={slot.startTime}>
                     {slot.startTime} - {slot.endTime}
                   </option>
