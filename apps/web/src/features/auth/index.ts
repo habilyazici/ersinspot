@@ -14,11 +14,15 @@ export {
   useForgotPassword,
   useLogin,
   useLogout,
+  useLogoutAllOtherSessions,
   useRegister,
   useResendVerification,
   useResetPassword,
+  useSessions,
   useUpdateProfile,
   useVerifyEmail,
 } from './api.ts';
+
+export type { ActiveSession } from './api.ts';
 
 export { RequireAuth, RequireStaff } from './route-guards.tsx';

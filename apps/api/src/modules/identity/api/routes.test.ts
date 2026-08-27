@@ -11,6 +11,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '../../../platform/db/client.ts';
 import { passwordResetTokens, sessions, users } from '../infrastructure/schema.ts';
 import { hashToken } from '../domain/tokens.ts';
+import { clearSentEmails, getSentEmails } from '../../../platform/mailer.ts';
 import {
   app,
   createTestUser,
@@ -607,5 +608,202 @@ describe('CSRF koruması', () => {
     });
 
     expect(response.status).toBe(200);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// E-POSTA DOĞRULAMA VE ŞİFRE SIFIRLAMA AKIŞLARI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Bu iki akışın hiç testi yoktu ve ikisi de e-postadaki bağlantıya bağlıydı.
+ * Denetimde, sunucunun yazdığı adreslerin (`/eposta-dogrula`, `/sifre-sifirla`)
+ * arayüzde HİÇ SAYFASI OLMADIĞI bulundu: kayıt olan kimse e-postasını
+ * doğrulayamıyor, şifresini unutan kimse yenileyemiyordu. Doğrulama üç hizmet
+ * talebinin ön koşulu olduğu için üç akış birden kapalıydı.
+ *
+ * Testler jetonu E-POSTADAN okur — veritabanında yalnızca özeti tutulur ve
+ * bu doğrudur. Böylece "e-postada gönderilen şey gerçekten işe yarıyor mu"
+ * sorusu da yanıtlanmış olur.
+ */
+describe('e-posta doğrulama akışı', () => {
+  /** Son gönderilen e-postadaki jetonu çıkarır. */
+  function tokenFromLastEmail(pathname: string): string {
+    const emails = getSentEmails();
+    const last = emails.at(-1);
+
+    if (last === undefined) throw new Error('Hiç e-posta gönderilmedi.');
+
+    const match = new RegExp(`${pathname}\\?token=([A-Za-z0-9_-]+)`).exec(last.text);
+
+    if (match?.[1] === undefined) {
+      throw new Error(`E-postada ${pathname} bağlantısı yok:\n${last.text}`);
+    }
+
+    return match[1];
+  }
+
+  async function registerFresh(email: string): Promise<string> {
+    clearSentEmails();
+
+    const response = await request('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        fullName: 'Yeni Kullanıcı',
+        email,
+        phone: '+905071940550',
+        password: 'cok-guvenli-parola-123',
+        passwordConfirm: 'cok-guvenli-parola-123',
+        acceptedTerms: true,
+      }),
+    });
+
+    expect(response.status).toBe(201);
+
+    const cookie = extractCookie(response);
+    if (cookie === null) throw new Error('Oturum çerezi alınamadı.');
+    return cookie;
+  }
+
+  it('kayıt sonrası doğrulama e-postası gönderilir', async () => {
+    await registerFresh('yeni@ornek.com');
+
+    const last = getSentEmails().at(-1);
+
+    expect(last?.to).toBe('yeni@ornek.com');
+    expect(last?.text).toContain('/eposta-dogrula?token=');
+  });
+
+  it('doğrulanmamış hesap hizmet talebi oluşturamaz', async () => {
+    const cookie = await registerFresh('dogrulanmamis@ornek.com');
+
+    const response = await request('/api/moving/requests', {
+      method: 'POST',
+      cookie,
+      body: JSON.stringify({}),
+    });
+
+    expect(response.status).toBe(403);
+  });
+
+  it('e-postadaki jeton hesabı doğrular', async () => {
+    const cookie = await registerFresh('dogrulanacak@ornek.com');
+    const token = tokenFromLastEmail('/eposta-dogrula');
+
+    const response = await request('/api/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+
+    expect(response.status).toBe(200);
+
+    const me = await request('/api/auth/me', { cookie });
+    const body = (await me.json()) as { user: { emailVerified: boolean } };
+
+    expect(body.user.emailVerified).toBe(true);
+  });
+
+  it('aynı jeton ikinci kez kullanılamaz', async () => {
+    await registerFresh('tekkullanim@ornek.com');
+    const token = tokenFromLastEmail('/eposta-dogrula');
+
+    await request('/api/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) });
+
+    const second = await request('/api/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+
+    expect(second.status).not.toBe(200);
+  });
+});
+
+describe('şifre sıfırlama akışı', () => {
+  function tokenFromLastEmail(): string {
+    const last = getSentEmails().at(-1);
+    if (last === undefined) throw new Error('Hiç e-posta gönderilmedi.');
+
+    const match = /\/sifre-sifirla\?token=([A-Za-z0-9_-]+)/.exec(last.text);
+
+    if (match?.[1] === undefined) {
+      throw new Error(`E-postada sıfırlama bağlantısı yok:\n${last.text}`);
+    }
+
+    return match[1];
+  }
+
+  it('kayıtlı olmayan adres için de aynı yanıt döner', async () => {
+    /*
+      Farklı yanıt vermek, hangi e-postaların sisteme kayıtlı olduğunu
+      dışarıdan öğrenilebilir kılardı (hesap sayımı). Karşılaştırmanın anlamlı
+      olması için biri GERÇEKTEN kayıtlı olmalıdır.
+    */
+    await createTestUser({ email: 'test@ersinspot.com' });
+
+    const known = await request('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'test@ersinspot.com' }),
+    });
+
+    const unknown = await request('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'hicbir-zaman-kayitli-olmayan@ornek.com' }),
+    });
+
+    expect(known.status).toBe(unknown.status);
+    expect(await known.text()).toBe(await unknown.text());
+  });
+
+  it('e-postadaki jetonla şifre değiştirilir ve yeni şifreyle giriş yapılır', async () => {
+    await createTestUser({ email: 'test@ersinspot.com' });
+    clearSentEmails();
+
+    await request('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'test@ersinspot.com' }),
+    });
+
+    const token = tokenFromLastEmail();
+
+    const reset = await request('/api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({
+        token,
+        password: 'yepyeni-bir-sifre-456',
+        passwordConfirm: 'yepyeni-bir-sifre-456',
+      }),
+    });
+
+    expect(reset.status).toBe(200);
+
+    const login = await request('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'test@ersinspot.com', password: 'yepyeni-bir-sifre-456' }),
+    });
+
+    expect(login.status).toBe(200);
+  });
+
+  it('sıfırlama jetonu ikinci kez kullanılamaz', async () => {
+    await createTestUser({ email: 'test@ersinspot.com' });
+    clearSentEmails();
+
+    await request('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'test@ersinspot.com' }),
+    });
+
+    const token = tokenFromLastEmail();
+    const body = JSON.stringify({
+      token,
+      password: 'baska-bir-sifre-789',
+      passwordConfirm: 'baska-bir-sifre-789',
+    });
+
+    await request('/api/auth/reset-password', { method: 'POST', body });
+
+    const second = await request('/api/auth/reset-password', { method: 'POST', body });
+
+    expect(second.status).not.toBe(200);
   });
 });
