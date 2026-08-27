@@ -80,6 +80,13 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
  *
  * Dış adres `URL` ile ayrıştırılır; şema kontrolü dizgeyle değil ayrıştırıcıyla
  * yapılır, böylece `HtTpS:` gibi yazımlar veya boşluk kaçamağı kalmaz.
+ *
+ * Adres, ayrıştırıcının çıktısı olduğu gibi geçirilmez: sabit `https://` ön eki
+ * ile PARÇALARINDAN YENİDEN KURULUR. Bunun iki sebebi var. Birincisi güvenlik:
+ * `https://kullanici:sifre@site.com` biçimindeki gömülü kimlik bilgisi
+ * bağlantının nereye gittiğini gizler ve bilinen bir kimlik avı yöntemidir;
+ * yeniden kurmak onu düşürür. İkincisi, çıktının hangi parçalardan oluştuğu
+ * okunurken görünür olur.
  */
 function safeHref(href: string): { kind: 'internal' | 'external'; href: string } | null {
   const trimmed = href.trim();
@@ -92,8 +99,18 @@ function safeHref(href: string): { kind: 'internal' | 'external'; href: string }
 
   try {
     const parsed = new URL(trimmed);
+
     if (parsed.protocol !== 'https:') return null;
-    return { kind: 'external', href: parsed.toString() };
+
+    // Gömülü kimlik bilgisi taşıyan adres hiç kabul edilmez.
+    if (parsed.username !== '' || parsed.password !== '') return null;
+
+    if (parsed.host === '') return null;
+
+    return {
+      kind: 'external',
+      href: `https://${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}`,
+    };
   } catch {
     return null;
   }
