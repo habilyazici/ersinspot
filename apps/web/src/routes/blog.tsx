@@ -17,19 +17,30 @@ import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { cn } from '@/lib/utils.ts';
 import { formatDate } from '@/lib/format.ts';
-import { useBlogPosts } from '@/features/content';
+import { useBlogPosts, useBlogTags } from '@/features/content';
 
 export default function BlogPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const category = searchParams.get('kategori') ?? undefined;
+  const tag = searchParams.get('etiket') ?? undefined;
 
   const { data, isLoading, isError, error, refetch } = useBlogPosts({
     ...(category === undefined ? {} : { category: category as BlogCategory }),
+    ...(tag === undefined ? {} : { tag }),
   });
 
-  /** Süzgeci adres çubuğuna yazar; aynı kategoriye tekrar basmak süzgeci kaldırır. */
-  function selectCategory(next: BlogCategory | null): void {
-    setSearchParams(next === null || next === category ? {} : { kategori: next });
+  const { data: tags } = useBlogTags();
+
+  /**
+   * Süzgeci adres çubuğuna yazar.
+   *
+   * Aynı değere tekrar basmak süzgeci kaldırır; ayrı bir "temizle" düğmesi
+   * gerekmez. Kategori ve etiket birbirini dışlar: ikisi birden seçilirse
+   * sonuç genellikle boş olur ve kullanıcı sebebini anlamaz.
+   */
+  function setFilter(key: 'kategori' | 'etiket', value: string | null): void {
+    const current = key === 'kategori' ? category : tag;
+    setSearchParams(value === null || value === current ? {} : { [key]: value });
   }
 
   return (
@@ -43,12 +54,12 @@ export default function BlogPage() {
         <button
           type="button"
           onClick={() => {
-            selectCategory(null);
+            setFilter('kategori', null);
           }}
-          aria-pressed={category === undefined}
+          aria-pressed={category === undefined && tag === undefined}
           className={cn(
             'rounded-full border px-3 py-1.5 text-sm transition-colors',
-            category === undefined
+            category === undefined && tag === undefined
               ? 'border-brand-orange-500 bg-brand-orange-50 text-brand-orange-700'
               : 'border-slate-200 text-slate-600 hover:border-slate-300',
           )}
@@ -61,7 +72,7 @@ export default function BlogPage() {
             key={item}
             type="button"
             onClick={() => {
-              selectCategory(item);
+              setFilter('kategori', item);
             }}
             aria-pressed={category === item}
             className={cn(
@@ -75,6 +86,34 @@ export default function BlogPage() {
           </button>
         ))}
       </div>
+
+      {tags === undefined || tags.length === 0 ? null : (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+            Etiketler
+          </span>
+
+          {tags.map((item) => (
+            <button
+              key={item.slug}
+              type="button"
+              aria-pressed={tag === item.name}
+              onClick={() => {
+                setFilter('etiket', item.name);
+              }}
+              className={cn(
+                'rounded-full px-2.5 py-1 text-xs transition-colors',
+                tag === item.name
+                  ? 'bg-brand-navy-800 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+              )}
+            >
+              {item.name}
+              <span className="ml-1 tabular-nums opacity-60">{item.postCount}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {isLoading ? (
         <PageSpinner label="Yazılar yükleniyor" />

@@ -16,7 +16,7 @@ import { useId, useRef, useState } from 'react';
 import { ImagePlus, Loader2, Trash2 } from 'lucide-react';
 import { ALLOWED_IMAGE_TYPES, ApiError, MAX_IMAGE_BYTES } from '@ersinspot/shared';
 import type { UploadPurpose } from '@ersinspot/shared';
-import { apiUpload } from '@/lib/api';
+import { apiRequest, apiUpload } from '@/lib/api';
 import { Button } from './button.tsx';
 
 /** Sunucudan dönen yükleme sonucu. */
@@ -111,6 +111,22 @@ export function PhotoUpload({
     if (inputRef.current !== null) inputRef.current.value = '';
   }
 
+  /**
+   * Kaldırılan fotoğrafı depolamadan da siler.
+   *
+   * Sessizce yapılır ve hatası yutulur: dosya bir kayda bağlıysa sunucu haklı
+   * olarak reddeder ve bu bir hata değildir. Silinemeyen dosyayı zaten yetim
+   * temizliği görevi topluyor; buradaki çağrı yalnızca gereksiz yer
+   * kaplamasını hızlıca önlemek içindir.
+   */
+  async function discard(storageKey: string): Promise<void> {
+    try {
+      await apiRequest(`/api/uploads/${storageKey}`, { method: 'DELETE' });
+    } catch {
+      // Kasıtlı olarak yutulur; kullanıcı için bir sonucu yok.
+    }
+  }
+
   const message = uploadError ?? error;
 
   const describedBy =
@@ -148,6 +164,7 @@ export function PhotoUpload({
               type="button"
               onClick={() => {
                 onChange(value.filter((item) => item.storageKey !== photo.storageKey));
+                void discard(photo.storageKey);
               }}
               className="absolute right-1 top-1 rounded-md bg-white/90 p-1 text-state-danger-fg hover:bg-white"
             >

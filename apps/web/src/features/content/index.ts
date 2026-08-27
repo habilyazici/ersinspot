@@ -20,6 +20,7 @@ export {
   useUpdateSetting,
   useBlogPost,
   useBlogPosts,
+  useBlogTags,
   useFaqs,
   useSiteSettings,
   useSubmitContactMessage,
