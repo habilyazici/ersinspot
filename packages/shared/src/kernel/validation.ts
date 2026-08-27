@@ -241,6 +241,45 @@ export const APPOINTMENT_TIME_SLOTS = [
   { startTime: '17:00', endTime: '19:00' },
 ] as const satisfies readonly TimeSlot[];
 
+/**
+ * Randevu ve teslimat için asgari hazırlık süreleri (gün).
+ *
+ * Mağazanın işleyişinden gelir: ürün hazırlanmalı, ekip planlanmalı, nakliyede
+ * araç ve personel ayrılmalıdır. Süreler farklıdır çünkü işler farklıdır.
+ *
+ * SUNUCU BU SÜRELERİ ZORUNLU KILMAZ; `appointmentDateSchema` yalnızca "geçmiş
+ * olamaz" ve "en fazla 60 gün sonra" kurallarını uygular. Buradakiler
+ * arayüzün önerdiği en erken gündür: aynı gün için ısrar eden bir müşteriyle
+ * personel telefonda anlaşabilmelidir. Yine de tek yerde tanımlıdır — beş
+ * ekranda ayrı ayrı yazıldığında biri değişince diğerleri unutulurdu.
+ */
+export const LEAD_TIME_DAYS = {
+  /** Sipariş teslimatı ve mağazadan alım. */
+  delivery: 2,
+  /** Teknik servis keşfi. */
+  technicalService: 2,
+  /** Nakliye: araç ve ekip planlaması daha uzun sürer. */
+  moving: 3,
+  /** Personelin verdiği randevu. */
+  appointment: 2,
+} as const;
+
+/** Tekliflerin varsayılan geçerlilik süresi (gün). */
+export const QUOTE_VALIDITY_DAYS = 7;
+
+/**
+ * Bugünden N gün sonrasını `YYYY-AA-GG` biçiminde döndürür.
+ *
+ * Tarih alanlarının `min` değeri ve varsayılanı bununla üretilir. UTC
+ * kullanılır: `appointmentDateSchema` da karşılaştırmayı UTC üzerinden yapar,
+ * iki taraf farklı saat dilimi kullansa gün sınırında ayrışırlardı.
+ */
+export function dateAfterDays(days: number): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 /** Saat aralığını kullanıcıya gösterilecek metne çevirir: "09:00 - 11:00". */
 export function formatTimeSlot(slot: TimeSlot): string {
   return `${slot.startTime} - ${slot.endTime}`;

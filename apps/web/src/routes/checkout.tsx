@@ -22,10 +22,12 @@ import {
   ApiError,
   DELIVERY_METHOD_LABELS,
   FREE_DELIVERY_THRESHOLD,
+  LEAD_TIME_DAYS,
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABELS,
   calculateOrderTotals,
   createOrderSchema,
+  dateAfterDays,
   money,
 } from '@ersinspot/shared';
 import type { CreateOrderInput, IzmirDistrict } from '@ersinspot/shared';
@@ -41,13 +43,6 @@ import { findError } from '@/lib/form.ts';
 import { formatPrice } from '@/lib/format.ts';
 import { useAuth } from '@/features/auth';
 import { OrderTotals, useCart, useCreateOrder } from '@/features/ordering';
-
-/** Bugünden itibaren seçilebilecek en erken teslimat günü. */
-function earliestDeliveryDate(): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + 2);
-  return date.toISOString().slice(0, 10);
-}
 
 /** Kaydedilmiş bir saat aralığı mı? Yöntem değişiminde değeri taşırken kullanılır. */
 function isTimeSlot(value: unknown): value is { startTime: string; endTime: string } {
@@ -87,7 +82,7 @@ export default function CheckoutPage() {
           street: '',
           buildingNo: '',
         },
-        deliveryDate: earliestDeliveryDate(),
+        deliveryDate: dateAfterDays(LEAD_TIME_DAYS.delivery),
         deliveryTimeSlot: APPOINTMENT_TIME_SLOTS[0],
       },
       paymentMethod: 'cash_on_delivery',
@@ -130,7 +125,9 @@ export default function CheckoutPage() {
     const carriedDate: unknown = getValues(dateFrom as 'delivery.deliveryDate');
     setValue(
       dateTo as 'delivery.deliveryDate',
-      typeof carriedDate === 'string' && carriedDate !== '' ? carriedDate : earliestDeliveryDate(),
+      typeof carriedDate === 'string' && carriedDate !== ''
+        ? carriedDate
+        : dateAfterDays(LEAD_TIME_DAYS.delivery),
     );
 
     const carriedSlot: unknown = getValues(slotFrom as 'delivery.deliveryTimeSlot');
@@ -327,7 +324,7 @@ export default function CheckoutPage() {
                 label="Tarih"
                 required
                 type="date"
-                min={earliestDeliveryDate()}
+                min={dateAfterDays(LEAD_TIME_DAYS.delivery)}
                 hint="En erken iki gün sonrasına randevu verilebilir."
                 error={findError(
                   errors,
