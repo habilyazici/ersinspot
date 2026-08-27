@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Sürüm, package.json'daki packageManager alanından okunur.
       # Burada ayrıca belirtmek ERR_PNPM_BAD_PM_VERSION hatasına yol açar.
@@ -42,7 +42,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: github/codeql-action/init@v3
         with:
@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Gitleaks tüm geçmişi tarayabilsin diye.
           fetch-depth: 0
