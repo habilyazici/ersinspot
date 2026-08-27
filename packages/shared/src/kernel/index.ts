@@ -10,6 +10,7 @@ export * from './locations.ts';
 export * from './pricing.ts';
 export * from './validation.ts';
 export * from './errors.ts';
+export * from './slug.ts';
 
 // Para ve telefon modülleri, isimleri çakıştığı için (format, normalize) ad alanı
 // olarak dışa aktarılır: `money.format(...)`, `phone.format(...)`.

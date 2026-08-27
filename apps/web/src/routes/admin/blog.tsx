@@ -13,7 +13,9 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Newspaper, Pencil, Plus, Trash2 } from 'lucide-react';
-import { ApiError, BLOG_CATEGORIES, BLOG_CATEGORY_LABELS } from '@ersinspot/shared';
+// Bağlantı adı, sunucunun kullandığı AYNI fonksiyonla üretilir; ekranda
+// önerilen ile kaydedilen ayrışmaz.
+import { ApiError, BLOG_CATEGORIES, BLOG_CATEGORY_LABELS, slugify } from '@ersinspot/shared';
 import type { BlogCategory } from '@ersinspot/shared';
 import { Button } from '@/components/ui/button.tsx';
 import { Card } from '@/components/ui/card.tsx';
@@ -51,21 +53,6 @@ const EMPTY: FormState = {
   tags: '',
   isPublished: false,
 };
-
-/** Başlıktan bağlantı adı üretir. Personel isterse elle değiştirebilir. */
-function slugify(title: string): string {
-  return title
-    .toLocaleLowerCase('tr-TR')
-    .replace(/ı/g, 'i')
-    .replace(/ş/g, 's')
-    .replace(/ğ/g, 'g')
-    .replace(/ü/g, 'u')
-    .replace(/ö/g, 'o')
-    .replace(/ç/g, 'c')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 80);
-}
 
 export default function AdminBlogPage() {
   const { data, isLoading, isError, error, refetch } = useAdminBlogPosts();

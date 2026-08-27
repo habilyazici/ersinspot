@@ -4,6 +4,8 @@
  * Saf fonksiyonlar; veritabanı ve HTTP bilmez.
  */
 
+import { slugify } from '@ersinspot/shared';
+
 /**
  * Türkçe metin için ortalama okuma hızı (kelime/dakika).
  *
@@ -29,29 +31,7 @@ export function estimateReadingMinutes(content: string): number {
  * etiketler dizi sütununda tutulduğu için bu varyasyonlar ayrı ayrı çoğalırdı.
  */
 export function slugifyTag(name: string): string {
-  const turkishToAscii: Readonly<Record<string, string>> = {
-    ç: 'c',
-    Ç: 'c',
-    ğ: 'g',
-    Ğ: 'g',
-    ı: 'i',
-    I: 'i',
-    İ: 'i',
-    ö: 'o',
-    Ö: 'o',
-    ş: 's',
-    Ş: 's',
-    ü: 'u',
-    Ü: 'u',
-  };
-
-  return [...name]
-    .map((character) => turkishToAscii[character] ?? character)
-    .join('')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40);
+  return slugify(name);
 }
 
 /**
