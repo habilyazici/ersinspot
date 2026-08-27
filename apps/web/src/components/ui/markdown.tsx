@@ -66,28 +66,61 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
 }
 
 /**
+ * Bağlantı adresini doğrular ve normalleştirir.
+ *
+ * İki kabul edilen biçim vardır; başka her şey düz metin olarak kalır:
+ *
+ *   /yol      site içi — TEK eğik çizgiyle başlamalı
+ *   https://  dış bağlantı — şema açıkça https olmalı
+ *
+ * `//kotu-site.com` de eğik çizgiyle başlar ama PROTOKOLSÜZ bir dış adrestir:
+ * site içi sanılıp tıklanır ve kullanıcı başka bir siteye gider. Bazı
+ * tarayıcılar `/\kotu-site.com` yazımını da aynı şekilde yorumlar. İkisi de
+ * burada reddedilir.
+ *
+ * Dış adres `URL` ile ayrıştırılır; şema kontrolü dizgeyle değil ayrıştırıcıyla
+ * yapılır, böylece `HtTpS:` gibi yazımlar veya boşluk kaçamağı kalmaz.
+ */
+function safeHref(href: string): { kind: 'internal' | 'external'; href: string } | null {
+  const trimmed = href.trim();
+
+  if (trimmed.startsWith('/')) {
+    // İkinci karakter eğik çizgi veya ters eğik çizgi ise site dışıdır.
+    if (trimmed.startsWith('//') || trimmed.startsWith('/\\')) return null;
+    return { kind: 'internal', href: trimmed };
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== 'https:') return null;
+    return { kind: 'external', href: parsed.toString() };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Bağlantı.
  *
- * Yalnızca site içi yollar ve `https` adresleri bağlantıya çevrilir.
- * `javascript:` ve `data:` gibi şemalar düz metin olarak kalır — React
- * `href` özniteliğini kaçırmaz, bu yüzden denetim burada yapılır.
+ * Doğrulanmayan adres bağlantıya çevrilmez, metin olarak kalır. React `href`
+ * özniteliğini kaçırmaz — `javascript:` bir anchor'a yazılırsa tıklamada
+ * çalışır — bu yüzden denetim burada yapılır.
  */
 function renderLink(text: string, href: string, key: string): ReactNode {
-  const isInternal = href.startsWith('/');
-  const isHttps = href.startsWith('https://');
+  const safe = safeHref(href);
 
-  if (!isInternal && !isHttps) {
+  if (safe === null) {
     return <span key={key}>{text}</span>;
   }
 
   const className = 'font-medium text-brand-navy-700 hover:underline';
 
-  return isInternal ? (
-    <Link key={key} to={href} className={className}>
+  return safe.kind === 'internal' ? (
+    <Link key={key} to={safe.href} className={className}>
       {text}
     </Link>
   ) : (
-    <a key={key} href={href} className={className} target="_blank" rel="noopener noreferrer">
+    <a key={key} href={safe.href} className={className} target="_blank" rel="noopener noreferrer">
       {text}
     </a>
   );
