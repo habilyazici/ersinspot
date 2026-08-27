@@ -21,6 +21,7 @@
 
 import { deflateSync } from 'node:zlib';
 import { eq } from 'drizzle-orm';
+import { slugify } from '@ersinspot/shared';
 import type { FAQ_CATEGORIES } from '@ersinspot/shared';
 import { closeDatabase, db } from './platform/db/client.ts';
 import { isProduction } from './platform/config/env.ts';
@@ -776,16 +777,9 @@ async function seed(): Promise<void> {
     createdPosts += 1;
 
     for (const name of post.tagNames) {
-      const slug = name
-        .toLocaleLowerCase('tr-TR')
-        .replace(/ı/g, 'i')
-        .replace(/ş/g, 's')
-        .replace(/ğ/g, 'g')
-        .replace(/ü/g, 'u')
-        .replace(/ö/g, 'o')
-        .replace(/ç/g, 'c')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '');
+      // Paylaşılan çekirdekle aynı üretim: tohumlanan etiketler uygulamanın
+      // ürettikleriyle çakışmalı, ikinci bir kayıt oluşturmamalı.
+      const slug = slugify(name);
 
       await db.insert(tags).values({ name, slug }).onConflictDoNothing({ target: tags.slug });
 

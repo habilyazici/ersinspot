@@ -52,55 +52,13 @@ export function isPurchasable(status: ProductStatus): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * Türkçe karakterlerin ASCII karşılıkları.
- *
- * `String.normalize('NFD')` Türkçe'de doğru sonuç vermez: "ı" harfi ayrıştırılamaz
- * ve "İ" küçültüldüğünde birleştirici nokta bırakır. Bu yüzden eşleme elle yapılır.
- */
-const TURKISH_TO_ASCII: Readonly<Record<string, string>> = {
-  ç: 'c',
-  Ç: 'c',
-  ğ: 'g',
-  Ğ: 'g',
-  ı: 'i',
-  I: 'i',
-  İ: 'i',
-  i: 'i',
-  ö: 'o',
-  Ö: 'o',
-  ş: 's',
-  Ş: 's',
-  ü: 'u',
-  Ü: 'u',
-};
-
 /**
- * Başlıktan SEO dostu bağlantı adı üretir.
+ * Bağlantı adı üretimi paylaşılan çekirdektedir.
  *
- *   "Arçelik 9 Kg Çamaşır Makinesi"  →  "arcelik-9-kg-camasir-makinesi"
- *
- * Benzersizlik burada sağlanmaz; çağıran taraf çakışma durumunda sonuna ayırt
- * edici bir ek koyar (bkz. `withSlugSuffix`).
+ * Yönetim panelindeki form da aynı fonksiyonu kullanır; iki uygulama ayrı
+ * yazılsaydı personelin ekranda gördüğü ile kaydedilen ayrışabilirdi.
  */
-export function slugify(title: string): string {
-  const transliterated = [...title]
-    .map((character) => TURKISH_TO_ASCII[character] ?? character)
-    .join('');
-
-  return (
-    transliterated
-      .toLowerCase()
-      .normalize('NFD')
-      // Latin harflerdeki aksanları kaldır (é → e).
-      .replace(/[̀-ͯ]/g, '')
-      // Harf ve rakam dışındaki her şey ayırıcı olur.
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      // Aşırı uzun bağlantı adları hem çirkin hem de indeks boyutunu büyütür.
-      .slice(0, 80)
-      .replace(/-+$/, '')
-  );
-}
+export { slugify } from '@ersinspot/shared';
 
 /**
  * Çakışan bağlantı adına ayırt edici ek koyar: "buzdolabi" → "buzdolabi-2".
