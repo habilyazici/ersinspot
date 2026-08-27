@@ -4,6 +4,14 @@
 
 export {
   servicingKeys,
+  useAdminRequests,
+  useAppointmentsOnDate,
+  useConvertSellRequest,
+  useCreateQuote,
+  useRecordDiagnosis,
+  useScheduleAppointment,
+  useSetStaffNote,
+  useUpdateRequestStatus,
   useCancelRequest,
   useCreateMovingRequest,
   useCreateSellRequest,

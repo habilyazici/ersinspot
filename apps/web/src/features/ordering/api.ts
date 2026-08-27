@@ -6,6 +6,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  AdminOrderListQuery,
   Cart,
   CreateOrderInput,
   Order,
@@ -26,6 +27,8 @@ export interface PublicOrderStatus {
 }
 
 export const orderingKeys = {
+  adminOrders: (filters: Partial<AdminOrderListQuery>) =>
+    ['ordering', 'admin', 'orders', filters] as const,
   cart: ['ordering', 'cart'] as const,
   cartCount: ['ordering', 'cart', 'count'] as const,
   orders: (filters: Partial<OrderListQuery>) => ['ordering', 'orders', filters] as const,
@@ -197,5 +200,55 @@ export function useOrderTracking(reference: string, enabled: boolean) {
     },
     enabled: enabled && reference !== '',
     retry: false,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Yönetim
+// ---------------------------------------------------------------------------
+
+/**
+ * Personelin gördüğü sipariş listesi.
+ *
+ * Müşterinin listesinden ayrı bir sorgu anahtarı kullanır: aynı anahtarı
+ * paylaşsalardı personel kendi siparişlerini görürken önbellekteki tüm
+ * siparişler listesiyle karışırdı.
+ */
+export function useAdminOrders(filters: Partial<AdminOrderListQuery> = {}) {
+  return useQuery({
+    queryKey: orderingKeys.adminOrders(filters),
+    queryFn: () =>
+      apiRequest<Paginated<OrderSummary>>('/api/admin/orders', {
+        query: {
+          page: filters.page,
+          pageSize: filters.pageSize,
+          status: filters.status,
+          search: filters.search,
+          fromDate: filters.fromDate,
+          toDate: filters.toDate,
+        },
+      }),
+    placeholderData: (previous) => previous,
+  });
+}
+
+/** Sipariş durumunu ilerletir. Geçişin geçerliliği sunucuda doğrulanır. */
+export function useUpdateOrderStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { orderId: string; status: OrderStatus; note?: string }) =>
+      apiRequest<{ success: boolean }>(`/api/admin/orders/${input.orderId}/status`, {
+        method: 'PATCH',
+        body: { status: input.status, note: input.note },
+      }),
+
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: orderingKeys.order(variables.orderId) });
+      void queryClient.invalidateQueries({ queryKey: ['ordering', 'orders'] });
+      void queryClient.invalidateQueries({ queryKey: ['ordering', 'admin'] });
+      // Durum değişimi envanteri etkiler: teslim edilen ürün satıldı sayılır.
+      void queryClient.invalidateQueries({ queryKey: ['catalog'] });
+    },
   });
 }
