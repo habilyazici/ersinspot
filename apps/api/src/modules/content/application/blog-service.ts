@@ -326,22 +326,31 @@ export async function updatePost(postId: string, input: UpdateBlogPostInput): Pr
           ? null
           : existing.publishedAt;
 
-    await tx
-      .update(blogPosts)
-      .set({
-        ...(input.slug === undefined ? {} : { slug: input.slug }),
-        ...(input.title === undefined ? {} : { title: input.title }),
-        ...(input.excerpt === undefined ? {} : { excerpt: input.excerpt }),
-        ...(input.content === undefined
-          ? {}
-          : { content: input.content, readingMinutes: estimateReadingMinutes(input.content) }),
-        ...(input.coverImageStorageKey === undefined
-          ? {}
-          : { coverImageStorageKey: input.coverImageStorageKey }),
-        ...(input.category === undefined ? {} : { category: input.category }),
-        ...(input.isPublished === undefined ? {} : { isPublished: input.isPublished, publishedAt }),
-      })
-      .where(eq(blogPosts.id, postId));
+    /*
+      Yazılacak sütunlar önce toplanır.
+
+      Kısmi güncellemede istek yalnızca sütun OLMAYAN bir alan taşıyabilir —
+      `{ tags: [...] }` gibi. O durumda `set` boş kalır ve Drizzle "No values
+      to set" hatası fırlatır: kullanıcı 500 görür. Etiket güncellemesi tam
+      olarak böyle çöküyordu.
+    */
+    const values = {
+      ...(input.slug === undefined ? {} : { slug: input.slug }),
+      ...(input.title === undefined ? {} : { title: input.title }),
+      ...(input.excerpt === undefined ? {} : { excerpt: input.excerpt }),
+      ...(input.content === undefined
+        ? {}
+        : { content: input.content, readingMinutes: estimateReadingMinutes(input.content) }),
+      ...(input.coverImageStorageKey === undefined
+        ? {}
+        : { coverImageStorageKey: input.coverImageStorageKey }),
+      ...(input.category === undefined ? {} : { category: input.category }),
+      ...(input.isPublished === undefined ? {} : { isPublished: input.isPublished, publishedAt }),
+    };
+
+    if (Object.keys(values).length > 0) {
+      await tx.update(blogPosts).set(values).where(eq(blogPosts.id, postId));
+    }
 
     /*
       Etiket eşitleme aynı işlemde: önce mevcut bağlar silinir. Ayrı işlemde
