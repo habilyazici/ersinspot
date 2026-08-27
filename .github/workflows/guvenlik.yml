@@ -19,7 +19,7 @@ jobs:
 
       # Sürüm, package.json'daki packageManager alanından okunur.
       # Burada ayrıca belirtmek ERR_PNPM_BAD_PM_VERSION hatasına yol açar.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
       - uses: actions/setup-node@v4
         with:
