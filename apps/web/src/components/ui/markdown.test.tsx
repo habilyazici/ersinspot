@@ -85,11 +85,44 @@ describe('Markdown görüntüleyici', () => {
     expect(container.querySelector('a')).toBeNull();
   });
 
+  it('protokolsüz adresi site içi sanıp bağlantıya çevirmez', () => {
+    /*
+      `//kotu-site.com` eğik çizgiyle başlar ama site içi DEĞİLDİR: tarayıcı
+      onu protokolsüz bir dış adres sayar. Site içi sanılıp tıklanan bir
+      bağlantı kullanıcıyı habersizce başka bir siteye götürürdü.
+    */
+    const container = show('[tıkla](//kotu-site.com)');
+
+    expect(container.querySelector('a')).toBeNull();
+    expect(container.textContent).toContain('tıkla');
+  });
+
+  it('ters eğik çizgili adresi de reddeder', () => {
+    // Bazı tarayıcılar `/\host` yazımını `//host` gibi yorumlar.
+    const container = show(String.raw`[tıkla](/\kotu-site.com)`);
+
+    expect(container.querySelector('a')).toBeNull();
+  });
+
+  it('http (şifresiz) dış bağlantıyı kabul etmez', () => {
+    const container = show('[tıkla](http://ornek.com)');
+
+    expect(container.querySelector('a')).toBeNull();
+  });
+
+  it('büyük harfli şema yazımı denetimi atlatamaz', () => {
+    // Şema, dizge karşılaştırmasıyla değil URL ayrıştırıcısıyla denetlenir.
+    const container = show('[tıkla](JaVaScRiPt:alert(1))');
+
+    expect(container.querySelector('a')).toBeNull();
+  });
+
   it('https bağlantısını yeni sekmede ve rel korumasıyla açar', () => {
     const container = show('[site](https://ornek.com)');
     const anchor = container.querySelector('a');
 
-    expect(anchor?.getAttribute('href')).toBe('https://ornek.com');
+    // Adres `URL` ile normalleştirilir; kök yol için sondaki eğik çizgi eklenir.
+    expect(anchor?.getAttribute('href')).toBe('https://ornek.com/');
     expect(anchor?.getAttribute('rel')).toContain('noopener');
     expect(anchor?.getAttribute('target')).toBe('_blank');
   });
