@@ -31,6 +31,8 @@ const RegisterPage = lazy(() => import('./routes/register.tsx'));
 const CartPage = lazy(() => import('./routes/cart.tsx'));
 const CheckoutPage = lazy(() => import('./routes/checkout.tsx'));
 const MovingPage = lazy(() => import('./routes/moving.tsx'));
+const SellPage = lazy(() => import('./routes/sell.tsx'));
+const TechnicalServicePage = lazy(() => import('./routes/technical-service.tsx'));
 const MyRequestsPage = lazy(() => import('./routes/my-requests.tsx'));
 const RequestDetailPage = lazy(() => import('./routes/request-detail.tsx'));
 const MyOrdersPage = lazy(() => import('./routes/my-orders.tsx'));
@@ -78,6 +80,22 @@ export function App() {
                   element={
                     <RequireAuth>
                       <CartPage />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/urun-sat"
+                  element={
+                    <RequireAuth>
+                      <SellPage />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/teknik-servis"
+                  element={
+                    <RequireAuth>
+                      <TechnicalServicePage />
                     </RequireAuth>
                   }
                 />
