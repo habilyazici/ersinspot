@@ -8,11 +8,9 @@ export {
   useCreateMovingRequest,
   useCreateSellRequest,
   useCreateTechnicalServiceRequest,
-  useMovingRequest,
   useMyRequests,
+  useRequest,
   useRespondToQuote,
-  useSellRequest,
-  useTechnicalServiceRequest,
 } from './api.ts';
 
 export type { CreateRequestResult } from './api.ts';

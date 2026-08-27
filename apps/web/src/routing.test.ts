@@ -27,7 +27,6 @@ const SRC = path.resolve(import.meta.dirname);
  * Her biri planlanan bir sayfadır; yazıldığında bu listeden çıkarılır.
  */
 const PLANNED_PAGES = [
-  '/nakliye', // nakliye talebi formu
   '/teknik-servis', // teknik servis talebi formu
   '/urun-sat', // ürün satma talebi formu
   '/sss', // sıkça sorulan sorular

@@ -17,6 +17,8 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { serviceRequestSchema } from '@ersinspot/shared';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '../../../platform/db/client.ts';
 import { createTestUser, loginAs, request, resetDatabase } from '../../../test/helpers.ts';
@@ -143,6 +145,64 @@ async function createMoving(cookie = customerCookie): Promise<string> {
   const payload = (await response.json()) as { request: { requestId: string } };
   return payload.request.requestId;
 }
+
+describe('türden bağımsız talep detayı', () => {
+  /*
+    Müşterinin tek bir talep listesi vardır; detayı okumak için talebin
+    içeride hangi tabloya yazıldığını bilmesi gerekmemelidir. Liste birleşikken
+    detayın üç ayrı uca bölünmüş olması bir asimetriydi.
+  */
+  it('nakliye talebini kind alanıyla döndürür', async () => {
+    const requestId = await createMoving();
+
+    const response = await request(`/api/requests/${requestId}`, { cookie: customerCookie });
+    const body = (await response.json()) as { request: { kind: string; id: string } };
+
+    expect(response.status).toBe(200);
+    expect(body.request.kind).toBe('moving');
+    expect(body.request.id).toBe(requestId);
+  });
+
+  it('yanıt paylaşılan birleşim şemasına uyar', async () => {
+    const requestId = await createMoving();
+
+    const response = await request(`/api/requests/${requestId}`, { cookie: customerCookie });
+    const body = await response.json();
+
+    expect(() => z.object({ request: serviceRequestSchema }).parse(body)).not.toThrow();
+  });
+
+  it('başkasının talebini döndürmez', async () => {
+    const requestId = await createMoving();
+
+    const other = await createTestUser({
+      email: 'baskasi@ersinspot.com',
+      phone: '+905449998877',
+      emailVerified: true,
+    });
+    const otherCookie = await loginAs(other.email, other.password);
+
+    const response = await request(`/api/requests/${requestId}`, { cookie: otherCookie });
+
+    expect(response.status).toBe(403);
+  });
+
+  it('oturumsuz erişimi reddeder', async () => {
+    const requestId = await createMoving();
+
+    const response = await request(`/api/requests/${requestId}`);
+
+    expect(response.status).toBe(401);
+  });
+
+  it('olmayan talepte 404 döner', async () => {
+    const response = await request('/api/requests/11111111-1111-4111-8111-111111111111', {
+      cookie: customerCookie,
+    });
+
+    expect(response.status).toBe(404);
+  });
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 // YETKİLENDİRME — eski koddaki en kötü açıklar

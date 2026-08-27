@@ -49,6 +49,7 @@ import {
 import { rateLimit } from '../../../platform/http/security.ts';
 import * as movingService from '../application/moving-service.ts';
 import * as requestService from '../application/request-service.ts';
+import { getRequest } from '../application/request-detail.ts';
 import * as sellRequestService from '../application/sell-request-service.ts';
 import * as technicalService from '../application/technical-service.ts';
 
@@ -180,6 +181,21 @@ servicingRoutes.get('/sell-requests/:id', requireAuth, validateParams(idParamSch
 
 // ---------------------------------------------------------------------------
 // Ortak müşteri işlemleri
+// ---------------------------------------------------------------------------
+
+/**
+ * Türden bağımsız talep detayı.
+ *
+ * Liste (`GET /api/requests`) üç türü birlikte döndürür; detay da tek adresten
+ * okunur. Yanıt `kind` alanıyla ayrışan bir birleşimdir.
+ */
+servicingRoutes.get('/requests/:id', requireAuth, validateParams(idParamSchema), async (c) => {
+  const { id } = params(c, idParamSchema);
+  return c.json({ request: await getRequest(id, currentUser(c)) });
+});
+
+// ---------------------------------------------------------------------------
+// Diğer ortak işlemler
 // ---------------------------------------------------------------------------
 
 /** Müşterinin tüm talepleri — üç tür tek listede. */
