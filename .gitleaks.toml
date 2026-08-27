@@ -1,0 +1,26 @@
+# Sızdırılmış sır taraması yapılandırması.
+#
+# Varsayılan kural kümesi genişletilir, DARALTILMAZ: buradaki tek istisna test
+# dosyalarındaki sahte şifrelerdir. `generic-api-key` kuralı `password: '...'`
+# kalıbını gördüğü her yerde uyarır ve kimlik doğrulama testleri doğası gereği
+# şifre içerir — gerçek bir sır değil, kasten yazılmış bir sabittir.
+#
+# İstisna KURAL ve YOL bazında sınırlıdır: bir test dosyasına yanlışlıkla
+# yapıştırılan bir AWS anahtarı veya özel anahtar yine yakalanır, çünkü onlar
+# ayrı kurallarla eşleşir.
+
+title = "Ersin Spot"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+[rules.allowlist]
+paths = ['''.*\.test\.tsx?$''']
+regexTarget = "line"
+regexes = [
+  # Testlerde kullanılan sahte şifreler: okunabilir Türkçe/İngilizce
+  # sözcüklerden oluşur ve gerçek bir sisteme ait değildir.
+  '''(password|passwordConfirm|newPassword|newPasswordConfirm|currentPassword)\s*:\s*'[a-z0-9-]+'''',
+]

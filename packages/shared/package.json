@@ -1,0 +1,30 @@
+{
+  "name": "@ersinspot/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./kernel": "./src/kernel/index.ts",
+    "./identity": "./src/modules/identity/index.ts",
+    "./catalog": "./src/modules/catalog/index.ts",
+    "./ordering": "./src/modules/ordering/index.ts",
+    "./servicing": "./src/modules/servicing/index.ts",
+    "./content": "./src/modules/content/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.7"
+  }
+}

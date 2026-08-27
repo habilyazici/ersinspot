@@ -1,0 +1,12 @@
+# Satır sonlarını normalleştir: Windows ve macOS arasında gereksiz fark oluşmasın.
+* text=auto eol=lf
+
+# Üretilmiş dosyalar fark görünümünde daraltılsın.
+pnpm-lock.yaml            linguist-generated=true -diff
+apps/api/src/db/migrations/meta/*.json linguist-generated=true -diff
+
+# İkili dosyalar
+*.png binary
+*.jpg binary
+*.webp binary
+*.woff2 binary

@@ -1,0 +1,23 @@
+name: Özellik önerisi
+description: Yeni bir işlev veya iyileştirme önerin
+labels: [özellik]
+body:
+  - type: textarea
+    id: ihtiyac
+    attributes:
+      label: Hangi ihtiyacı karşılıyor?
+      description: Kullanıcının yaşadığı sorunu anlatın, çözümü değil.
+    validations:
+      required: true
+
+  - type: textarea
+    id: oneri
+    attributes:
+      label: Önerilen çözüm
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatifler
+    attributes:
+      label: Düşünülen alternatifler

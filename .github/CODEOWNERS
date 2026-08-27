@@ -1,0 +1,8 @@
+# Varsayılan olarak tüm değişiklikler depo sahibinin incelemesine düşer.
+*  @habilyazici
+
+# Güvenlik açısından kritik alanlar — bu dosyalarda inceleme zorunlu.
+/apps/api/src/auth/         @habilyazici
+/apps/api/src/middleware/   @habilyazici
+/apps/api/src/db/migrations/ @habilyazici
+/.github/workflows/         @habilyazici
