@@ -10,6 +10,12 @@
  * Bu test kaynak kodu tarar: `<Link to>`, `navigate()` ve `href` ile verilen
  * her iç adresin `App.tsx` içinde bir karşılığı olmasını şart koşar.
  *
+ * SUNUCUNUN ÜRETTİĞİ ADRESLER de denetlenir. E-postalarda gönderilen
+ * bağlantılar (`${WEB_ORIGIN}/eposta-dogrula?token=...` gibi) arayüz kaynağında
+ * hiç geçmez; ilk sürümde iki bağlantının da sayfası yoktu ve bu, kayıt olan
+ * hiç kimsenin e-postasını doğrulayamaması demekti — doğrulama üç hizmet
+ * talebinin ön koşulu olduğu için üç akış birden kapalıydı.
+ *
  * HENÜZ YAZILMAMIŞ SAYFALAR aşağıdaki listede tutulur. Liste bilinçli olarak
  * dar: bir adres buraya eklenmeden bağlantı verilemez, sayfa yazıldığında da
  * buradan çıkarılması gerekir. Yani listenin kendisi kalan işin dökümüdür.
@@ -20,6 +26,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const SRC = path.resolve(import.meta.dirname);
+const API_SRC = path.resolve(import.meta.dirname, '../../api/src');
 
 /**
  * Bağlantısı verilmiş ama sayfası henüz yazılmamış adresler.
@@ -82,7 +89,45 @@ function internalLinks(): { link: string; file: string }[] {
   return found;
 }
 
+/** Sunucu kaynağında `${env.WEB_ORIGIN}/...` biçiminde üretilen adresler. */
+function serverGeneratedLinks(): { link: string; file: string }[] {
+  const found: { link: string; file: string }[] = [];
+
+  function walk(dir: string): void {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+
+      if (entry.isDirectory()) {
+        walk(full);
+        continue;
+      }
+
+      if (!entry.name.endsWith('.ts') || entry.name.includes('.test.')) continue;
+
+      const source = readFileSync(full, 'utf8');
+
+      for (const match of source.matchAll(/\$\{env\.WEB_ORIGIN\}(\/[\w\-/]*)/g)) {
+        const link = match[1];
+        if (link !== undefined) found.push({ link, file: path.relative(API_SRC, full) });
+      }
+    }
+  }
+
+  walk(API_SRC);
+  return found;
+}
+
 describe('Yönlendirme bütünlüğü', () => {
+  it('sunucunun e-postada verdiği her adresin bir sayfası vardır', () => {
+    const routes = definedRoutes();
+
+    const broken = serverGeneratedLinks()
+      .filter(({ link }) => !isReachable(link, routes))
+      .map(({ link, file }) => `${link}  (apps/api/src/${file})`);
+
+    expect(broken).toEqual([]);
+  });
+
   it('her iç bağlantının tanımlı bir rotası vardır', () => {
     const routes = definedRoutes();
     const planned = new Set<string>(PLANNED_PAGES);

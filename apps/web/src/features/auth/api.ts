@@ -158,3 +158,45 @@ export function useResendVerification() {
       apiRequest<{ success: boolean }>('/api/auth/resend-verification', { method: 'POST' }),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Oturumlar
+// ---------------------------------------------------------------------------
+
+/** Hesabın açık olduğu cihazlardan biri. */
+export interface ActiveSession {
+  readonly id: string;
+  /** Bu oturum şu an kullanılan oturum mu? Kullanıcının kendini tanıması için. */
+  readonly isCurrent: boolean;
+  readonly ipAddress: string | null;
+  readonly userAgent: string | null;
+  readonly lastUsedAt: string;
+  readonly createdAt: string;
+}
+
+export function useSessions() {
+  return useQuery({
+    queryKey: authKeys.sessions,
+    queryFn: async () => {
+      const response = await apiRequest<{ sessions: ActiveSession[] }>('/api/auth/sessions');
+      return response.sessions;
+    },
+  });
+}
+
+/**
+ * Diğer tüm cihazlardan çıkış yapar.
+ *
+ * Mevcut oturum korunur: kullanıcı kendini de atarsa işlemin sonucunu göremez
+ * ve yeniden giriş yapmak zorunda kalırdı.
+ */
+export function useLogoutAllOtherSessions() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => apiRequest<{ success: boolean }>('/api/auth/logout-all', { method: 'POST' }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: authKeys.sessions });
+    },
+  });
+}

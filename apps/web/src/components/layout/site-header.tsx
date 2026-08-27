@@ -60,6 +60,15 @@ export function SiteHeader() {
               <Button asChild variant="ghost" size="sm">
                 <Link to="/hesabim/siparislerim">
                   <Package aria-hidden="true" />
+                  <span className="hidden md:inline">Siparişlerim</span>
+                </Link>
+              </Button>
+
+              {/* Ad, hesap sayfasına götürür: kullanıcı orada bilgilerini,
+                  şifresini ve açık oturumlarını yönetir. */}
+              <Button asChild variant="ghost" size="sm">
+                <Link to="/hesabim">
+                  <User aria-hidden="true" />
                   <span className="hidden md:inline">
                     {user?.fullName.split(' ')[0] ?? 'Hesabım'}
                   </span>
@@ -114,13 +123,29 @@ export function SiteHeader() {
 
             <li className="mt-2 border-t border-slate-200 pt-2">
               {isAuthenticated ? (
-                <NavLink
-                  to="/hesabim/siparislerim"
-                  className={navLinkClass}
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Siparişlerim
-                </NavLink>
+                <>
+                  <NavLink
+                    to="/hesabim"
+                    className={navLinkClass}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Hesabım
+                  </NavLink>
+                  <NavLink
+                    to="/hesabim/siparislerim"
+                    className={navLinkClass}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Siparişlerim
+                  </NavLink>
+                  <NavLink
+                    to="/hesabim/taleplerim"
+                    className={navLinkClass}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Taleplerim
+                  </NavLink>
+                </>
               ) : (
                 <NavLink to="/giris" className={navLinkClass} onClick={() => setIsMenuOpen(false)}>
                   Giriş Yap

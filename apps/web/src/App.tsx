@@ -28,12 +28,15 @@ const LoginPage = lazy(() => import('./routes/login.tsx'));
 const RegisterPage = lazy(() => import('./routes/register.tsx'));
 
 // Hesap
+const AccountPage = lazy(() => import('./routes/account.tsx'));
 const BlogPage = lazy(() => import('./routes/blog.tsx'));
 const BlogDetailPage = lazy(() => import('./routes/blog-detail.tsx'));
 const CartPage = lazy(() => import('./routes/cart.tsx'));
 const FaqPage = lazy(() => import('./routes/faq.tsx'));
 const ForgotPasswordPage = lazy(() => import('./routes/forgot-password.tsx'));
+const ResetPasswordPage = lazy(() => import('./routes/reset-password.tsx'));
 const TermsPage = lazy(() => import('./routes/terms.tsx'));
+const VerifyEmailPage = lazy(() => import('./routes/verify-email.tsx'));
 const CheckoutPage = lazy(() => import('./routes/checkout.tsx'));
 const MovingPage = lazy(() => import('./routes/moving.tsx'));
 const SellPage = lazy(() => import('./routes/sell.tsx'));
@@ -82,6 +85,14 @@ export function App() {
                 <Route path="/sss" element={<FaqPage />} />
                 <Route path="/kullanim-kosullari" element={<TermsPage />} />
                 <Route path="/sifremi-unuttum" element={<ForgotPasswordPage />} />
+                {/*
+                  E-postayla gönderilen bağlantıların indiği sayfalar. Adresleri
+                  sunucu üretir (`${WEB_ORIGIN}/sifre-sifirla?token=...`); ikisi
+                  de oturum GEREKTİRMEZ — şifresini unutan kullanıcı giriş
+                  yapamaz, doğrulama bağlantısı da başka bir cihazda açılabilir.
+                */}
+                <Route path="/sifre-sifirla" element={<ResetPasswordPage />} />
+                <Route path="/eposta-dogrula" element={<VerifyEmailPage />} />
                 <Route path="/giris" element={<LoginPage />} />
                 <Route path="/kayit" element={<RegisterPage />} />
 
@@ -130,6 +141,14 @@ export function App() {
                   element={
                     <RequireAuth>
                       <MyOrdersPage />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/hesabim"
+                  element={
+                    <RequireAuth>
+                      <AccountPage />
                     </RequireAuth>
                   }
                 />
