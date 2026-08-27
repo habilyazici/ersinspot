@@ -17,8 +17,11 @@ import { CalendarPlus, ClipboardList, NotebookPen, Receipt, Stethoscope } from '
 import {
   APPOINTMENT_TIME_SLOTS,
   ApiError,
+  LEAD_TIME_DAYS,
+  QUOTE_VALIDITY_DAYS,
   REQUEST_STATUS_LABELS,
   REQUEST_STATUS_TRANSITIONS,
+  dateAfterDays,
   money,
 } from '@ersinspot/shared';
 import type { RequestStatus } from '@ersinspot/shared';
@@ -40,20 +43,6 @@ import {
   useUpdateRequestStatus,
 } from '@/features/servicing';
 
-/** Teklif geçerlilik tarihi için makul bir varsayılan: bir hafta. */
-function defaultValidUntil(): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + 7);
-  return date.toISOString().slice(0, 10);
-}
-
-/** Randevu için en erken gün: ekibin planlama yapabilmesi için iki gün. */
-function earliestAppointment(): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + 2);
-  return date.toISOString().slice(0, 10);
-}
-
 export default function AdminRequestDetailPage() {
   const { requestId = '' } = useParams<{ requestId: string }>();
   const { data: request, isLoading, isError, error, refetch } = useRequest(requestId);
@@ -65,10 +54,10 @@ export default function AdminRequestDetailPage() {
   const recordDiagnosis = useRecordDiagnosis();
 
   const [quoteAmount, setQuoteAmount] = useState('');
-  const [quoteValidUntil, setQuoteValidUntil] = useState(defaultValidUntil());
+  const [quoteValidUntil, setQuoteValidUntil] = useState(dateAfterDays(QUOTE_VALIDITY_DAYS));
   const [quoteNote, setQuoteNote] = useState('');
 
-  const [appointmentDate, setAppointmentDate] = useState(earliestAppointment());
+  const [appointmentDate, setAppointmentDate] = useState(dateAfterDays(LEAD_TIME_DAYS.appointment));
   const [slotStart, setSlotStart] = useState<string>(APPOINTMENT_TIME_SLOTS[0].startTime);
   const [appointmentNote, setAppointmentNote] = useState('');
 
@@ -308,7 +297,7 @@ export default function AdminRequestDetailPage() {
               <TextField
                 label="Tarih"
                 type="date"
-                min={earliestAppointment()}
+                min={dateAfterDays(LEAD_TIME_DAYS.appointment)}
                 value={appointmentDate}
                 onChange={(event) => {
                   setAppointmentDate(event.target.value);

@@ -22,9 +22,11 @@ import {
   COMMON_MOVING_ITEMS,
   HOUSE_SIZES,
   HOUSE_SIZE_LABELS,
+  LEAD_TIME_DAYS,
   MOVING_ASSEMBLY_FEE,
   MOVING_PACKING_FEE,
   createMovingRequestSchema,
+  dateAfterDays,
   estimateMoving,
 } from '@ersinspot/shared';
 import type { CreateMovingRequestInput } from '@ersinspot/shared';
@@ -40,13 +42,6 @@ import { useAuth } from '@/features/auth';
 import { useCreateMovingRequest } from '@/features/servicing';
 
 type MovingValues = CreateMovingRequestInput;
-
-/** En erken taşınma günü: hazırlık için üç gün. */
-function earliestMovingDate(): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + 3);
-  return date.toISOString().slice(0, 10);
-}
 
 export default function MovingPage() {
   const navigate = useNavigate();
@@ -74,7 +69,7 @@ export default function MovingPage() {
         floor: 0,
         hasElevator: false,
       },
-      preferredDate: earliestMovingDate(),
+      preferredDate: dateAfterDays(LEAD_TIME_DAYS.moving),
       items: [{ name: COMMON_MOVING_ITEMS[0], quantity: 1, needsDisassembly: false }],
       needsPacking: false,
       needsAssembly: false,
@@ -198,7 +193,7 @@ export default function MovingPage() {
                 label="Tercih Ettiğiniz Tarih"
                 required
                 type="date"
-                min={earliestMovingDate()}
+                min={dateAfterDays(LEAD_TIME_DAYS.moving)}
                 hint="Kesin randevu, teklifi onayladıktan sonra verilir."
                 error={errors.preferredDate?.message}
                 {...register('preferredDate')}

@@ -17,11 +17,13 @@ import {
   DEVICE_TYPES,
   DEVICE_TYPE_LABELS,
   INSPECTION_FEE,
+  LEAD_TIME_DAYS,
   PROBLEM_CATEGORIES,
   PROBLEM_CATEGORY_LABELS,
   WARRANTY_STATUSES,
   WARRANTY_STATUS_LABELS,
   createTechnicalServiceRequestSchema,
+  dateAfterDays,
 } from '@ersinspot/shared';
 import type { CreateTechnicalServiceRequestInput } from '@ersinspot/shared';
 import { AddressFields } from '@/components/ui/address-fields.tsx';
@@ -37,13 +39,6 @@ import { useAuth } from '@/features/auth';
 import { useCreateTechnicalServiceRequest } from '@/features/servicing';
 
 type TechnicalServiceValues = CreateTechnicalServiceRequestInput;
-
-/** En erken keşif günü: ekibin planlama yapabilmesi için iki gün. */
-function earliestVisitDate(): string {
-  const date = new Date();
-  date.setUTCDate(date.getUTCDate() + 2);
-  return date.toISOString().slice(0, 10);
-}
 
 export default function TechnicalServicePage() {
   const navigate = useNavigate();
@@ -67,7 +62,7 @@ export default function TechnicalServicePage() {
       problemCategory: 'not_powering_on',
       problemDescription: '',
       address: { neighborhood: '', street: '', buildingNo: '' },
-      preferredDate: earliestVisitDate(),
+      preferredDate: dateAfterDays(LEAD_TIME_DAYS.technicalService),
       photos: [],
       acceptedInspectionFee: false,
     },
@@ -248,7 +243,7 @@ export default function TechnicalServicePage() {
               label="Tercih Ettiğiniz Tarih"
               required
               type="date"
-              min={earliestVisitDate()}
+              min={dateAfterDays(LEAD_TIME_DAYS.technicalService)}
               hint="Kesin randevu, talebiniz incelendikten sonra size bildirilir."
               error={errors.preferredDate?.message}
               {...register('preferredDate')}
