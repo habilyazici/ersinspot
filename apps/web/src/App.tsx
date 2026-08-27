@@ -29,6 +29,9 @@ const RegisterPage = lazy(() => import('./routes/register.tsx'));
 
 // Hesap
 const CartPage = lazy(() => import('./routes/cart.tsx'));
+const FaqPage = lazy(() => import('./routes/faq.tsx'));
+const ForgotPasswordPage = lazy(() => import('./routes/forgot-password.tsx'));
+const TermsPage = lazy(() => import('./routes/terms.tsx'));
 const CheckoutPage = lazy(() => import('./routes/checkout.tsx'));
 const MovingPage = lazy(() => import('./routes/moving.tsx'));
 const SellPage = lazy(() => import('./routes/sell.tsx'));
@@ -72,6 +75,9 @@ export function App() {
                 <Route path="/urun/:slug" element={<ProductDetailPage />} />
                 <Route path="/siparis-takip" element={<OrderTrackingPage />} />
 
+                <Route path="/sss" element={<FaqPage />} />
+                <Route path="/kullanim-kosullari" element={<TermsPage />} />
+                <Route path="/sifremi-unuttum" element={<ForgotPasswordPage />} />
                 <Route path="/giris" element={<LoginPage />} />
                 <Route path="/kayit" element={<RegisterPage />} />
 
