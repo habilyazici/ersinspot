@@ -22,7 +22,7 @@ import { apiRequest } from '@/lib/api';
 export const contentKeys = {
   all: ['content'] as const,
   settings: ['content', 'settings'] as const,
-  adminBlog: ['content', 'admin', 'blog'] as const,
+  adminBlog: (filters: Partial<BlogListQuery>) => ['content', 'admin', 'blog', filters] as const,
   adminFaqs: ['content', 'admin', 'faqs'] as const,
   adminSettings: ['content', 'admin', 'settings'] as const,
   messages: (filters: Partial<ContactMessageListQuery>) =>
@@ -120,11 +120,26 @@ export function useBlogTags() {
 // Yönetim — blog
 // ---------------------------------------------------------------------------
 
-/** Taslaklar dahil tüm yazılar. Vitrin listesi yalnızca yayınlananları döner. */
-export function useAdminBlogPosts() {
+/**
+ * Taslaklar dahil tüm yazılar. Vitrin listesi yalnızca yayınlananları döner.
+ *
+ * Süzgeç ve sayfa parametreleri vitrindekiyle aynıdır. Önceden hiç
+ * gönderilmiyordu: liste ilk sayfada donuyor ve yazı sayısı sayfa boyutunu
+ * geçtiğinde kalanlar sessizce görünmez oluyordu.
+ */
+export function useAdminBlogPosts(filters: Partial<BlogListQuery> = {}) {
   return useQuery({
-    queryKey: contentKeys.adminBlog,
-    queryFn: () => apiRequest<Paginated<BlogPostSummary>>('/api/admin/blog'),
+    queryKey: contentKeys.adminBlog(filters),
+    queryFn: () =>
+      apiRequest<Paginated<BlogPostSummary>>('/api/admin/blog', {
+        query: {
+          page: filters.page,
+          pageSize: filters.pageSize,
+          category: filters.category,
+          search: filters.search,
+        },
+      }),
+    placeholderData: (previous) => previous,
   });
 }
 

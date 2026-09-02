@@ -9,9 +9,6 @@ dist/
 build/
 coverage/
 
-# Eski kod tabanı: yalnızca başvuru için tutulur, depoya girmez.
-legacy/
-
 # Drizzle'ın ürettiği migration üstverisi.
 #
 # `drizzle-kit generate` bu dosyaları kendi biçiminde yazar. Biçim denetimine

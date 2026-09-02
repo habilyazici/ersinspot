@@ -22,6 +22,13 @@
       "when": 1787753953040,
       "tag": "0002_indeksler",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788360289995,
+      "tag": "0003_adres_defteri_kaldir",
+      "breakpoints": true
     }
   ]
 }

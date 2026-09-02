@@ -80,17 +80,25 @@ export default function CartPage() {
           {cart.items.map((item) => (
             <Card as="li" key={item.productId} className="flex gap-4">
               <div className="size-20 shrink-0 overflow-hidden rounded-lg bg-slate-100">
-                {item.coverImageUrl === null ? (
-                  <div className="flex h-full items-center justify-center">
-                    <ImageOff className="size-6 text-slate-300" aria-hidden="true" />
-                  </div>
-                ) : (
-                  <img src={item.coverImageUrl} alt="" className="size-full object-cover" />
-                )}
+                <Link to={`/urun/${item.slug}`} tabIndex={-1} aria-hidden="true">
+                  {item.coverImageUrl === null ? (
+                    <div className="flex h-full items-center justify-center">
+                      <ImageOff className="size-6 text-slate-300" aria-hidden="true" />
+                    </div>
+                  ) : (
+                    <img src={item.coverImageUrl} alt="" className="size-full object-cover" />
+                  )}
+                </Link>
               </div>
 
               <div className="min-w-0 flex-1">
-                <h2 className="truncate font-medium text-slate-900">{item.title}</h2>
+                {/* Kalemden ürün sayfasına dönüş: fiyat veya durum değiştiyse
+                    kullanıcı ayrıntıyı oradan görür. */}
+                <h2 className="truncate font-medium text-slate-900">
+                  <Link to={`/urun/${item.slug}`} className="hover:text-brand-orange-600">
+                    {item.title}
+                  </Link>
+                </h2>
 
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <StatusBadge meta={PRODUCT_CONDITION_LABELS[item.condition]} />

@@ -13,6 +13,3 @@
  */
 
 export { servicingRoutes } from './api/routes.ts';
-
-/** Müşteri panelindeki özet sayaç için. */
-export { getActiveRequestCount } from './application/request-service.ts';

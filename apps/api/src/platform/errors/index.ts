@@ -52,10 +52,6 @@ export function unauthenticated(message?: string): AppError {
   return new AppError('unauthenticated', message === undefined ? undefined : { message });
 }
 
-export function sessionExpired(): AppError {
-  return new AppError('session_expired');
-}
-
 /**
  * Kimlik bilgileri hatalı.
  *
@@ -133,10 +129,6 @@ export function unsupportedFileType(allowed: readonly string[]): AppError {
   return new AppError('unsupported_file_type', {
     message: `Yalnızca şu dosya türleri yüklenebilir: ${allowed.join(', ')}.`,
   });
-}
-
-export function internalError(cause: unknown, context?: Record<string, unknown>): AppError {
-  return new AppError('internal_error', { cause, context });
 }
 
 /** Değerin `AppError` olup olmadığını, tip daraltmasıyla söyler. */

@@ -9,7 +9,7 @@
  * içinde herhangi bir sırayla yazılabilir.
  */
 
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import type {
   DeviceType,
   HouseSize,
@@ -230,6 +230,64 @@ export async function findSellDetail(
     .limit(1);
 
   return rows[0] ?? null;
+}
+
+/**
+ * Liste ekranında gösterilecek başlıkları TEK sorgu turunda toplar.
+ *
+ * Başlık türe göre farklı tablodan gelir: nakliyede ev büyüklüğü, teknik
+ * serviste marka ve cihaz, satış talebinde ürün adı. Talep başına ayrı sorgu
+ * çalıştırmak, sayfa boyutu kadar gidiş-dönüş demekti (sayfa başına 100'e
+ * kadar) — üç sorguya iner.
+ *
+ * @returns Talep kimliğinden başlığa eşleme. Detayı bulunamayan talep haritada
+ *   yer almaz; çağıran taraf türe göre bir yedek başlık kullanır.
+ */
+export async function findTitlesForRequests(
+  requestIds: readonly string[],
+): Promise<Map<string, string>> {
+  const titles = new Map<string, string>();
+
+  if (requestIds.length === 0) return titles;
+
+  const ids = [...requestIds];
+
+  const [moving, technical, sell] = await Promise.all([
+    db
+      .select({
+        requestId: movingRequestDetails.requestId,
+        houseSize: movingRequestDetails.houseSize,
+      })
+      .from(movingRequestDetails)
+      .where(inArray(movingRequestDetails.requestId, ids)),
+
+    db
+      .select({
+        requestId: technicalServiceDetails.requestId,
+        brand: technicalServiceDetails.brand,
+        deviceType: technicalServiceDetails.deviceType,
+        customDeviceType: technicalServiceDetails.customDeviceType,
+      })
+      .from(technicalServiceDetails)
+      .where(inArray(technicalServiceDetails.requestId, ids)),
+
+    db
+      .select({ requestId: sellRequestDetails.requestId, title: sellRequestDetails.title })
+      .from(sellRequestDetails)
+      .where(inArray(sellRequestDetails.requestId, ids)),
+  ]);
+
+  for (const row of moving) {
+    titles.set(row.requestId, `${row.houseSize} Nakliye`);
+  }
+  for (const row of technical) {
+    titles.set(row.requestId, `${row.brand} ${row.customDeviceType ?? row.deviceType}`);
+  }
+  for (const row of sell) {
+    titles.set(row.requestId, row.title);
+  }
+
+  return titles;
 }
 
 /**

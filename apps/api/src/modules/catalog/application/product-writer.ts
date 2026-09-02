@@ -12,6 +12,7 @@
 
 import { eq } from 'drizzle-orm';
 import type { CreateProductInput, ProductCondition, UpdateProductInput } from '@ersinspot/shared';
+import { attachFiles } from '../../files/index.ts';
 import { db } from '../../../platform/db/client.ts';
 import type { Transaction } from '../../../platform/db/client.ts';
 import { businessRule, notFound } from '../../../platform/errors/index.ts';
@@ -48,14 +49,23 @@ export async function createProduct(input: CreateProductInput): Promise<{ produc
       throw new Error('Ürün kaydı oluşturulamadı.');
     }
 
-    await tx.insert(productImages).values(
-      input.images.map((image, index) => ({
-        productId: created.id,
-        storageKey: image.storageKey,
-        altText: image.altText ?? input.title,
-        displayOrder: index,
-      })),
-    );
+    if (input.images.length > 0) {
+      await tx.insert(productImages).values(
+        input.images.map((image, index) => ({
+          productId: created.id,
+          storageKey: image.storageKey,
+          altText: image.altText ?? input.title,
+          displayOrder: index,
+        })),
+      );
+
+      // Yüklemeleri kayda bağla; aksi halde bakım görevi 24 saat sonra siler.
+      await attachFiles(
+        input.images.map((image) => image.storageKey),
+        tx,
+        { purpose: 'product_image' },
+      );
+    }
 
     if (input.specs.length > 0) {
       await tx.insert(productSpecs).values(
@@ -125,14 +135,23 @@ export async function updateProduct(productId: string, input: UpdateProductInput
     // tam liste beklenir — sıralama da böyle korunur.
     if (input.images !== undefined) {
       await tx.delete(productImages).where(eq(productImages.productId, productId));
-      await tx.insert(productImages).values(
-        input.images.map((image, index) => ({
-          productId,
-          storageKey: image.storageKey,
-          altText: image.altText ?? existing.title,
-          displayOrder: index,
-        })),
-      );
+
+      if (input.images.length > 0) {
+        await tx.insert(productImages).values(
+          input.images.map((image, index) => ({
+            productId,
+            storageKey: image.storageKey,
+            altText: image.altText ?? existing.title,
+            displayOrder: index,
+          })),
+        );
+
+        await attachFiles(
+          input.images.map((image) => image.storageKey),
+          tx,
+          { purpose: 'product_image' },
+        );
+      }
     }
 
     if (input.specs !== undefined) {
@@ -273,6 +292,14 @@ export async function createProductFromSellRequest(
         displayOrder: index,
       })),
     );
+
+    /*
+      Fotoğraflar talebin fotoğraflarıdır ve zaten bağlıdır; amaç filtresi
+      verilmez (`request_photo` olarak yüklendiler, `product_image` değil).
+      Yine de bağlama çağrısı yapılır: anahtarların gerçekten var olduğunu
+      doğrular ve kaydın var olmayan bir dosyayı göstermesini engeller.
+    */
+    await attachFiles(input.imageStorageKeys, tx);
   }
 
   return created.id;

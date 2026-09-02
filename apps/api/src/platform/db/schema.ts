@@ -9,6 +9,12 @@
  * bilinçli istisnasıdır. Sebep teknik: Drizzle'ın tek bir şema giriş noktasına
  * ihtiyacı var. Bu istisna yalnızca burada geçerlidir; iş kodu tabloları
  * doğrudan içe aktaramaz.
+ *
+ * Drizzle'ın ilişki tanımları (`relations()`) burada YOKTUR. Onlar yalnızca
+ * `db.query.<tablo>.findMany({ with: ... })` API'si için gerekir; bu kod tabanı
+ * sorgularını repository katmanında açık birleşimlerle kurar. 293 satırlık
+ * tanım hiçbir yerden okunmuyor ama şema her değiştiğinde elle güncellenmesi
+ * gerekiyordu; kaldırıldı. İlişki API'si gerekirse geri eklenir.
  */
 
 export * from './enums.ts';
@@ -19,5 +25,3 @@ export * from '../../modules/ordering/infrastructure/schema.ts';
 export * from '../../modules/servicing/infrastructure/schema.ts';
 export * from '../../modules/content/infrastructure/schema.ts';
 export * from '../../modules/files/infrastructure/schema.ts';
-
-export * from './relations.ts';

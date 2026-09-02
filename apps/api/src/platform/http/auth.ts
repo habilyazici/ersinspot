@@ -186,22 +186,8 @@ export function currentSession(c: ReadsAuth): SessionContext {
 }
 
 /**
- * Kaynağın sahibi mi, yoksa personel mi?
- *
- * IDOR (dolaylı nesne referansı) açıklarına karşı tek kontrol noktası. Eski kodda
- * `/orders/customer/:email` gibi uçlar, URL'deki e-postanın oturum sahibine ait
- * olup olmadığını hiç kontrol etmiyordu.
- *
- * @param ownerId Kaynağın sahibi olan kullanıcının kimliği. Kayıt sahipsizse null.
+ * Kaynak sahipliği kuralları `platform/authorization.ts` içindedir ve HTTP'den
+ * bağımsızdır; uygulama katmanı da aynı kontrolü kullanır. Rota tanımlarının
+ * tek bir yerden içe aktarabilmesi için buradan yeniden dışa aktarılır.
  */
-export function assertCanAccess(user: AuthenticatedUser, ownerId: string | null): void {
-  // Personel ve yöneticiler tüm kayıtlara erişebilir.
-  if (hasRoleAtLeast(user.role, 'staff')) return;
-
-  if (ownerId === null || ownerId !== user.id) {
-    // Kaynağın var olduğunu ele vermemek için 403 yerine 404 döndürmek de bir seçenek;
-    // burada 403 tercih edildi çünkü kimlik doğrulanmış bir kullanıcı için
-    // "yetkiniz yok" mesajı daha anlaşılır ve numaralandırma riski düşüktür.
-    throw forbidden();
-  }
-}
+export { assertCanAccess, isStaff } from '../authorization.ts';

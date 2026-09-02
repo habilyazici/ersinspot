@@ -20,7 +20,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { REQUEST_STATUS_LABELS, SERVICE_KIND_LABELS } from '@ersinspot/shared';
+import { REQUEST_STATUS_LABELS, SERVICE_KIND_LABELS, today } from '@ersinspot/shared';
 import { Button } from '@/components/ui/button.tsx';
 import { Card } from '@/components/ui/card.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
@@ -31,11 +31,6 @@ import { useAdminProducts } from '@/features/catalog';
 import { useUnreadMessageCount } from '@/features/content';
 import { useAdminOrders } from '@/features/ordering';
 import { useAdminRequests, useAppointmentsOnDate } from '@/features/servicing';
-
-/** Bugünün tarihi (YYYY-AA-GG). Randevu sorgusu bunu ister. */
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function StatCard({
   icon: Icon,

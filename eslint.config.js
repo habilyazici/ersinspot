@@ -20,7 +20,6 @@ export default tseslint.config(
       'dist',
       'build',
       'node_modules',
-      'legacy',
       '**/db/migrations/**',
       'coverage',
       '*.config.js',
@@ -220,11 +219,11 @@ export default tseslint.config(
   },
 
   {
-    // Şema birleştiricisi ve ilişki tanımları, modüllerin tablolarını toplamak
-    // zorundadır: Drizzle Kit tek bir giriş noktası bekler. Bilinçli istisna.
+    // Şema birleştiricisi modüllerin tablolarını toplamak zorundadır: Drizzle Kit
+    // tek bir giriş noktası bekler. Kimlik middleware'i oturumu identity
+    // modülünden çözer, hız sınırı da sayaçlarını oradan okur. Bilinçli istisna.
     files: [
       'apps/api/src/platform/db/schema.ts',
-      'apps/api/src/platform/db/relations.ts',
       'apps/api/src/platform/http/auth.ts',
       'apps/api/src/platform/http/security.ts',
     ],

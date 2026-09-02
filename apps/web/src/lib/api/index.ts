@@ -5,6 +5,6 @@
  * dışarıya sızmaz.
  */
 
-export { apiRequest, apiUpload, setSessionExpiredHandler } from './client.ts';
+export { apiRequest, apiUpload, setUnauthenticatedHandler } from './client.ts';
 export type { RequestOptions } from './client.ts';
 export { queryClient } from './query-client.ts';

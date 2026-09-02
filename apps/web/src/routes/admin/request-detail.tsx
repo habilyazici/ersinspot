@@ -23,6 +23,7 @@ import {
   REQUEST_STATUS_TRANSITIONS,
   dateAfterDays,
   money,
+  today,
 } from '@ersinspot/shared';
 import type { RequestStatus } from '@ersinspot/shared';
 import { Button } from '@/components/ui/button.tsx';
@@ -257,7 +258,7 @@ export default function AdminRequestDetailPage() {
             <TextField
               label="Geçerlilik tarihi"
               type="date"
-              min={new Date().toISOString().slice(0, 10)}
+              min={today()}
               value={quoteValidUntil}
               onChange={(event) => {
                 setQuoteValidUntil(event.target.value);

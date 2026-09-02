@@ -17,7 +17,7 @@ import { logger } from '../../../platform/observability/logger.ts';
 import { businessRule, notFound } from '../../../platform/errors/index.ts';
 import * as detailRepository from '../infrastructure/detail-repository.ts';
 import * as repository from '../infrastructure/request-repository.ts';
-import { assertCanCreateRequest, loadRequestForViewer } from './request-service.ts';
+import { assertCanCreateRequest, loadRequestForViewer, savePhotos } from './request-service.ts';
 import type { Actor } from './request-service.ts';
 import { buildCommonView } from './view-builder.ts';
 
@@ -81,14 +81,7 @@ export async function createSellRequest(
       tx,
     );
 
-    await repository.insertPhotos(
-      requestId,
-      input.photos.map((photo) => ({
-        storageKey: photo.storageKey,
-        caption: photo.caption ?? null,
-      })),
-      tx,
-    );
+    await savePhotos(requestId, input.photos, userId, tx);
 
     await repository.insertEvent(requestId, 'pending', 'customer', { actorUserId: userId }, tx);
 

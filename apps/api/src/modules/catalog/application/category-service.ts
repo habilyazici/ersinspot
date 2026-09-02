@@ -8,6 +8,7 @@
 
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { PUBLICLY_VISIBLE_PRODUCT_STATUSES } from '@ersinspot/shared';
+import type { BrandSummary, CategoryNode } from '@ersinspot/shared';
 import { db } from '../../../platform/db/client.ts';
 import { resolveStorageUrl } from '../../../platform/storage.ts';
 import { brands, categories, products } from '../infrastructure/schema.ts';
@@ -27,25 +28,6 @@ const visibleProductCount = sql<number>`
     )}
   )::int
 `;
-
-export interface CategoryNode {
-  readonly id: string;
-  readonly name: string;
-  readonly slug: string;
-  readonly displayOrder: number;
-  /** Bu kategoride ve alt kategorilerinde satıştaki ürün sayısı. */
-  readonly productCount: number;
-  readonly children: readonly CategoryNode[];
-}
-
-export interface BrandSummary {
-  readonly id: string;
-  readonly name: string;
-  readonly slug: string;
-  /** Depolama anahtarından türetilen görüntüleme adresi. */
-  readonly logoUrl: string | null;
-  readonly productCount: number;
-}
 
 /**
  * Kategori ağacını ürün sayılarıyla birlikte döndürür.
@@ -157,24 +139,4 @@ export async function getCategoryById(
     .limit(1);
 
   return rows[0] ?? null;
-}
-
-/** Kategori bağlantı adından kimliği bulur. Bulunamazsa null. */
-export async function findCategoryIdBySlug(slug: string): Promise<string | null> {
-  const rows = await db
-    .select({ id: categories.id })
-    .from(categories)
-    .where(eq(categories.slug, slug))
-    .limit(1);
-
-  return rows[0]?.id ?? null;
-}
-
-/** Kök kategorileri döndürür. Form seçeneklerinde kullanılır. */
-export async function listRootCategories(): Promise<{ id: string; name: string; slug: string }[]> {
-  return db
-    .select({ id: categories.id, name: categories.name, slug: categories.slug })
-    .from(categories)
-    .where(isNull(categories.parentId))
-    .orderBy(asc(categories.displayOrder), asc(categories.name));
 }

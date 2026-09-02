@@ -18,6 +18,7 @@
 export { catalogRoutes } from './api/routes.ts';
 
 import {
+  RESERVATION_DURATION_MS,
   getPurchasableProducts,
   markProductsAsSold,
   releaseExpiredReservations,
@@ -25,6 +26,7 @@ import {
   reserveProducts,
 } from './application/inventory-service.ts';
 import { getCategoryById } from './application/category-service.ts';
+import { listProductSummaries } from './application/product-service.ts';
 import { createProductFromSellRequest } from './application/product-writer.ts';
 
 /**
@@ -36,6 +38,9 @@ import { createProductFromSellRequest } from './application/product-writer.ts';
 export const catalog = {
   // ordering: sipariş oluştururken fiyat ve uygunluk sorar, envanteri günceller
   getPurchasableProducts,
+
+  // ordering: favori listesinde gösterilecek ürün özetlerini alır
+  listProductSummaries,
   reserveProducts,
   releaseProducts,
   markProductsAsSold,
@@ -43,6 +48,13 @@ export const catalog = {
   // servicing: satış talebini katalog kaydına dönüştürür, kategori bilgisi alır
   createProductFromSellRequest,
   getCategoryById,
+
+  /*
+    ordering: ödemesi gelmeyen siparişin ne kadar sonra iptal edileceğini
+    buradan öğrenir. İki modülde ayrı yazıldığında biri değişince ürün serbest
+    kalırken sipariş açık kalır ve aynı ürün ikinci kez satılabilir.
+  */
+  RESERVATION_DURATION_MS,
 } as const;
 
 export type { PurchasableProduct } from './application/inventory-service.ts';

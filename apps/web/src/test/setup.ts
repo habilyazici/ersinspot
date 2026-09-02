@@ -21,3 +21,8 @@ if (typeof window !== 'undefined' && window.matchMedia === undefined) {
     }),
   });
 }
+
+// jsdom kaydırmayı uygulamaz; `ScrollToTop` her gezinmede çağırır.
+if (typeof window !== 'undefined') {
+  window.scrollTo = () => undefined;
+}

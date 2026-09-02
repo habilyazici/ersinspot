@@ -32,12 +32,14 @@
 
 import type {
   CreateOrderInput,
+  CreateOrderResult,
   IzmirDistrict,
   Order,
   OrderListQuery,
   OrderStatus,
   OrderSummary,
   Paginated,
+  PublicOrderStatus,
   UserRole,
 } from '@ersinspot/shared';
 import { calculateOrderTotals, money, paginate } from '@ersinspot/shared';
@@ -45,11 +47,11 @@ import { catalog } from '../../catalog/index.ts';
 import { db } from '../../../platform/db/client.ts';
 import { generateReferenceNumber } from '../../../platform/db/reference-number.ts';
 import { resolveStorageUrl } from '../../../platform/storage.ts';
+import { assertCanAccess, isStaff } from '../../../platform/authorization.ts';
 import { logger } from '../../../platform/observability/logger.ts';
 import {
   businessRule,
   conflict,
-  forbidden,
   invalidTransition,
   notFound,
 } from '../../../platform/errors/index.ts';
@@ -68,12 +70,6 @@ import type { OrderItemRow, OrderRow } from '../infrastructure/order-repository.
 // ---------------------------------------------------------------------------
 // Sipariş oluşturma
 // ---------------------------------------------------------------------------
-
-export interface CreateOrderResult {
-  readonly orderId: string;
-  readonly referenceNumber: string;
-  readonly totalKurus: number;
-}
 
 /**
  * Sepetteki ürünlerden sipariş oluşturur.
@@ -400,13 +396,9 @@ export async function getOrder(
     throw notFound('Sipariş');
   }
 
-  const isStaff = viewer.role === 'staff' || viewer.role === 'admin';
+  assertCanAccess(viewer, row.userId);
 
-  if (!isStaff && row.userId !== viewer.id) {
-    throw forbidden();
-  }
-
-  return buildOrderView(row, isStaff);
+  return buildOrderView(row, isStaff(viewer.role));
 }
 
 /**
@@ -417,15 +409,6 @@ export async function getOrder(
  * kalem fiyatları yer almaz. Takip numarası tahmin edilemez olsa da, kişisel
  * veriyi oturumsuz bir uçta açmak doğru değildir.
  */
-export interface PublicOrderStatus {
-  readonly referenceNumber: string;
-  readonly status: OrderStatus;
-  readonly itemCount: number;
-  readonly deliveryDate: string | null;
-  readonly createdAt: string;
-  readonly timeline: readonly { status: OrderStatus; occurredAt: string }[];
-}
-
 export async function getPublicOrderStatus(reference: string): Promise<PublicOrderStatus> {
   const row = await repository.findByReferenceNumber(reference);
 
@@ -550,12 +533,10 @@ export async function cancelOrder(
       throw notFound('Sipariş');
     }
 
-    const isStaff = actor.role === 'staff' || actor.role === 'admin';
-
     // IDOR koruması: müşteri yalnızca kendi siparişini iptal edebilir.
-    if (!isStaff && row.userId !== actor.id) {
-      throw forbidden();
-    }
+    assertCanAccess(actor, row.userId);
+
+    const byStaff = isStaff(actor.role);
 
     if (!canCancelOrder(row.status, actor.role)) {
       throw businessRule('Bu sipariş artık iptal edilemez. Lütfen bizimle iletişime geçin.');
@@ -572,7 +553,7 @@ export async function cancelOrder(
     await repository.insertEvent(
       orderId,
       'cancelled',
-      isStaff ? 'staff' : 'customer',
+      byStaff ? 'staff' : 'customer',
       { note: reason ?? null, actorUserId: actor.id },
       tx,
     );
@@ -580,9 +561,86 @@ export async function cancelOrder(
     logger.info('Sipariş iptal edildi', {
       orderId,
       previousStatus: row.status,
-      byStaff: isStaff,
+      byStaff,
     });
   });
+}
+
+// ---------------------------------------------------------------------------
+// Bakım
+// ---------------------------------------------------------------------------
+
+/**
+ * Ödemesi gelmeyen siparişlerin iptali.
+ *
+ * Süre, katalogdaki rezervasyon süresiyle aynı olmalıdır: rezervasyon
+ * çözülürken siparişin açık kalması, aynı ürünün ikinci kez satılabilmesi
+ * demektir. Değer katalog sözleşmesinden okunur; iki yerde ayrı yazıldığında
+ * biri değişince diğeri sessizce ayrışırdı.
+ */
+const PAYMENT_GRACE_MS = catalog.RESERVATION_DURATION_MS;
+
+/** Tek bakım turunda işlenecek en fazla sipariş. */
+const CANCELLATION_BATCH_SIZE = 100;
+
+/**
+ * Süresi geçmiş ödeme bekleyen siparişleri iptal eder.
+ *
+ * Zamanlanmış bakım görevinden çağrılır. İptal normal yoldan yapılır: durum
+ * değişir, ürünler satışa döner, zaman çizelgesine kayıt düşülür. Kataloğun
+ * rezervasyon temizliği tek başına ürünü serbest bırakıyor ama siparişi açık
+ * bırakıyordu — ürün yeniden satılabilir hâle gelirken sipariş hâlâ onu
+ * bekliyordu.
+ *
+ * @returns İptal edilen sipariş sayısı.
+ */
+export async function cancelExpiredUnpaidOrders(): Promise<number> {
+  const cutoff = new Date(Date.now() - PAYMENT_GRACE_MS);
+  const orderIds = await repository.findExpiredPendingPayment(cutoff, CANCELLATION_BATCH_SIZE);
+
+  let cancelled = 0;
+
+  for (const orderId of orderIds) {
+    /*
+      Her sipariş kendi işleminde iptal edilir.
+
+      Biri hata verirse — araya giren bir personel işlemi durumu değiştirmiş
+      olabilir — diğerleri etkilenmez ve tur devam eder.
+    */
+    try {
+      await db.transaction(async (tx) => {
+        const row = await repository.findByIdForUpdate(orderId, tx);
+
+        // Kilidi beklerken durum değişmiş olabilir.
+        if (row?.status !== 'pending_payment') return;
+
+        const items = await repository.findItems(orderId, tx);
+        const productIds = items
+          .map((item) => item.productId)
+          .filter((id): id is string => id !== null);
+
+        await repository.updateStatus(orderId, 'cancelled', tx);
+        await catalog.releaseProducts(productIds, tx);
+
+        await repository.insertEvent(
+          orderId,
+          'cancelled',
+          'system',
+          { note: 'Ödeme süresi içinde bildirilmediği için otomatik iptal edildi.' },
+          tx,
+        );
+
+        cancelled += 1;
+      });
+    } catch (error) {
+      logger.error('Süresi geçmiş sipariş iptal edilemedi', {
+        orderId,
+        error: error instanceof Error ? error : String(error),
+      });
+    }
+  }
+
+  return cancelled;
 }
 
 /** Yönetim panelinden personel notu ekler. Müşteri yanıtlarında görünmez. */

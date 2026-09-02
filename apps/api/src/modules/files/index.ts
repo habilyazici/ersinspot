@@ -19,8 +19,14 @@ export { filesRoutes } from './api/routes.ts';
  */
 export { localFileRoutes } from './api/routes.ts';
 
-/** Dosyaları bir kayda bağlar; yetim olmaktan çıkarır. */
+/**
+ * Dosyaları bir kayda bağlar; yetim olmaktan çıkarır.
+ *
+ * Bir yüklemeyi kalıcı hâle getiren TEK yol budur. Çağrılmadığında bakım
+ * görevi dosyayı 24 saat sonra siler.
+ */
 export { attachFiles } from './application/upload-service.ts';
+export type { AttachOptions } from './application/upload-service.ts';
 
 /** Depolama anahtarından görüntüleme adresi üretir. */
 export { resolveUrl } from './application/upload-service.ts';

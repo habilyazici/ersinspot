@@ -12,13 +12,14 @@ import { formatPrice } from '@/lib/format.ts';
 import { cn } from '@/lib/utils.ts';
 import { useAuth } from '@/features/auth';
 import { useProduct } from '@/features/catalog';
-import { useAddToCart } from '@/features/ordering';
+import { FavoriteButton, useAddToCart, useFavoriteStatus } from '@/features/ordering';
 
 export default function ProductDetailPage() {
   const { slug = '' } = useParams();
   const { data: product, isLoading, isError, error, refetch } = useProduct(slug);
   const { isAuthenticated } = useAuth();
   const addToCart = useAddToCart();
+  const { data: favorites } = useFavoriteStatus(product === undefined ? [] : [product.id]);
   const [activeImage, setActiveImage] = useState(0);
 
   if (isLoading) return <PageSpinner label="Ürün yükleniyor" />;
@@ -97,6 +98,13 @@ export default function ProductDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge meta={PRODUCT_CONDITION_LABELS[product.condition]} />
             {isPurchasable ? null : <StatusBadge meta={PRODUCT_STATUS_LABELS[product.status]} />}
+
+            <FavoriteButton
+              productId={product.id}
+              productTitle={product.title}
+              isFavorite={favorites?.has(product.id) ?? false}
+              className="ml-auto shadow-none ring-1 ring-slate-200"
+            />
           </div>
 
           <h1 className="mt-3 text-2xl font-bold text-slate-900 lg:text-3xl">{product.title}</h1>

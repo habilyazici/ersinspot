@@ -154,6 +154,27 @@ export async function recordSuccessfulAttempt(
  */
 const memoryBuckets = new Map<string, { count: number; resetAt: number }>();
 
+/**
+ * Aynı anda tutulabilecek en fazla kova sayısı.
+ *
+ * Her farklı adres bir kova açar. Üst sınır olmadan, çok sayıda farklı
+ * adresten gelen trafik haritayı sınırsız büyütür ve süreç belleği tükenir —
+ * hız sınırının kendisi bir hizmet reddi vektörüne dönüşür. Sınıra
+ * ulaşıldığında süresi dolmuş kovalar temizlenir; yer yine açılmazsa en eski
+ * kova düşürülür.
+ *
+ * Değer cömerttir: tek sunuculu bir kurulumda eşzamanlı meşru adres sayısı
+ * bunun çok altındadır.
+ */
+const MAX_MEMORY_BUCKETS = 50_000;
+
+/** Süresi dolmuş kovaları siler. */
+function pruneMemoryBuckets(now: number): void {
+  for (const [key, bucket] of memoryBuckets) {
+    if (bucket.resetAt <= now) memoryBuckets.delete(key);
+  }
+}
+
 export function checkMemoryRateLimit(
   key: string,
   maxRequests: number,
@@ -163,6 +184,16 @@ export function checkMemoryRateLimit(
   const bucket = memoryBuckets.get(key);
 
   if (bucket === undefined || bucket.resetAt <= now) {
+    if (memoryBuckets.size >= MAX_MEMORY_BUCKETS) {
+      pruneMemoryBuckets(now);
+
+      // Temizlik yetmediyse en eski kaydı düşür: Map ekleme sırasını korur.
+      if (memoryBuckets.size >= MAX_MEMORY_BUCKETS) {
+        const oldest = memoryBuckets.keys().next();
+        if (!oldest.done) memoryBuckets.delete(oldest.value);
+      }
+    }
+
     memoryBuckets.set(key, { count: 1, resetAt: now + windowMs });
     return ALLOWED;
   }
@@ -181,10 +212,7 @@ export function checkMemoryRateLimit(
  */
 const cleanupTimer = setInterval(
   () => {
-    const now = Date.now();
-    for (const [key, bucket] of memoryBuckets) {
-      if (bucket.resetAt <= now) memoryBuckets.delete(key);
-    }
+    pruneMemoryBuckets(Date.now());
   },
   5 * 60 * 1000,
 );

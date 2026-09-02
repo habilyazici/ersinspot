@@ -21,10 +21,5 @@ npm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 
-# Supabase yerel geliştirme
-supabase/.branches/
-supabase/.temp/
-
-# Eski kod — yalnızca referans, migrasyon bitince silinecek
-legacy/
+# Yerel dosya depolama (STORAGE_DRIVER=local)
 .storage*

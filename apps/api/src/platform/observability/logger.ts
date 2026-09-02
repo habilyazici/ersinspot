@@ -77,6 +77,14 @@ function sanitize(value: unknown, depth = 0): unknown {
     };
   }
 
+  /*
+    Tarih, `Object.entries` ile boş nesneye dönüşürdü: `{ deliveryDate: {} }`.
+    ISO metne çevrilir; log satırı okunabilir ve makineyle ayrıştırılabilir kalır.
+  */
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
   if (Array.isArray(value)) {
     return value.slice(0, 50).map((item) => sanitize(item, depth + 1));
   }

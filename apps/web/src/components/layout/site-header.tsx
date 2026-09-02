@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { LogOut, Menu, Package, ShoppingCart, User, X } from 'lucide-react';
+import { LayoutDashboard, LogOut, Menu, Package, ShoppingCart, User, X } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import { cn } from '@/lib/utils.ts';
 import { useAuth, useLogout } from '@/features/auth';
@@ -16,7 +16,7 @@ const NAV_LINKS = [
 
 export function SiteHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, isStaff, user } = useAuth();
   const logout = useLogout();
   const { data: cartCount = 0 } = useCartCount();
 
@@ -57,6 +57,20 @@ export function SiteHeader() {
 
           {isAuthenticated ? (
             <div className="hidden items-center gap-2 sm:flex">
+              {/*
+                Yönetim paneline giriş. Personel için görünür; müşteride hiç
+                çizilmez. Önceden panele yalnızca adresi elle yazarak
+                girilebiliyordu.
+              */}
+              {isStaff ? (
+                <Button asChild variant="ghost" size="sm">
+                  <Link to="/yonetim">
+                    <LayoutDashboard aria-hidden="true" />
+                    <span className="hidden md:inline">Yönetim</span>
+                  </Link>
+                </Button>
+              ) : null}
+
               <Button asChild variant="ghost" size="sm">
                 <Link to="/hesabim/siparislerim">
                   <Package aria-hidden="true" />
@@ -124,6 +138,15 @@ export function SiteHeader() {
             <li className="mt-2 border-t border-slate-200 pt-2">
               {isAuthenticated ? (
                 <>
+                  {isStaff ? (
+                    <NavLink
+                      to="/yonetim"
+                      className={navLinkClass}
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Yönetim Paneli
+                    </NavLink>
+                  ) : null}
                   <NavLink
                     to="/hesabim"
                     className={navLinkClass}
@@ -145,6 +168,26 @@ export function SiteHeader() {
                   >
                     Taleplerim
                   </NavLink>
+                  <NavLink
+                    to="/hesabim/favorilerim"
+                    className={navLinkClass}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Favorilerim
+                  </NavLink>
+
+                  {/* Mobil menüde de çıkış olmalı: masaüstü düğmesi burada görünmez. */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      logout.mutate();
+                    }}
+                    disabled={logout.isPending}
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+                  >
+                    Çıkış Yap
+                  </button>
                 </>
               ) : (
                 <NavLink to="/giris" className={navLinkClass} onClick={() => setIsMenuOpen(false)}>

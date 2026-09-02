@@ -26,9 +26,14 @@ import * as repository from '../infrastructure/product-repository.ts';
  * Rezervasyon süresi.
  *
  * Ürün bir siparişe bağlandığında bu süre kadar kilitli kalır. Havale/EFT ile
- * ödenmeyen siparişler ürünü sonsuza kadar satıştan çıkarmasın diye sınırlıdır;
- * süre dolduğunda zamanlanmış görev ürünü satışa geri döndürür ve siparişi
- * iptal eder.
+ * ödenmeyen siparişler ürünü sonsuza kadar satıştan çıkarmasın diye sınırlıdır.
+ *
+ * Süre dolduğunda SİPARİŞİ İPTAL ETMEK `ordering` modülünün işidir
+ * (`cancelExpiredUnpaidOrders`); iptal, ürünü normal yoldan serbest bırakır.
+ * Buradaki `releaseExpiredReservations` yalnızca emniyet ağıdır: siparişi
+ * kalmamış ya da elle değiştirilmiş bir rezervasyon takılı kalmasın diye.
+ * Değer `ordering` tarafından da okunur; iki yerde ayrı yazıldığında ürün
+ * serbest kalırken siparişin açık kalması mümkün olurdu.
  *
  * Üç gün, havale bildiriminin makul bir sürede yapılmasını beklerken müşteriyi
  * de sıkıştırmayan bir aralıktır.
@@ -37,6 +42,8 @@ export const RESERVATION_DURATION_MS = 3 * 24 * 60 * 60 * 1000;
 
 export interface PurchasableProduct {
   readonly id: string;
+  /** Ürün sayfasının bağlantı adı. Sepet kaleminden ürüne dönmek için. */
+  readonly slug: string;
   readonly title: string;
   /** Kuruş cinsinden güncel birim fiyat. Sipariş tutarı bu değerden hesaplanır. */
   readonly unitPrice: number;
@@ -75,6 +82,7 @@ export async function getPurchasableProducts(
 
   return rows.map((row) => ({
     id: row.id,
+    slug: row.slug,
     title: row.title,
     unitPrice: row.priceKurus,
     condition: row.condition,
@@ -108,7 +116,14 @@ export async function reserveProducts(
   );
 }
 
-/** Süresi geçmiş rezervasyonları serbest bırakır. Zamanlanmış bakım görevi çağırır. */
+/**
+ * Süresi geçmiş rezervasyonları serbest bırakır.
+ *
+ * EMNİYET AĞIDIR. Olağan yol, ödemesi gelmeyen siparişin `ordering` tarafından
+ * iptal edilmesi ve iptalin ürünü serbest bırakmasıdır; bu görev yalnızca o
+ * yoldan kaçmış — siparişi silinmiş ya da elle değiştirilmiş — rezervasyonları
+ * toplar. Bakım görevi çağırır.
+ */
 export async function releaseExpiredReservations(): Promise<number> {
   return repository.releaseExpiredReservations();
 }

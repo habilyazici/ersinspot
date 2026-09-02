@@ -11,13 +11,17 @@ export {
   useCartCount,
   useClearCart,
   useCreateOrder,
+  useFavorites,
+  useFavoriteStatus,
   useMyOrders,
   useOrder,
   useOrderTracking,
   useRemoveFromCart,
+  useToggleFavorite,
   useUpdateOrderStatus,
 } from './api.ts';
 
 export type { CreateOrderResult, PublicOrderStatus } from './api.ts';
 
+export { FavoriteButton } from './favorite-button.tsx';
 export { OrderTotals } from './order-totals.tsx';

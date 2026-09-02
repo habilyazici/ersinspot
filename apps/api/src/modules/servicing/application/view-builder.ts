@@ -7,6 +7,7 @@
  */
 
 import type { ServiceRequestBase, UserRole } from '@ersinspot/shared';
+import { isStaff } from '../../../platform/authorization.ts';
 import { resolveStorageUrl } from '../../../platform/storage.ts';
 import * as repository from '../infrastructure/request-repository.ts';
 import type { RequestRow } from '../infrastructure/request-repository.ts';
@@ -25,8 +26,6 @@ export async function buildCommonView(
     repository.findCurrentAppointment(row.id),
     repository.findEvents(row.id),
   ]);
-
-  const isStaff = viewerRole === 'staff' || viewerRole === 'admin';
 
   return {
     id: row.id,
@@ -73,7 +72,7 @@ export async function buildCommonView(
     })),
 
     customerNote: row.customerNote,
-    ...(isStaff ? { staffNote: row.staffNote } : {}),
+    ...(isStaff(viewerRole) ? { staffNote: row.staffNote } : {}),
 
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

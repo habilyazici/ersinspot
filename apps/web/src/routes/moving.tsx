@@ -43,6 +43,19 @@ import { useCreateMovingRequest } from '@/features/servicing';
 
 type MovingValues = CreateMovingRequestInput;
 
+/**
+ * Sayısal form alanını güvenle tam sayıya çevirir.
+ *
+ * Alan temizlendiğinde `valueAsNumber` `NaN` üretir; tam sayı bekleyen para
+ * fonksiyonları bunu istisna ile reddeder ve form çizim sırasında çökerdi.
+ * Yarım kalmış girdi sıfır sayılır: tahmin kullanıcı yazmayı bitirene kadar
+ * eksik görünür, ama sayfa ayakta kalır.
+ */
+function toCount(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
+}
+
 export default function MovingPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -83,28 +96,36 @@ export default function MovingPage() {
   const watched = useWatch({ control });
 
   /**
+   * Taşınacak toplam eşya ADEDİ — satır sayısı değil.
+   *
+   * Sunucu `items.reduce((toplam, eşya) => toplam + eşya.quantity, 0)`
+   * kullanıyor. Burada satır sayısı sayıldığı için "1 satır × 5 adet"
+   * durumunda ekrandaki tahmin ile kaydedilen tahmin ayrışıyordu — bu
+   * dosyanın başındaki not tam olarak bunun olmamasını anlatıyor.
+   */
+  const itemCount = useMemo(
+    () => (watched.items ?? []).reduce((total, item) => total + toCount(item?.quantity), 0),
+    [watched.items],
+  );
+
+  /**
    * Tahmini tutar.
    *
-   * Sunucunun kullandığı aynı saf fonksiyon çağrılır. Kat bilgisi metin
-   * girdisinden geldiği için sayıya çevrilir; boş veya geçersizse 0 sayılır.
+   * Sunucunun kullandığı aynı saf fonksiyon çağrılır; iki taraf ayrı hesap
+   * yazsaydı ekrandaki tahmin ile kayda geçen tahmin ayrışırdı.
    */
   const estimate = useMemo(() => {
-    const toFloorNumber = (value: unknown): number => {
-      const parsed = Number(value);
-      return Number.isFinite(parsed) ? parsed : 0;
-    };
-
     return estimateMoving({
       houseSize: watched.houseSize ?? '2+1',
-      fromFloor: toFloorNumber(watched.fromLocation?.floor),
+      fromFloor: toCount(watched.fromLocation?.floor),
       fromHasElevator: watched.fromLocation?.hasElevator ?? false,
-      toFloor: toFloorNumber(watched.toLocation?.floor),
+      toFloor: toCount(watched.toLocation?.floor),
       toHasElevator: watched.toLocation?.hasElevator ?? false,
-      itemCount: watched.items?.length ?? 0,
+      itemCount,
       needsPacking: watched.needsPacking ?? false,
       needsAssembly: watched.needsAssembly ?? false,
     });
-  }, [watched]);
+  }, [watched, itemCount]);
 
   function onSubmit(values: MovingValues): void {
     createRequest.mutate(values, {
@@ -381,7 +402,7 @@ export default function MovingPage() {
             </div>
 
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-600">Eşya ({fields.length} kalem)</dt>
+              <dt className="text-slate-600">Eşya ({itemCount} adet)</dt>
               <dd className="font-medium text-slate-900">{formatPrice(estimate.itemSurcharge)}</dd>
             </div>
 

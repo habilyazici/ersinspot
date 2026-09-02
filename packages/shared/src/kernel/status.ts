@@ -350,17 +350,6 @@ export const SERVICE_KIND_LABELS: Readonly<Record<ServiceKind, StatusMeta>> = {
 // Yardımcılar
 // ---------------------------------------------------------------------------
 
-/**
- * Bir durumun ilgili kümeye ait olup olmadığını, tip daraltmasıyla birlikte kontrol eder.
- * Dışarıdan (veritabanı, API gövdesi) gelen değerleri güvenle daraltmak için kullanılır.
- */
-export function isMemberOf<T extends string>(
-  values: readonly T[],
-  candidate: string,
-): candidate is T {
-  return (values as readonly string[]).includes(candidate);
-}
-
 /** Verilen geçişin durum makinesinde tanımlı olup olmadığını söyler. */
 export function canTransition<T extends string>(
   transitions: Readonly<Record<T, readonly T[]>>,
@@ -368,22 +357,6 @@ export function canTransition<T extends string>(
   to: T,
 ): boolean {
   return transitions[from].includes(to);
-}
-
-/** Bir durumdan gidilebilecek durumları döndürür. Arayüzde seçenek listesi üretmek için. */
-export function nextStatuses<T extends string>(
-  transitions: Readonly<Record<T, readonly T[]>>,
-  from: T,
-): readonly T[] {
-  return transitions[from];
-}
-
-/** Uç durum: artık hiçbir geçişe izin verilmiyor. */
-export function isTerminal<T extends string>(
-  transitions: Readonly<Record<T, readonly T[]>>,
-  status: T,
-): boolean {
-  return transitions[status].length === 0;
 }
 
 /**

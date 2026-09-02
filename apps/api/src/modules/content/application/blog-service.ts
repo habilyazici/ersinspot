@@ -25,7 +25,7 @@ import { db } from '../../../platform/db/client.ts';
 import type { Transaction } from '../../../platform/db/client.ts';
 import { alreadyExists, notFound } from '../../../platform/errors/index.ts';
 import { logger } from '../../../platform/observability/logger.ts';
-import { resolveUrl } from '../../files/index.ts';
+import { attachFiles, resolveUrl } from '../../files/index.ts';
 import { blogPostTags, blogPosts, tags } from '../infrastructure/schema.ts';
 import { estimateReadingMinutes, slugifyTag } from '../domain/content-rules.ts';
 
@@ -142,18 +142,47 @@ export async function listPublishedPosts(
   return paginate(rows.map(toSummary), countRow?.value ?? 0, query);
 }
 
-/** Yönetim paneli listesi. Taslakları da gösterir. */
+/**
+ * Yönetim paneli listesi. Taslakları da gösterir.
+ *
+ * Kategori ve arama filtreleri vitrindekiyle AYNI şekilde uygulanır. Önceden
+ * yok sayılıyorlardı: panelde filtre seçilebiliyor ama liste değişmiyordu ve
+ * kullanıcı filtrenin çalışmadığını ancak sonuçları sayarak anlıyordu.
+ */
 export async function listAllPosts(query: BlogListQuery): Promise<Paginated<BlogPostSummary>> {
+  const conditions: SQL[] = [];
+
+  if (query.category !== undefined) {
+    conditions.push(eq(blogPosts.category, query.category));
+  }
+
+  if (query.search !== undefined && query.search !== '') {
+    const pattern = `%${query.search}%`;
+    const searchCondition = or(
+      ilike(blogPosts.title, pattern),
+      ilike(blogPosts.slug, pattern),
+      ilike(blogPosts.excerpt, pattern),
+    );
+    if (searchCondition !== undefined) {
+      conditions.push(searchCondition);
+    }
+  }
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
   const offset = (query.page - 1) * query.pageSize;
 
   const rows = await db
     .select(summarySelection)
     .from(blogPosts)
+    .where(where)
     .orderBy(desc(blogPosts.createdAt))
     .limit(query.pageSize)
     .offset(offset);
 
-  const [countRow] = await db.select({ value: sql<number>`count(*)::int` }).from(blogPosts);
+  const [countRow] = await db
+    .select({ value: sql<number>`count(*)::int` })
+    .from(blogPosts)
+    .where(where);
 
   return paginate(rows.map(toSummary), countRow?.value ?? 0, query);
 }
@@ -296,6 +325,11 @@ export async function createPost(
 
     await syncTags(created.id, input.tags, tx);
 
+    // Kapak görselini kayda bağla; aksi halde bakım görevi 24 saat sonra siler.
+    if (input.coverImageStorageKey !== null && input.coverImageStorageKey !== undefined) {
+      await attachFiles([input.coverImageStorageKey], tx, { purpose: 'blog_cover' });
+    }
+
     return created.id;
   });
 
@@ -358,6 +392,10 @@ export async function updatePost(postId: string, input: UpdateBlogPostInput): Pr
     */
     if (input.tags !== undefined) {
       await syncTags(postId, input.tags, tx);
+    }
+
+    if (input.coverImageStorageKey !== null && input.coverImageStorageKey !== undefined) {
+      await attachFiles([input.coverImageStorageKey], tx, { purpose: 'blog_cover' });
     }
   });
 
