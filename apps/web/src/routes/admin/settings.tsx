@@ -26,7 +26,7 @@ import { useAdminSettings, useUpdateSetting } from '@/features/content';
 const GROUP_LABELS: Readonly<Record<string, string>> = {
   contact: 'İletişim Bilgileri',
   hours: 'Çalışma Saatleri',
-  social: 'Sosyal Medya',
+  banner: 'Duyuru',
 };
 
 function groupOf(key: string): string {

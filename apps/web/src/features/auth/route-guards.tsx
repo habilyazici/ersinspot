@@ -8,6 +8,7 @@
  */
 
 import type { ReactNode } from 'react';
+import type { UserRole } from '@ersinspot/shared';
 import { Navigate, useLocation } from 'react-router-dom';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { useAuth } from './use-auth.ts';
@@ -29,7 +30,22 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 
 /** Personel yetkisi gerektiren sayfaları sarmalar. */
 export function RequireStaff({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isStaff, isLoading } = useAuth();
+  return <RequireRole role="staff">{children}</RequireRole>;
+}
+
+/**
+ * Yönetici yetkisi gerektiren sayfaları sarmalar.
+ *
+ * Site ayarları gibi, personelin göremeyeceği bölümler için. Menüde bağlantıyı
+ * gizlemek yeterli değildir: adres elle yazıldığında sayfa açılır ve kullanıcı
+ * boş bir ekranla ya da yetki hatasıyla karşılaşır.
+ */
+export function RequireAdmin({ children }: { children: ReactNode }) {
+  return <RequireRole role="admin">{children}</RequireRole>;
+}
+
+function RequireRole({ role, children }: { role: UserRole; children: ReactNode }) {
+  const { isAuthenticated, isLoading, hasRole } = useAuth();
   const location = useLocation();
 
   if (isLoading) return <PageSpinner label="Yetki kontrol ediliyor" />;
@@ -38,7 +54,9 @@ export function RequireStaff({ children }: { children: ReactNode }) {
     return <Navigate to="/giris" state={{ from: location.pathname }} replace />;
   }
 
-  if (!isStaff) {
+  // Yetkisi yetmeyen kullanıcı vitrine döner; "yetkiniz yok" sayfası göstermek
+  // panelin varlığını gereksizce duyurur.
+  if (!hasRole(role)) {
     return <Navigate to="/" replace />;
   }
 

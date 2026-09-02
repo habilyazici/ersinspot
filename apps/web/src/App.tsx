@@ -15,7 +15,7 @@ import { AppErrorBoundary } from '@/components/layout/error-boundary.tsx';
 import { ScrollToTop } from '@/components/layout/scroll-to-top.tsx';
 import { SiteLayout } from '@/components/layout/site-layout.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
-import { RequireAuth, RequireStaff, authKeys } from '@/features/auth';
+import { RequireAdmin, RequireAuth, RequireStaff, authKeys } from '@/features/auth';
 
 // Vitrin sayfaları
 const HomePage = lazy(() => import('./routes/home.tsx'));
@@ -230,7 +230,19 @@ export function App() {
                   <Route path="mesajlar" element={<AdminMessagesPage />} />
                   <Route path="blog" element={<AdminBlogPage />} />
                   <Route path="sss" element={<AdminFaqsPage />} />
-                  <Route path="ayarlar" element={<AdminSettingsPage />} />
+                  {/*
+                    Ayarlar YÖNETİCİ ister: iletişim bilgisi ve çalışma saatleri
+                    sitenin her sayfasında görünür. Menüdeki bağlantı personele
+                    zaten gizli; koruma adres elle yazıldığında da geçerlidir.
+                  */}
+                  <Route
+                    path="ayarlar"
+                    element={
+                      <RequireAdmin>
+                        <AdminSettingsPage />
+                      </RequireAdmin>
+                    }
+                  />
                 </Route>
 
                 <Route path="*" element={<NotFoundPage />} />

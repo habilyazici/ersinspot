@@ -8,6 +8,8 @@ import {
 } from '@ersinspot/shared';
 import type { ProductCondition, ProductSort } from '@ersinspot/shared';
 import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
+import { TextField, fieldControlClass } from '@/components/ui/form-field.tsx';
+import { cn } from '@/lib/utils.ts';
 import { Pagination } from '@/components/ui/pagination.tsx';
 import { Button } from '@/components/ui/button.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
@@ -72,19 +74,15 @@ export default function ProductsPage() {
             Filtreler
           </h2>
 
-          <div>
-            <label htmlFor="arama" className="block text-sm font-medium text-slate-700">
-              Ara
-            </label>
-            <input
-              id="arama"
-              type="search"
-              defaultValue={filters.search ?? ''}
-              placeholder="Ürün veya marka"
-              onChange={(event) => updateFilter('ara', event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-          </div>
+          <TextField
+            label="Ara"
+            type="search"
+            defaultValue={filters.search ?? ''}
+            placeholder="Ürün veya marka"
+            onChange={(event) => {
+              updateFilter('ara', event.target.value);
+            }}
+          />
 
           <fieldset>
             <legend className="text-sm font-medium text-slate-700">Kategori</legend>
@@ -168,8 +166,10 @@ export default function ProductsPage() {
               <select
                 id="siralama"
                 value={filters.sort}
-                onChange={(event) => updateFilter('sirala', event.target.value)}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                onChange={(event) => {
+                  updateFilter('sirala', event.target.value);
+                }}
+                className={cn(fieldControlClass, 'w-auto py-2')}
               >
                 {PRODUCT_SORT_OPTIONS.map((option) => (
                   <option key={option} value={option}>

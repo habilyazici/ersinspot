@@ -6,6 +6,8 @@ import { ApiError, loginSchema } from '@ersinspot/shared';
 import type { LoginInput } from '@ersinspot/shared';
 import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
 import { Button } from '@/components/ui/button.tsx';
+import { CheckboxField } from '@/components/ui/choice-field.tsx';
+import { TextField } from '@/components/ui/form-field.tsx';
 import { useAuth, useLogin } from '@/features/auth';
 
 export default function LoginPage() {
@@ -77,56 +79,32 @@ export default function LoginPage() {
           </div>
         )}
 
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-slate-700">
-            E-posta
-          </label>
-          <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            aria-invalid={errors.email !== undefined}
-            aria-describedby={errors.email === undefined ? undefined : 'email-hata'}
-            {...register('email')}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm"
-          />
-          {errors.email === undefined ? null : (
-            <p id="email-hata" className="mt-1 text-sm text-red-600">
-              {errors.email.message}
-            </p>
-          )}
-        </div>
+        <TextField
+          label="E-posta"
+          type="email"
+          autoComplete="email"
+          error={errors.email?.message}
+          {...register('email')}
+        />
 
         <div>
-          <div className="flex items-center justify-between">
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700">
-              Şifre
-            </label>
-            <Link to="/sifremi-unuttum" className="text-sm text-brand-navy-700 hover:underline">
-              Şifremi unuttum
-            </Link>
-          </div>
-
-          <input
-            id="password"
+          <TextField
+            label="Şifre"
             type="password"
             autoComplete="current-password"
-            aria-invalid={errors.password !== undefined}
-            aria-describedby={errors.password === undefined ? undefined : 'sifre-hata'}
+            error={errors.password?.message}
             {...register('password')}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm"
           />
-          {errors.password === undefined ? null : (
-            <p id="sifre-hata" className="mt-1 text-sm text-red-600">
-              {errors.password.message}
-            </p>
-          )}
+
+          <Link
+            to="/sifremi-unuttum"
+            className="mt-1 inline-block text-sm text-brand-navy-700 hover:underline"
+          >
+            Şifremi unuttum
+          </Link>
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-slate-700">
-          <input type="checkbox" {...register('rememberMe')} className="size-4 rounded" />
-          Beni hatırla
-        </label>
+        <CheckboxField label="Beni hatırla" {...register('rememberMe')} />
 
         <Button
           type="submit"

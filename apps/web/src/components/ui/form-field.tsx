@@ -76,9 +76,19 @@ export function FormField({
   );
 }
 
-const inputClass =
+/**
+ * Girdi görünümü.
+ *
+ * Etiketi kendi düzeninde taşıyan yerler (liste üstündeki sıralama seçici gibi)
+ * `FormField` sarmalayıcısını kullanamaz ama AYNI görünümü paylaşmalıdır; bu
+ * yüzden sınıf dışa aktarılır. Elle yazıldığında ayrışıyordu: giriş formundaki
+ * girdi bir süre hatalı durumda kırmızı çerçeve almıyordu.
+ */
+export const fieldControlClass =
   'w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm ' +
   'placeholder:text-slate-400 aria-[invalid=true]:border-red-500';
+
+const inputClass = fieldControlClass;
 
 /** Etiketli metin girdisi. */
 export const TextField = forwardRef<

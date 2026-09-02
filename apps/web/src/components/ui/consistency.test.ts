@@ -109,6 +109,41 @@ describe('Arayüz tutarlılığı', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('sayfalar form alanını elle yazmaz', () => {
+    /*
+      Etiket, yardım metni ve hata mesajının girdiyle ilişkilendirilmesi
+      (`htmlFor`, `aria-describedby`, `aria-invalid`) `form-field.tsx` içinde
+      bir kez yapılır. Elle yazıldığında bu ilişkilendirmelerden biri kolayca
+      unutulur ve ekran okuyucu alanın hangi etikete ait olduğunu bilemez.
+
+      Ayrıca görünüm ayrışır: giriş ve kayıt formları bir süre kendi girdi
+      sınıflarını yazdı ve hatalı alan orada kırmızı çerçeve almıyordu.
+
+      `type="checkbox"` ve `type="radio"` için `choice-field.tsx`,
+      `type="file"` için `photo-upload.tsx` kullanılır.
+
+      Gizli girdi (`type="hidden"`) istisnadır: görünen bir alan değildir,
+      etiketi ve hata mesajı da yoktur — yalnızca formla birlikte taşınan bir
+      değerdir.
+    */
+    const offenders = pageFiles()
+      .filter(({ source }) => /<input\b(?![^>]*type="hidden")/.test(source))
+      .map(({ name }) => name);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('sayfalar girdi stilini elle yazmaz', () => {
+    // Girdi çerçevesi ve dolgusu `form-field.tsx` içinde tanımlıdır.
+    const inputClass = /rounded-lg\s+border\s+border-slate-300\s+px-\d/;
+
+    const offenders = pageFiles()
+      .filter(({ source }) => inputClass.test(source))
+      .map(({ name }) => name);
+
+    expect(offenders).toEqual([]);
+  });
+
   it('ortak bileşenler tek bir kart ölçü kümesi tanımlar', () => {
     // Ölçüler `card.tsx` içinde bir kez tanımlanır; başka bir ui dosyası
     // kendi kart stilini yazarsa iki kaynak oluşur.

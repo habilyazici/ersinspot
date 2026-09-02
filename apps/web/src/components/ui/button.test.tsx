@@ -35,6 +35,31 @@ describe('düğme', () => {
     expect(screen.getByText('İşleniyor…')).toBeInTheDocument();
   });
 
+  it('simge düğmesinde durum metni ekran okuyucuya kalır', () => {
+    // Sabit kare kutuya metin sığmaz; görsel olarak gizlenir ama kaldırılmaz.
+    render(<Button isLoading size="icon" aria-label="Sil" />);
+
+    const status = screen.getByText('İşleniyor…');
+    expect(status).toBeInTheDocument();
+    expect(status).toHaveClass('sr-only');
+  });
+
+  it('yükleme sırasında meşgul olduğunu bildirir', () => {
+    render(<Button isLoading>Kaydet</Button>);
+    expect(screen.getByRole('button')).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('asChild ile sarmalanan bağlantı yükleme içeriğiyle bozulmaz', () => {
+    // Slot tek çocuk bekler; yükleme göstergesi eklenirse çalışma anında çöker.
+    render(
+      <Button asChild isLoading>
+        <a href="/urunler">Ürünler</a>
+      </Button>,
+    );
+
+    expect(screen.getByRole('link', { name: 'Ürünler' })).toBeInTheDocument();
+  });
+
   it('devre dışıyken tıklanamaz', async () => {
     const onClick = vi.fn();
     render(

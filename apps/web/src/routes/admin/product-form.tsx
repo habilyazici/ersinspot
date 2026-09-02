@@ -16,6 +16,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
+import { z } from 'zod';
 import {
   ApiError,
   MIN_PRODUCT_IMAGES,
@@ -43,7 +44,55 @@ import {
   useUpdateProduct,
 } from '@/features/catalog';
 
-type ProductValues = CreateProductInput;
+/**
+ * Form şeması.
+ *
+ * Fiyat alanı formda LİRA METNİ olarak tutulur ("24.500" ya da "24500,50") ve
+ * gönderim sırasında kuruşa çevrilir. Alanda doğrudan kuruş tutulduğunda
+ * düzenleme modu bozuluyordu: sunucudan gelen 2.450.000 kuruş kutuya olduğu
+ * gibi yazılıyor, personel ekranda "2450000 ₺" görüyordu. Düzeltmek için
+ * "24500" yazan biri de ürünü 245 ₺'ye düşürüyordu — dönüşüm iki yönde de
+ * yapılmadığı sürece hangi birimin kutuda olduğu belirsizdi.
+ *
+ * Ayrım artık tipte görünür: forma giren değer metin, şemadan çıkan değer
+ * kuruştur.
+ */
+const productFormSchema = createProductSchema.extend({
+  /*
+    Fiyat DOĞRULANIR ama şemada dönüştürülmez.
+
+    Dönüşümü şemaya koymak, form değerinin tipi ile doğrulayıcının çıktısının
+    tipini ayırırdı; react-hook-form'un çözümleyici tipleri bu ayrımı taşımıyor.
+    Doğrulama tek yerde kalsın diye kural burada, birim dönüşümü gönderimde
+    yapılır — ikisi de `money.parseLira` üzerinden.
+  */
+  price: z.string({ required_error: 'Fiyat zorunludur.' }).superRefine((value, ctx) => {
+    const kurus = money.parseLira(value);
+
+    if (kurus === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Geçerli bir fiyat girin. Örn. 24500 veya 24500,50',
+      });
+      return;
+    }
+
+    if (kurus <= 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Fiyat sıfırdan büyük olmalıdır.' });
+    }
+  }),
+});
+
+/**
+ * Formda tutulan değerler.
+ *
+ * Fiyat dışında sunucu sözleşmesiyle aynıdır; fiyat LİRA METNİ olarak tutulur
+ * ("24.500" ya da "24500,50") ve gönderimde kuruşa çevrilir. Alanda doğrudan
+ * kuruş tutulduğunda düzenleme modu bozuluyordu: sunucudan gelen 2.450.000
+ * kuruş kutuya olduğu gibi yazılıyor, personel ekranda "2450000 ₺" görüyordu.
+ * Düzeltmek için "24500" yazan biri de ürünü 245 ₺'ye düşürüyordu.
+ */
+type ProductValues = Omit<CreateProductInput, 'price'> & { price: string };
 
 /** Kategori ağacını girintili düz listeye çevirir. */
 function flattenCategories(
@@ -77,10 +126,11 @@ export default function AdminProductFormPage() {
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<ProductValues>({
-    resolver: zodResolver(createProductSchema),
+    resolver: zodResolver(productFormSchema),
     defaultValues: {
       title: '',
       description: '',
+      price: '',
       condition: 'good',
       status: 'draft',
       warrantyMonths: 0,
@@ -104,7 +154,8 @@ export default function AdminProductFormPage() {
     reset({
       title: product.title,
       description: product.description,
-      price: product.price,
+      // Kuruş → lira metni. Kutuya kuruş yazmak fiyatı 100 katı gösterirdi.
+      price: money.toInputValue(money.fromKurus(product.price)),
       condition: product.condition,
       status: product.status,
       warrantyMonths: product.warrantyMonths,
@@ -125,6 +176,13 @@ export default function AdminProductFormPage() {
   }
 
   function onSubmit(values: ProductValues): void {
+    // Şema fiyatı zaten doğruladı; burada yalnızca lira → kuruş çevrilir.
+    const price = money.parseLira(values.price);
+
+    if (price === null) return;
+
+    const payload: CreateProductInput = { ...values, price };
+
     const done = {
       onSuccess: () => {
         toast.success(isEditing ? 'Ürün güncellendi.' : 'Ürün oluşturuldu.');
@@ -135,8 +193,8 @@ export default function AdminProductFormPage() {
       },
     };
 
-    if (isEditing) updateProduct.mutate({ productId, product: values }, done);
-    else createProduct.mutate(values, done);
+    if (isEditing) updateProduct.mutate({ productId, product: payload }, done);
+    else createProduct.mutate(payload, done);
   }
 
   const categoryOptions = flattenCategories(categories ?? []);
@@ -181,14 +239,9 @@ export default function AdminProductFormPage() {
               required
               inputMode="decimal"
               placeholder="Örn. 24500"
+              hint="Lira olarak yazın; kuruş için virgül kullanın."
               error={errors.price?.message}
-              {...register('price', {
-                // Kullanıcı lira yazar, sunucu kuruş bekler.
-                setValueAs: (value: string | number) => {
-                  if (typeof value === 'number') return value;
-                  return money.parseLira(value) ?? Number.NaN;
-                },
-              })}
+              {...register('price')}
             />
 
             <SelectField

@@ -5,6 +5,7 @@ import { ORDER_STATUS_LABELS } from '@ersinspot/shared';
 import { Card } from '@/components/ui/card.tsx';
 import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
 import { Button } from '@/components/ui/button.tsx';
+import { TextField } from '@/components/ui/form-field.tsx';
 import { StatusBadge } from '@/components/ui/status-badge.tsx';
 import { formatDate, formatDateTime } from '@/lib/format.ts';
 import { useOrderTracking } from '@/features/ordering';
@@ -39,20 +40,19 @@ export default function OrderTrackingPage() {
         description="Sipariş onayında size ilettiğimiz takip numarasını girin."
       />
 
-      <form onSubmit={handleSubmit} className="mt-8 flex gap-2">
-        <div className="flex-1">
-          <label htmlFor="takip-no" className="sr-only">
-            Takip numarası
-          </label>
-          <input
-            id="takip-no"
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder="SIP-2026-000123"
-            autoComplete="off"
-            className="w-full rounded-lg border border-slate-300 px-4 py-3 font-mono text-sm uppercase"
-          />
-        </div>
+      {/* `items-end`: alan etiketiyle birlikte çizildiği için düğme alt hizada durmalı. */}
+      <form onSubmit={handleSubmit} className="mt-8 flex items-end gap-2">
+        <TextField
+          label="Takip numarası"
+          className="flex-1"
+          value={input}
+          onChange={(event) => {
+            setInput(event.target.value);
+          }}
+          placeholder="SIP-2026-000123"
+          autoComplete="off"
+          inputMode="text"
+        />
 
         <Button type="submit" size="lg" isLoading={isLoading}>
           Sorgula

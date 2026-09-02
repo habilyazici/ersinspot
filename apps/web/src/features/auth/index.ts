@@ -25,4 +25,4 @@ export {
 
 export type { ActiveSession } from './api.ts';
 
-export { RequireAuth, RequireStaff } from './route-guards.tsx';
+export { RequireAdmin, RequireAuth, RequireStaff } from './route-guards.tsx';

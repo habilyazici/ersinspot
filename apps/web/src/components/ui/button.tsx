@@ -52,17 +52,35 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 ) {
   const Component = asChild ? Slot : 'button';
 
+  /*
+    `asChild` durumunda içerik DEĞİŞTİRİLMEZ.
+
+    Slot tek bir çocuk bekler; yükleme göstergesini eklemek onu iki çocuklu bir
+    parçaya çevirir ve Radix çalışma anında hata verir. Bu birleşim zaten
+    kullanılmıyor (asChild bağlantılar içindir), ama sessiz bir çökme yerine
+    tanımlı bir davranış olması gerekir.
+  */
+  const showLoading = isLoading && !asChild;
+
   return (
     <Component
       ref={ref}
       className={cn(buttonVariants({ variant, size }), className)}
       disabled={disabled ?? isLoading}
+      aria-busy={showLoading}
       {...props}
     >
-      {isLoading ? (
+      {showLoading ? (
         <>
           <Loader2 className="animate-spin" aria-hidden="true" />
-          <span>İşleniyor…</span>
+          {/*
+            Durum metni yalnızca dönen simgeye bırakılmaz: görme engelli
+            kullanıcı simgeyi duymaz.
+
+            Simge düğmesi sabit kare bir kutudur ve metin oraya sığmaz; orada
+            görsel olarak gizlenir, ekran okuyucuya yine ulaşır.
+          */}
+          <span className={size === 'icon' ? 'sr-only' : undefined}>İşleniyor…</span>
         </>
       ) : (
         children

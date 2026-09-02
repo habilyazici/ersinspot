@@ -6,8 +6,36 @@ import { ApiError, registerSchema } from '@ersinspot/shared';
 import type { RegisterInput } from '@ersinspot/shared';
 
 type RegisterFormValues = RegisterInput;
+
+/** Form alanları; tümü aynı bileşenle çizilir, sıraları burada tanımlıdır. */
+const FIELDS = [
+  { name: 'fullName', label: 'Ad Soyad', type: 'text', autoComplete: 'name' },
+  { name: 'email', label: 'E-posta', type: 'email', autoComplete: 'email' },
+  { name: 'phone', label: 'Cep Telefonu', type: 'tel', autoComplete: 'tel' },
+  {
+    name: 'password',
+    label: 'Şifre',
+    type: 'password',
+    autoComplete: 'new-password',
+    hint: 'En az 10 karakter.',
+  },
+  {
+    name: 'passwordConfirm',
+    label: 'Şifre (Tekrar)',
+    type: 'password',
+    autoComplete: 'new-password',
+  },
+] as const satisfies readonly {
+  name: keyof RegisterFormValues;
+  label: string;
+  type: string;
+  autoComplete: string;
+  hint?: string;
+}[];
 import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
 import { Button } from '@/components/ui/button.tsx';
+import { CheckboxField } from '@/components/ui/choice-field.tsx';
+import { TextField } from '@/components/ui/form-field.tsx';
 import { useAuth, useRegister } from '@/features/auth';
 
 export default function RegisterPage() {
@@ -87,71 +115,30 @@ export default function RegisterPage() {
           </div>
         )}
 
-        {(
-          [
-            { name: 'fullName', label: 'Ad Soyad', type: 'text', autoComplete: 'name' },
-            { name: 'email', label: 'E-posta', type: 'email', autoComplete: 'email' },
-            { name: 'phone', label: 'Cep Telefonu', type: 'tel', autoComplete: 'tel' },
-            {
-              name: 'password',
-              label: 'Şifre',
-              type: 'password',
-              autoComplete: 'new-password',
-              hint: 'En az 10 karakter.',
-            },
-            {
-              name: 'passwordConfirm',
-              label: 'Şifre (Tekrar)',
-              type: 'password',
-              autoComplete: 'new-password',
-            },
-          ] as const
-        ).map((field) => (
-          <div key={field.name}>
-            <label htmlFor={field.name} className="block text-sm font-medium text-slate-700">
-              {field.label}
-            </label>
-
-            <input
-              id={field.name}
-              type={field.type}
-              autoComplete={field.autoComplete}
-              placeholder={field.name === 'phone' ? '0507 194 05 50' : undefined}
-              aria-invalid={errors[field.name] !== undefined}
-              aria-describedby={`${field.name}-yardim`}
-              {...register(field.name)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm"
-            />
-
-            <p id={`${field.name}-yardim`} className="mt-1 text-sm">
-              {errors[field.name] !== undefined ? (
-                <span className="text-red-600">{errors[field.name]?.message}</span>
-              ) : 'hint' in field ? (
-                <span className="text-slate-500">{field.hint}</span>
-              ) : null}
-            </p>
-          </div>
+        {FIELDS.map((field) => (
+          <TextField
+            key={field.name}
+            label={field.label}
+            type={field.type}
+            required
+            autoComplete={field.autoComplete}
+            placeholder={field.name === 'phone' ? '0507 194 05 50' : undefined}
+            hint={'hint' in field ? field.hint : undefined}
+            error={errors[field.name]?.message}
+            {...register(field.name)}
+          />
         ))}
 
-        <div>
-          <label className="flex items-start gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              {...register('acceptedTerms')}
-              className="mt-0.5 size-4 rounded"
-            />
-            <span>
-              <Link to="/kullanim-kosullari" className="text-brand-navy-700 hover:underline">
-                Kullanım koşullarını
-              </Link>{' '}
-              okudum ve kabul ediyorum.
-            </span>
-          </label>
-
-          {errors.acceptedTerms === undefined ? null : (
-            <p className="mt-1 text-sm text-red-600">{errors.acceptedTerms.message}</p>
-          )}
-        </div>
+        <CheckboxField
+          label="Kullanım koşullarını okudum ve kabul ediyorum."
+          hint={
+            <Link to="/kullanim-kosullari" className="text-brand-navy-700 hover:underline">
+              Kullanım koşullarını oku
+            </Link>
+          }
+          error={errors.acceptedTerms?.message}
+          {...register('acceptedTerms')}
+        />
 
         <Button
           type="submit"

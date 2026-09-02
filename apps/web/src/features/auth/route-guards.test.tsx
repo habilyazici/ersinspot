@@ -15,7 +15,8 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
-import type { CurrentUser } from '@ersinspot/shared';
+import type { CurrentUser, UserRole } from '@ersinspot/shared';
+import { hasRoleAtLeast } from '@ersinspot/shared';
 
 /** Testin kontrol ettiği oturum durumu. */
 const auth: {
@@ -24,14 +25,21 @@ const auth: {
     isAuthenticated: boolean;
     isStaff: boolean;
     isLoading: boolean;
+    hasRole: (role: UserRole) => boolean;
   };
 } = {
-  current: { user: null, isAuthenticated: false, isStaff: false, isLoading: false },
+  current: {
+    user: null,
+    isAuthenticated: false,
+    isStaff: false,
+    isLoading: false,
+    hasRole: () => false,
+  },
 };
 
 vi.mock('./use-auth.ts', () => ({ useAuth: () => auth.current }));
 
-const { RequireAuth, RequireStaff } = await import('./route-guards.tsx');
+const { RequireAdmin, RequireAuth, RequireStaff } = await import('./route-guards.tsx');
 
 function makeUser(role: CurrentUser['role']): CurrentUser {
   return {
@@ -46,21 +54,29 @@ function makeUser(role: CurrentUser['role']): CurrentUser {
 }
 
 function signedOut(): void {
-  auth.current = { user: null, isAuthenticated: false, isStaff: false, isLoading: false };
+  auth.current = {
+    user: null,
+    isAuthenticated: false,
+    isStaff: false,
+    isLoading: false,
+    hasRole: () => false,
+  };
 }
 
 function signedInAs(role: CurrentUser['role']): void {
   auth.current = {
     user: makeUser(role),
     isAuthenticated: true,
-    isStaff: role === 'staff' || role === 'admin',
+    isStaff: hasRoleAtLeast(role, 'staff'),
     isLoading: false,
+    // Gerçek `useAuth` ile aynı hiyerarşi: yönetici, personelin yerine geçer.
+    hasRole: (required) => hasRoleAtLeast(role, required),
   };
 }
 
 /** Koruyucuyu gerçek bir yönlendirici içinde çalıştırır. */
-function renderGuarded(guard: 'auth' | 'staff', at = '/korunan'): void {
-  const Guard = guard === 'staff' ? RequireStaff : RequireAuth;
+function renderGuarded(guard: 'auth' | 'staff' | 'admin', at = '/korunan'): void {
+  const Guard = guard === 'staff' ? RequireStaff : guard === 'admin' ? RequireAdmin : RequireAuth;
 
   render(
     <MemoryRouter initialEntries={[at]}>
@@ -102,7 +118,13 @@ describe('RequireAuth', () => {
       korunan ekranı sızdırırdı; ayrıca oturum sonradan geçersiz çıkarsa
       kullanıcı kısa süre çalışan bir arayüz görüp aniden atılırdı.
     */
-    auth.current = { user: null, isAuthenticated: false, isStaff: false, isLoading: true };
+    auth.current = {
+      user: null,
+      isAuthenticated: false,
+      isStaff: false,
+      isLoading: true,
+      hasRole: () => false,
+    };
     renderGuarded('auth');
 
     expect(screen.queryByText('Gizli içerik')).not.toBeInTheDocument();
@@ -142,9 +164,40 @@ describe('RequireStaff', () => {
   });
 
   it('yetki kontrolü sürerken içeriği göstermez', () => {
-    auth.current = { user: null, isAuthenticated: false, isStaff: false, isLoading: true };
+    auth.current = {
+      user: null,
+      isAuthenticated: false,
+      isStaff: false,
+      isLoading: true,
+      hasRole: () => false,
+    };
     renderGuarded('staff');
 
     expect(screen.queryByText('Gizli içerik')).not.toBeInTheDocument();
+  });
+});
+
+describe('RequireAdmin', () => {
+  it('PERSONELİ yönetici bölümüne sokmaz', () => {
+    // Menüde bağlantı gizli olsa da adres elle yazılabilir.
+    signedInAs('staff');
+    renderGuarded('admin');
+
+    expect(screen.queryByText('Gizli içerik')).not.toBeInTheDocument();
+    expect(screen.getByText('Anasayfa')).toBeInTheDocument();
+  });
+
+  it('yöneticiyi içeri alır', () => {
+    signedInAs('admin');
+    renderGuarded('admin');
+
+    expect(screen.getByText('Gizli içerik')).toBeInTheDocument();
+  });
+
+  it('oturumsuz kullanıcıyı giriş sayfasına gönderir', () => {
+    signedOut();
+    renderGuarded('admin');
+
+    expect(screen.getByText('Giriş sayfası')).toBeInTheDocument();
   });
 });
