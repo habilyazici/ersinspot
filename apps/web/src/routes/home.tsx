@@ -7,10 +7,14 @@ import { PageContainer } from '@/components/ui/page.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { Spinner } from '@/components/ui/spinner.tsx';
 import { ProductCard, useProducts } from '@/features/catalog';
+import { FavoriteButton, useFavoriteStatus } from '@/features/ordering';
 
 /** Anasayfa: vitrin, hizmetler ve güven unsurları. */
 export default function HomePage() {
   const { data, isLoading, isError, error, refetch } = useProducts({ pageSize: 8, sort: 'newest' });
+
+  // Vitrindeki ürünlerin favori durumu tek istekte sorulur.
+  const { data: favorites } = useFavoriteStatus(data?.items.map((product) => product.id) ?? []);
 
   return (
     <>
@@ -122,7 +126,16 @@ export default function HomePage() {
             <ul className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
               {data.items.map((product) => (
                 <li key={product.id}>
-                  <ProductCard product={product} />
+                  <ProductCard
+                    product={product}
+                    action={
+                      <FavoriteButton
+                        productId={product.id}
+                        productTitle={product.title}
+                        isFavorite={favorites?.has(product.id) ?? false}
+                      />
+                    }
+                  />
                 </li>
               ))}
             </ul>

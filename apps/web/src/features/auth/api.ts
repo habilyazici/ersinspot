@@ -60,21 +60,20 @@ export function useLogin() {
   });
 }
 
+/**
+ * Kayıt.
+ *
+ * Sunucu oturum açmaz ve adresin kayıtlı olup olmadığını ele vermez: her iki
+ * durumda da aynı yanıt döner. Kullanıcı e-postasındaki doğrulama bağlantısını
+ * kullandıktan sonra giriş yapar.
+ */
 export function useRegister() {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (input: RegisterInput) =>
-      apiRequest<{ success: boolean; user?: CurrentUser }>('/api/auth/register', {
+      apiRequest<{ success: boolean }>('/api/auth/register', {
         method: 'POST',
         body: input,
       }),
-
-    onSuccess: (data) => {
-      if (data.user !== undefined) {
-        queryClient.setQueryData(authKeys.currentUser, data.user);
-      }
-    },
   });
 }
 

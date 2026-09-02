@@ -55,8 +55,6 @@ export const movingLocationSchema = z.object({
   hasElevator: z.boolean({ required_error: 'Asansör bilgisi zorunludur.' }),
 });
 
-export type MovingLocationInput = z.infer<typeof movingLocationSchema>;
-
 // ---------------------------------------------------------------------------
 // Eşya listesi
 // ---------------------------------------------------------------------------
@@ -95,8 +93,6 @@ export const movingItemSchema = z.object({
   needsDisassembly: z.boolean().default(false),
   note: optionalText(200),
 });
-
-export type MovingItemInput = z.infer<typeof movingItemSchema>;
 
 // ---------------------------------------------------------------------------
 // Talep oluşturma

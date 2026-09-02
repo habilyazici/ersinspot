@@ -8,6 +8,7 @@
 
 import type { Context, MiddlewareHandler, Next } from 'hono';
 import { cors } from 'hono/cors';
+import { getConnInfo } from '@hono/node-server/conninfo';
 import { env, isProduction } from '../config/env.ts';
 import { forbidden, rateLimited } from '../errors/index.ts';
 import { checkMemoryRateLimit } from '../../modules/identity/application/rate-limit.ts';
@@ -77,31 +78,42 @@ export const csrfProtection: MiddlewareHandler = async (c: Context, next: Next) 
  * API yanıtlarının yanlış yorumlanmasını engeller.
  */
 export const securityHeaders: MiddlewareHandler = async (c: Context, next: Next) => {
-  await next();
-
-  // Tarayıcı, sunucunun bildirdiği içerik türünü tahminle değiştirmesin.
-  c.header('X-Content-Type-Options', 'nosniff');
-
-  // API yanıtları hiçbir zaman çerçeve içinde gösterilmemeli.
-  c.header('X-Frame-Options', 'DENY');
-
-  // Yönlendirmelerde tam adres sızmasın.
-  c.header('Referrer-Policy', 'no-referrer');
-
   /*
-    API yanıtları önbelleğe alınmamalı: kişisel veri içerebilir.
+    Başlıklar `finally` içinde yazılır.
 
-    Dosya sunumu istisnadır. Rota kendi `Cache-Control` başlığını yazar (dosya
-    adı değişmez, uzun önbellek güvenlidir) ve buradaki middleware `next()`
-    sonrasında çalıştığı için onu ezerdi.
+    Aşağı akışta bir istisna fırlarsa `await next()` de fırlatır ve ondan
+    sonraki satırlar hiç çalışmaz. Önceki hâlinde bu, TAM OLARAK hata
+    yanıtlarının — 401, 403, 500 — başlıksız çıkması demekti: kişisel veri
+    taşıyabilen yanıtlarda `no-store` yoktu. `finally`, hata merkezî işleyiciye
+    ulaşmadan önce başlıkların yazılmasını garanti eder.
   */
-  if (c.res.headers.get('Cache-Control') === null) {
-    c.header('Cache-Control', 'no-store');
-  }
+  try {
+    await next();
+  } finally {
+    // Tarayıcı, sunucunun bildirdiği içerik türünü tahminle değiştirmesin.
+    c.header('X-Content-Type-Options', 'nosniff');
 
-  if (isProduction) {
-    // HTTPS zorunluluğu. Yalnızca üretimde; yerelde http kullanıldığı için eklenmez.
-    c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    // API yanıtları hiçbir zaman çerçeve içinde gösterilmemeli.
+    c.header('X-Frame-Options', 'DENY');
+
+    // Yönlendirmelerde tam adres sızmasın.
+    c.header('Referrer-Policy', 'no-referrer');
+
+    /*
+      API yanıtları önbelleğe alınmamalı: kişisel veri içerebilir.
+
+      Dosya sunumu istisnadır. Rota kendi `Cache-Control` başlığını yazar (dosya
+      adı değişmez, uzun önbellek güvenlidir) ve buradaki middleware `next()`
+      sonrasında çalıştığı için onu ezerdi.
+    */
+    if (c.res.headers.get('Cache-Control') === null) {
+      c.header('Cache-Control', 'no-store');
+    }
+
+    if (isProduction) {
+      // HTTPS zorunluluğu. Yalnızca üretimde; yerelde http kullanıldığı için eklenmez.
+      c.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
   }
 };
 
@@ -121,7 +133,21 @@ export function rateLimit(
   keyPrefix = 'genel',
 ): MiddlewareHandler {
   return async (c: Context, next: Next) => {
-    const ip = clientIp(c) ?? 'bilinmiyor';
+    const ip = clientIp(c);
+
+    /*
+      Adres bilinmiyorsa sınır uygulanmaz.
+
+      Önceki hâlinde adressiz istekler `bilinmiyor` anahtarında TEK bir kovayı
+      paylaşıyordu: bir istemcinin trafiği hepsini birden kilitliyordu. Sınırı
+      atlamak da adres göndermemekle mümkün olurdu; bu yüzden kötüye kullanıma
+      açık uçlarda ayrıca hesap bazlı sınır vardır.
+    */
+    if (ip === null) {
+      await next();
+      return;
+    }
+
     const result = checkMemoryRateLimit(`${keyPrefix}:${ip}`, maxRequests, windowMs);
 
     if (!result.allowed) {
@@ -135,21 +161,40 @@ export function rateLimit(
 /**
  * İstemcinin IP adresini çıkarır.
  *
- * Ters vekil arkasında çalışırken `X-Forwarded-For` başlığının ilk değeri kullanılır.
- * Bu başlık istemci tarafından uydurulabilir; bu yüzden yalnızca hız sınırı ve
- * denetim kaydı için kullanılır, yetkilendirme kararında ASLA kullanılmaz.
+ * Adres yalnızca hız sınırı ve denetim kaydı için kullanılır; yetkilendirme
+ * kararında ASLA kullanılmaz.
+ *
+ * `X-Forwarded-For` başlığı YALNIZCA `TRUST_PROXY=true` iken okunur. Başlığı
+ * istemci de gönderebilir: doğrudan internete açık bir sunucuda ona güvenmek,
+ * saldırganın her istekte farklı bir adres uydurup giriş denemesi sınırını
+ * tamamen atlaması demektir. Vekil arkasında değilken adres TCP bağlantısından
+ * alınır ve uydurulamaz.
  */
 export function clientIp(c: Context): string | null {
-  const forwarded = c.req.header('X-Forwarded-For');
-  if (forwarded !== undefined) {
-    const first = forwarded.split(',')[0]?.trim();
-    if (first !== undefined && first !== '') return first;
+  if (env.TRUST_PROXY) {
+    const forwarded = c.req.header('X-Forwarded-For');
+    if (forwarded !== undefined) {
+      const first = forwarded.split(',')[0]?.trim();
+      if (first !== undefined && first !== '') return first;
+    }
+
+    const realIp = c.req.header('X-Real-IP');
+    if (realIp !== undefined && realIp !== '') return realIp;
   }
 
-  const realIp = c.req.header('X-Real-IP');
-  if (realIp !== undefined && realIp !== '') return realIp;
+  /*
+    Soket adresi.
 
-  return null;
+    Vekil yokken tek güvenilir kaynak budur. Test ortamında istekler doğrudan
+    `app.fetch` ile üretilir ve soket bilgisi yoktur; o durumda null döner ve
+    IP tabanlı katman devre dışı kalır — hesap bazlı kilit yerinde durur.
+  */
+  try {
+    const address = getConnInfo(c).remote.address;
+    return address === undefined || address === '' ? null : address;
+  } catch {
+    return null;
+  }
 }
 
 /** İstemcinin tarayıcı bilgisini döndürür. Oturum listesinde cihaz tanımak için. */

@@ -37,7 +37,11 @@ apps/api/src/
 │   ├── http/              Middleware: kimlik, doğrulama, hata, güvenlik
 │   ├── config/            Ortam değişkenleri
 │   ├── observability/     Loglama
-│   └── errors/            Hata türleri
+│   ├── errors/            Hata türleri
+│   ├── authorization.ts   Kaynak sahipliği (IDOR) — HTTP'den bağımsız
+│   ├── storage.ts         Dosya depolama sürücüsü
+│   ├── mailer.ts          E-posta gönderimi
+│   └── maintenance.ts     Zamanlanmış görevlerin çalıştırıcısı
 │
 ├── modules/               İş alanları. Her biri kendi verisine sahiptir.
 │   ├── identity/
@@ -84,18 +88,20 @@ Bir modül, başka bir modülün iç dosyalarına **erişemez**.
 
 ```ts
 // ✗ YANLIŞ — başka modülün iç yapısına erişim
-import { products } from '@/modules/catalog/infrastructure/schema.ts';
+import { products } from '../../catalog/infrastructure/schema.ts';
 
 // ✓ DOĞRU — genel sözleşme
-import { catalog } from '@/modules/catalog';
-const product = await catalog.getPurchasableProduct(productId);
+import { catalog } from '../../catalog/index.ts';
+const product = await catalog.getPurchasableProducts(ids, tx);
 ```
 
 Bu kural ESLint ile zorunlu kılınır (`eslint.config.js` içindeki
 `no-restricted-imports` kuralı). İhlal derlemeyi kırar, kod incelemesine kalmaz.
 
-**Modül içinde** göreli yol kullanılır (`./domain/rules.ts`), modüller arasında
-`@/modules/<ad>` kullanılır. Ayrım budur: göreli yol = iç, mutlak yol = sözleşme.
+Modüller arası erişimde **yalnızca `index.ts` içe aktarılabilir**; alt
+klasörlere (`domain/`, `application/`, `infrastructure/`, `api/`) hiçbir yoldan
+ulaşılamaz — ne göreli ne mutlak. Kural yolun biçimini değil, HEDEFİ sınırlar:
+sözleşme dosyası serbest, iç dosyalar kapalı.
 
 ### Sözleşme neye benzer?
 
@@ -125,7 +131,7 @@ listeye yazılmazsa test düşer.
 
 | Modül       | Sahip olduğu tablolar                                                                                                                                                                                                        |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `identity`  | `users`, `sessions`, `customer_addresses`, `password_reset_tokens`, `email_verification_tokens`, `login_attempts`                                                                                                            |
+| `identity`  | `users`, `sessions`, `password_reset_tokens`, `email_verification_tokens`, `login_attempts`                                                                                                                                  |
 | `catalog`   | `categories`, `brands`, `products`, `product_images`, `product_specs`                                                                                                                                                        |
 | `ordering`  | `cart_items`, `favorites`, `orders`, `order_items`, `order_addresses`, `order_events`, `payments`                                                                                                                            |
 | `servicing` | `service_requests`, `request_addresses`, `moving_request_details`, `moving_request_items`, `technical_service_details`, `sell_request_details`, `request_photos`, `request_quotes`, `request_appointments`, `request_events` |
@@ -166,11 +172,17 @@ router.delete('/orders/:id', async (c) => {
 router.delete('/orders/:id', requireStaff, handler);
 ```
 
-Kaynak sahipliği (IDOR koruması) tek noktadan yapılır:
+Kaynak sahipliği (IDOR koruması) tek noktadan yapılır. Kural HTTP'den
+bağımsızdır ve `platform/authorization.ts` içindedir; hem rota tanımları hem
+uygulama katmanındaki servisler aynı fonksiyonu çağırır:
 
 ```ts
-assertCanAccess(currentUser(c), order.userId);
+assertCanAccess(viewer, order.userId); // personel muaf, sahibi geçer, diğerleri 403
 ```
+
+Rol karşılaştırması da oradadır (`isStaff`). Servislerde `role === 'staff' ||
+role === 'admin'` biçiminde üç ayrı kopya vardı; yeni bir rol eklendiğinde
+hepsinin bulunup güncellenmesi gerekiyordu.
 
 ---
 
@@ -194,7 +206,28 @@ kullanılmasını engeller.
 
 ---
 
-## Kural 5: Doğrulama sınırda yapılır
+## Kural 5: Yükleme, kayda bağlanmadan kalıcı değildir
+
+Bir dosya yüklendiğinde `uploaded_files` içinde YETİM olarak durur. Onu kalıcı
+kılan tek şey, ilgili kaydı yazan işlemin `files.attachFiles(...)` çağırmasıdır:
+
+```ts
+await repository.insertPhotos(requestId, photos, tx);
+await attachFiles(keys, tx, { purpose: 'request_photo', uploaderId: userId });
+```
+
+Çağrı yapılmadığında bakım görevi dosyayı 24 saat sonra diskten siler ve kayıt
+var olmayan bir anahtarı gösterir — ürün görselleri, blog kapakları ve talep
+fotoğrafları ertesi gün topluca kaybolur. Fonksiyon baştan yazılmıştı ama
+hiçbir yerden çağrılmıyordu; denetimde bulundu.
+
+`attachFiles` aynı zamanda bir doğrulama noktasıdır: anahtar yoksa ya da
+bildirilen amaç/yükleyici tutmuyorsa işlem reddedilir. Böylece bir kayıt,
+başkasının yüklemesine ya da hiç var olmayan bir anahtara bağlanamaz.
+
+---
+
+## Kural 6: Doğrulama sınırda yapılır
 
 Her uç, gövdesini ve sorgu parametrelerini `@ersinspot/shared` içindeki zod
 şemasıyla doğrular. Handler ham gövdeye erişmez; yalnızca doğrulanmış ve
@@ -241,6 +274,28 @@ veritabanı, `process`) **konulamaz**.
 4. `app.ts` içinde yönlendiriciyi bağlayın ve hangi yetki grubuna ait olduğuna
    karar verin.
 5. `docs/MIMARI.md` içindeki tablo sahipliği listesini güncelleyin.
+
+---
+
+## Zamanla tetiklenen kurallar
+
+Bazı iş kuralları bir istekle değil, zamanın geçmesiyle çalışır. Her biri sahibi
+olan modülün sözleşmesinden sunulur; `server.ts` yalnızca zamanlar.
+
+| Görev                                         | Sahip      | Aralık | Ne yapar                                                                |
+| --------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------- |
+| `sureli-oturumlari-temizle`                   | `identity` | 1 saat | Süresi dolmuş oturum satırlarını siler                                  |
+| `odemesi-gelmeyen-siparisleri-iptal-et`       | `ordering` | 15 dk  | Havale bildirimi gelmeyen siparişi iptal eder, ürünleri satışa döndürür |
+| `suresi-gecmis-rezervasyonlari-serbest-birak` | `catalog`  | 15 dk  | Emniyet ağı: siparişi kalmamış rezervasyonları çözer                    |
+| `yetim-dosyalari-temizle`                     | `files`    | 6 saat | Hiçbir kayda bağlanmamış eski yüklemeleri siler                         |
+
+Sıra önemlidir: sipariş iptali ürünleri NORMAL yoldan serbest bırakır. Katalog
+görevi tek başına çalışırsa ürün satışa döner ama sipariş açık kalır ve aynı
+ürün ikinci kez satılabilir — denetimde bulunan durum tam olarak buydu.
+
+**Ölçekleme notu:** görevler sunucu sürecinin içinde çalışır. Birden çok örneğe
+geçildiğinde her örnek aynı görevi çalıştırır; o noktada bir danışma kilidi
+(advisory lock) eklenmeli ya da görevler ayrı bir zamanlayıcıya taşınmalıdır.
 
 ---
 

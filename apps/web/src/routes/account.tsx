@@ -30,6 +30,7 @@ import { PageContainer, PageHeader, Section } from '@/components/ui/page.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { formatDate, formatDateTime, formatRelativeTime } from '@/lib/format.ts';
 import { phone as phoneUtils } from '@ersinspot/shared';
+import { useSiteSettings } from '@/features/content';
 import {
   useAuth,
   useChangePassword,
@@ -84,6 +85,16 @@ export default function AccountPage() {
   const logoutOthers = useLogoutAllOtherSessions();
   const { data: sessions, isLoading: sessionsLoading, isError, error, refetch } = useSessions();
 
+  /*
+    İletişim numarası site ayarlarından gelir.
+
+    Sayfaya gömülü olduğunda numara değiştiğinde alt bilgi güncelleniyor ama
+    burası eski numarayı göstermeye devam ediyordu — aynı bilginin iki kaynağı
+    olmasının olağan sonucu.
+  */
+  const { data: settings } = useSiteSettings();
+  const contactPhone = settings?.['contact.phone'] ?? '';
+
   const profileForm = useForm<UpdateProfileInput>({
     resolver: zodResolver(updateProfileSchema),
     values: { fullName: user?.fullName ?? '', phone: user?.phone ?? '' },
@@ -121,9 +132,15 @@ export default function AccountPage() {
 
   function savePassword(values: ChangePasswordInput): void {
     changePassword.mutate(values, {
-      onSuccess: () => {
-        toast.success('Şifreniz değiştirildi.');
+      onSuccess: (result) => {
+        toast.success(
+          result.closedOtherSessions > 0
+            ? `Şifreniz değiştirildi. Diğer ${String(result.closedOtherSessions)} oturum kapatıldı.`
+            : 'Şifreniz değiştirildi.',
+        );
         passwordForm.reset();
+        // Sunucu diğer oturumları kapattı; listedeki cihazlar artık geçersiz.
+        void refetch();
       },
       onError: (passwordError) => {
         if (passwordError instanceof ApiError) {
@@ -361,9 +378,14 @@ export default function AccountPage() {
             <Button asChild variant="outline">
               <Link to="/hesabim/taleplerim">Taleplerim</Link>
             </Button>
-            <Button asChild variant="link">
-              <a href={phoneUtils.toTelHref('+905071940550')}>Bize ulaşın</a>
+            <Button asChild variant="outline">
+              <Link to="/hesabim/favorilerim">Favorilerim</Link>
             </Button>
+            {contactPhone === '' ? null : (
+              <Button asChild variant="link">
+                <a href={phoneUtils.toTelHref(contactPhone)}>Bize ulaşın</a>
+              </Button>
+            )}
           </div>
         </Section>
       </div>

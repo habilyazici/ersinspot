@@ -47,16 +47,23 @@ function buildUrl(path: string, query?: RequestOptions['query']): string {
 }
 
 /**
- * Oturumu sonlandığında çağrılır.
+ * Sunucu "oturum yok" dediğinde çağrılır.
  *
- * Uygulama kabuğu bu geri çağrıyı kaydeder ve kullanıcıyı giriş sayfasına
- * yönlendirir. İstemcinin yönlendirmeyi kendisi yapması, onu React Router'a
- * bağımlı kılardı.
+ * Bu geri çağrı YÖNLENDİRME YAPMAZ; yalnızca uygulamanın oturum önbelleğini
+ * "misafir" durumuna çeker. Yönlendirme kararı rota koruyucularınındır
+ * (`RequireAuth`): korumalı bir sayfadaysa kullanıcı girişe gider, herkese
+ * açık bir sayfadaysa hiçbir şey olmaz.
+ *
+ * Önceki hâlinde istemci doğrudan `/giris` adresine yönlendiriyordu. Ama
+ * misafir bir ziyaretçide de 401 dönen uçlar var — başlıktaki sepet sayacı ve
+ * oturum sorgusu her sayfada çalışır — ve bu, ANASAYFAYI AÇAN HERKESİN giriş
+ * sayfasına atılması demekti. Yönlendirmeyi tek bir yerde, zaten oturum
+ * durumuna bakan koruyucuda tutmak bu sınıf hatayı yapısal olarak kapatır.
  */
-let onSessionExpired: (() => void) | null = null;
+let onUnauthenticated: (() => void) | null = null;
 
-export function setSessionExpiredHandler(handler: () => void): void {
-  onSessionExpired = handler;
+export function setUnauthenticatedHandler(handler: () => void): void {
+  onUnauthenticated = handler;
 }
 
 /**
@@ -113,9 +120,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     if (isApiErrorBody(payload)) {
       const apiError = new ApiError(payload, response.status);
 
-      // Oturum düştüyse uygulama kabuğunu haberdar et.
+      // Oturum yoksa veya düştüyse önbellekteki kullanıcı bilgisini düşür.
       if (apiError.requiresLogin) {
-        onSessionExpired?.();
+        onUnauthenticated?.();
       }
 
       throw apiError;
@@ -165,7 +172,7 @@ export async function apiUpload<T>(
   if (!response.ok) {
     if (isApiErrorBody(payload)) {
       const apiError = new ApiError(payload, response.status);
-      if (apiError.requiresLogin) onSessionExpired?.();
+      if (apiError.requiresLogin) onUnauthenticated?.();
       throw apiError;
     }
 

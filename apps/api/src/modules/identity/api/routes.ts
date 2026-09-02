@@ -135,6 +135,11 @@ authRoutes.post(
        * olduğunu söyler. Bunun yerine kayıt başarılı gibi yanıtlanır ve adres
        * sahibine "hesabınız zaten var" e-postası gönderilir. Gerçek sahibi
        * durumu öğrenir, saldırgan öğrenemez.
+       *
+       * Yanıt gövdesi iki dalda da AYNIDIR (`{ success: true }`) ve iki dalda
+       * da oturum açılmaz. Daha önce yeni kayıtta gövdeye kullanıcı nesnesi
+       * konuyor ve çerez yazılıyordu; bu, yanıtın şeklini bir numaralandırma
+       * kanalına çeviriyordu — mesaj aynı olsa da saldırgan farkı görürdü.
        */
       logger.info('Var olan adrese kayıt denemesi', { email: input.email, ip });
 
@@ -162,15 +167,9 @@ authRoutes.post(
         phone: input.phone,
         role: 'customer',
       })
-      .returning({
-        id: users.id,
-        email: users.email,
-        fullName: users.fullName,
-        phone: users.phone,
-        role: users.role,
-        emailVerifiedAt: users.emailVerifiedAt,
-        createdAt: users.createdAt,
-      });
+      // Yanıtta kullanıcı bilgisi dönmediği için yalnızca doğrulama
+      // e-postasının ihtiyaç duyduğu alanlar okunur.
+      .returning({ id: users.id, email: users.email, fullName: users.fullName });
 
     if (created === undefined) {
       throw new Error('Kullanıcı oluşturulamadı.');
@@ -196,16 +195,17 @@ authRoutes.post(
         `Ersin Spot`,
     });
 
-    await createSession(c, {
-      userId: created.id,
-      rememberMe: false,
-      ipAddress: ip,
-      userAgent: clientUserAgent(c),
-    });
-
+    /*
+     * Kayıt otomatik oturum AÇMAZ.
+     *
+     * İki sebep var. Birincisi yukarıdaki numaralandırma kanalı: çerez
+     * yazılan bir dal ile yazılmayan bir dal, yanıtları ayırt edilebilir kılar.
+     * İkincisi, e-posta doğrulaması kaydın hemen ardından gelen ilk adımdır;
+     * kullanıcı posta kutusuna yönlendirilir, oturumu doğruladıktan sonra açar.
+     */
     logger.info('Yeni kullanıcı kaydı', { userId: created.id });
 
-    return c.json({ success: true, user: toCurrentUser(created) }, 201);
+    return c.json({ success: true }, 201);
   },
 );
 
@@ -299,15 +299,21 @@ authRoutes.post('/logout', requireAuth, async (c) => {
   return c.json({ success: true });
 });
 
-/** Tüm cihazlardan çıkış. Şüpheli erişim durumunda kullanıcının kendi aracı. */
+/**
+ * Diğer cihazlardaki oturumları kapatır.
+ *
+ * Şüpheli bir erişim gördüğünde kullanıcının kendi aracıdır. MEVCUT OTURUM
+ * KORUNUR: kullanıcı kendini de atarsa işlemin sonucunu göremez ve yeniden
+ * giriş yapmak zorunda kalır. Kendi oturumunu kapatmak isteyen `/logout`
+ * kullanır.
+ */
 authRoutes.post('/logout-all', requireAuth, async (c) => {
   const session = currentSession(c);
-  const count = await destroyAllSessions(session.user.id);
-  await destroySession(c, session.sessionId);
+  const closedSessions = await destroyAllSessions(session.user.id, session.sessionId);
 
-  logger.info('Tüm oturumlar kapatıldı', { userId: session.user.id, count });
+  logger.info('Diğer oturumlar kapatıldı', { userId: session.user.id, closedSessions });
 
-  return c.json({ success: true, closedSessions: count + 1 });
+  return c.json({ success: true, closedSessions });
 });
 
 // ---------------------------------------------------------------------------

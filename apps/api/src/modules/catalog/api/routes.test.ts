@@ -17,7 +17,15 @@ import { z } from 'zod';
 import { productSchema, productSummarySchema } from '@ersinspot/shared';
 import { eq } from 'drizzle-orm';
 import { db } from '../../../platform/db/client.ts';
-import { createTestUser, loginAs, request, resetDatabase } from '../../../test/helpers.ts';
+import {
+  createTestUser,
+  createUploads,
+  loginAs,
+  request,
+  resetDatabase,
+} from '../../../test/helpers.ts';
+import { cleanupOrphanedFiles } from '../../files/index.ts';
+import { uploadedFiles } from '../../files/infrastructure/schema.ts';
 import {
   brands,
   categories,
@@ -167,13 +175,42 @@ describe('vitrin görünürlüğü', () => {
     expect(payload.items.map((item) => item.slug)).toEqual([PRODUCT_SLUG]);
   });
 
-  it('taslak ürünün detayına erişilebilir ama vitrinde görünmez', async () => {
+  it('durum filtresi istemcinin kontrolünde değildir', async () => {
     // Eski kodda `showAll=true` parametresiyle taslak ürünler dışarıdan
-    // listelenebiliyordu; durum filtresi artık istemcinin kontrolünde değil.
+    // listelenebiliyordu.
     const list = await request('/api/products?showAll=true&status=draft');
     const payload = (await list.json()) as { totalItems: number };
 
     expect(payload.totalItems).toBe(1);
+  });
+
+  it('taslak ürünün detayı bağlantı adıyla da açılamaz', async () => {
+    /*
+      Liste taslakları gizliyordu ama detay ucu yalnızca "silinmiş mi" diye
+      bakıyordu: bağlantı adını bilen herkes yayınlanmamış ürünü — fiyatı ve
+      açıklamasıyla — görebiliyordu. Listede gizlenen bir kaydın detayının açık
+      kalması, gizlemeyi anlamsız kılar.
+    */
+    const response = await request('/api/products/taslak-urun');
+    expect(response.status).toBe(404);
+  });
+
+  it('satılmış ürünün detayı da vitrinde açılmaz', async () => {
+    const response = await request('/api/products/satilmis-urun');
+    expect(response.status).toBe(404);
+  });
+
+  it('taslak ürün yönetim panelinden okunabilir', async () => {
+    const user = await createTestUser({ email: 'personel-taslak@ersinspot.com', role: 'staff' });
+    const cookie = await loginAs(user.email, user.password);
+
+    const [draft] = await db
+      .select({ id: products.id })
+      .from(products)
+      .where(eq(products.slug, 'taslak-urun'));
+
+    const response = await request(`/api/admin/products/${draft?.id ?? ''}`, { cookie });
+    expect(response.status).toBe(200);
   });
 
   it('bulunamayan ürün için 404 döner', async () => {
@@ -364,5 +401,97 @@ describe('yönetim uçlarının yetkilendirmesi', () => {
 
     // Vitrin 1 gösteriyordu; yönetim üçünü de görmeli.
     expect(payload.totalItems).toBe(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Görsellerin kayda bağlanması
+// ---------------------------------------------------------------------------
+
+describe('ürün görsellerinin kalıcılığı', () => {
+  /**
+   * Ürün oluşturulurken görseller `uploaded_files` içinde BAĞLI işaretlenmeli.
+   *
+   * İşaretlenmediğinde yükleme "yetim" kalır ve `cleanupOrphanedFiles` bakım
+   * görevi 24 saat sonra dosyayı diskten siler: ürün kaydı var olmayan bir
+   * anahtarı gösterir ve vitrindeki tüm görseller ertesi gün kırılır. Bağlama
+   * çağrısı baştan yazılmıştı ama hiçbir yerden yapılmıyordu.
+   */
+  it('oluşturulan ürünün görselleri yetim kalmaz', async () => {
+    const staff = await createTestUser({ email: 'personel-gorsel@ersinspot.com', role: 'staff' });
+    const cookie = await loginAs(staff.email, staff.password);
+
+    const imageKeys = await createUploads({
+      uploaderId: staff.id,
+      purpose: 'product_image',
+      count: 3,
+    });
+    const [imageKey] = imageKeys;
+
+    const [category] = await db.select({ id: categories.id }).from(categories).limit(1);
+
+    const response = await request('/api/admin/products', {
+      method: 'POST',
+      cookie,
+      body: JSON.stringify({
+        title: 'Yeni Çamaşır Makinesi',
+        description: 'Az kullanılmış, sorunsuz çalışan bir çamaşır makinesi ilanı.',
+        price: 750_000,
+        condition: 'good',
+        status: 'for_sale',
+        warrantyMonths: 0,
+        categoryId: category?.id,
+        brandId: null,
+        images: imageKeys.map((storageKey) => ({ storageKey })),
+        specs: [],
+      }),
+    });
+
+    expect(response.status).toBe(201);
+
+    const [file] = await db
+      .select({ attachedAt: uploadedFiles.attachedAt })
+      .from(uploadedFiles)
+      .where(eq(uploadedFiles.storageKey, imageKey ?? ''));
+
+    expect(file?.attachedAt).not.toBeNull();
+
+    // Yetim temizliği bağlı dosyaya dokunmamalı.
+    await db
+      .update(uploadedFiles)
+      .set({ createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000) })
+      .where(eq(uploadedFiles.storageKey, imageKey ?? ''));
+
+    expect(await cleanupOrphanedFiles()).toBe(0);
+  });
+
+  it('var olmayan görsel anahtarıyla ürün oluşturulamaz', async () => {
+    const staff = await createTestUser({ email: 'personel-sahte@ersinspot.com', role: 'staff' });
+    const cookie = await loginAs(staff.email, staff.password);
+
+    const [category] = await db.select({ id: categories.id }).from(categories).limit(1);
+
+    const response = await request('/api/admin/products', {
+      method: 'POST',
+      cookie,
+      body: JSON.stringify({
+        title: 'Uydurma Görselli Ürün',
+        description: 'Yüklenmemiş bir anahtarla ürün oluşturma denemesi açıklaması.',
+        price: 100_000,
+        condition: 'good',
+        status: 'draft',
+        warrantyMonths: 0,
+        categoryId: category?.id,
+        brandId: null,
+        images: [
+          { storageKey: 'product_image/2026/08/00000000-0000-4000-8000-000000000097.webp' },
+          { storageKey: 'product_image/2026/08/00000000-0000-4000-8000-000000000098.webp' },
+          { storageKey: 'product_image/2026/08/00000000-0000-4000-8000-000000000099.webp' },
+        ],
+        specs: [],
+      }),
+    });
+
+    expect(response.status).toBe(400);
   });
 });

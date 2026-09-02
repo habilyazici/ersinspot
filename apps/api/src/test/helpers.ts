@@ -10,7 +10,8 @@ import { createApp } from '../app.ts';
 import { hashPassword } from '../modules/identity/domain/password.ts';
 import { resetMemoryRateLimits } from '../modules/identity/application/rate-limit.ts';
 import { users } from '../modules/identity/infrastructure/schema.ts';
-import type { UserRole } from '@ersinspot/shared';
+import { uploadedFiles } from '../modules/files/infrastructure/schema.ts';
+import type { UploadPurpose, UserRole } from '@ersinspot/shared';
 
 /**
  * Testler arası yalıtım.
@@ -25,7 +26,6 @@ export async function resetDatabase(): Promise<void> {
   await sql`
     TRUNCATE TABLE
       login_attempts, sessions, password_reset_tokens, email_verification_tokens,
-      customer_addresses,
       cart_items, favorites, payments, order_events, order_items,
       order_addresses, orders,
       request_events, request_appointments, request_quotes, request_photos,
@@ -74,6 +74,37 @@ export async function createTestUser(options?: {
   if (created === undefined) throw new Error('Test kullanıcısı oluşturulamadı.');
 
   return { id: created.id, email, password };
+}
+
+/**
+ * Yüklenmiş dosya kaydı oluşturur ve depolama anahtarlarını döndürür.
+ *
+ * Talep ve ürün kayıtları yalnızca GERÇEKTEN yüklenmiş dosyalara bağlanabilir:
+ * `attachFiles` anahtarın var olduğunu, amacın uyduğunu ve yükleyenin istek
+ * sahibi olduğunu doğrular. Uydurma anahtarlarla çalışan bir test, üretimde
+ * çalışmayan bir akışı yeşil gösterirdi.
+ */
+export async function createUploads(options: {
+  uploaderId: string;
+  purpose: UploadPurpose;
+  count?: number;
+}): Promise<string[]> {
+  const count = options.count ?? 1;
+
+  const rows = await db
+    .insert(uploadedFiles)
+    .values(
+      Array.from({ length: count }, () => ({
+        storageKey: `${options.purpose}/2026/08/${crypto.randomUUID()}.webp`,
+        purpose: options.purpose,
+        contentType: 'image/webp',
+        sizeBytes: 1024,
+        uploadedByUserId: options.uploaderId,
+      })),
+    )
+    .returning({ storageKey: uploadedFiles.storageKey });
+
+  return rows.map((row) => row.storageKey);
 }
 
 /** Uygulamaya istek gönderir. Origin başlığı CSRF kontrolünü geçmek için eklenir. */

@@ -34,7 +34,13 @@ const queryClient = postgres(env.DATABASE_URL, {
   // Üretimde sorgu metinlerini loglamayız; hassas veri içerebilir.
   onnotice: isProduction ? () => undefined : undefined,
 
-  // Zaman damgalarını daima UTC olarak oku; sunucunun yerel saati sonucu etkilemesin.
+  /*
+    `bigint` (int8) sütunları JS sayısı olarak okunur.
+
+    Sürücünün varsayılanı metindir; para alanları kuruş cinsinden `bigint`
+    saklandığı için her okumada ayrıştırma gerekirdi. Kuruş değerleri güvenli
+    tam sayı aralığının çok altında kalır (üst sınır ~90 trilyon ₺).
+  */
   types: {
     bigint: postgres.BigInt,
   },

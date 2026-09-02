@@ -19,17 +19,15 @@ import type {
   RespondToQuoteInput,
   ScheduleAppointmentInput,
   ServiceRequestSummary,
-  UserRole,
 } from '@ersinspot/shared';
 import { paginate } from '@ersinspot/shared';
+import { attachFiles } from '../../files/index.ts';
+import { assertCanAccess, isStaff } from '../../../platform/authorization.ts';
+import type { Actor } from '../../../platform/authorization.ts';
 import { db } from '../../../platform/db/client.ts';
+import type { Transaction } from '../../../platform/db/client.ts';
 import { logger } from '../../../platform/observability/logger.ts';
-import {
-  businessRule,
-  forbidden,
-  invalidTransition,
-  notFound,
-} from '../../../platform/errors/index.ts';
+import { businessRule, invalidTransition, notFound } from '../../../platform/errors/index.ts';
 import {
   MAX_ACTIVE_REQUESTS_PER_CUSTOMER,
   canCancelRequest,
@@ -43,14 +41,14 @@ import * as detailRepository from '../infrastructure/detail-repository.ts';
 import * as repository from '../infrastructure/request-repository.ts';
 import type { RequestRow } from '../infrastructure/request-repository.ts';
 
-export interface Actor {
-  readonly id: string;
-  readonly role: UserRole;
-}
-
-function isStaff(role: UserRole): boolean {
-  return role === 'staff' || role === 'admin';
-}
+/**
+ * Bir işlemi yapan kişi.
+ *
+ * Tip `platform/authorization.ts` içinde tanımlıdır; yetki kararlarını veren
+ * fonksiyonlarla aynı yerde durması, üç modülde aynı şeklin ayrı ayrı
+ * tanımlanmasını önler.
+ */
+export type { Actor };
 
 /**
  * Talebi getirir ve erişim yetkisini denetler.
@@ -67,58 +65,79 @@ export async function loadRequestForViewer(requestId: string, viewer: Actor): Pr
     throw notFound('Talep');
   }
 
-  if (!isStaff(viewer.role) && row.userId !== viewer.id) {
-    throw forbidden();
-  }
+  assertCanAccess(viewer, row.userId);
 
   return row;
+}
+
+/**
+ * Talep fotoğraflarını kaydeder ve yüklemeleri talebe bağlar.
+ *
+ * Üç talep türü de aynı işi yapar; tek yerde toplanır. Bağlama adımı ZORUNLU:
+ * yapılmazsa yetim temizliği fotoğrafları 24 saat sonra siler ve talep, var
+ * olmayan dosyaları gösterir.
+ *
+ * `uploaderId` filtresi, bir müşterinin başkasının yüklemesini kendi talebine
+ * iliştirmesini engeller.
+ */
+export async function savePhotos(
+  requestId: string,
+  photos: readonly { storageKey: string; caption?: string }[],
+  uploaderId: string,
+  tx: Transaction,
+): Promise<void> {
+  if (photos.length === 0) return;
+
+  await repository.insertPhotos(
+    requestId,
+    photos.map((photo) => ({ storageKey: photo.storageKey, caption: photo.caption ?? null })),
+    tx,
+  );
+
+  await attachFiles(
+    photos.map((photo) => photo.storageKey),
+    tx,
+    { purpose: 'request_photo', uploaderId },
+  );
 }
 
 // ---------------------------------------------------------------------------
 // Listeleme
 // ---------------------------------------------------------------------------
 
-/** Liste görünümünde gösterilecek kısa başlığı türe göre üretir. */
-async function buildTitle(row: RequestRow): Promise<string> {
-  switch (row.kind) {
-    case 'moving': {
-      const detail = await detailRepository.findMovingDetail(row.id);
-      return detail === null ? 'Nakliye' : `${detail.houseSize} Nakliye`;
-    }
-    case 'technical_service': {
-      const detail = await detailRepository.findTechnicalDetail(row.id);
-      if (detail === null) return 'Teknik Servis';
-      const device = detail.customDeviceType ?? detail.deviceType;
-      return `${detail.brand} ${device}`;
-    }
-    case 'sell_request': {
-      const detail = await detailRepository.findSellDetail(row.id);
-      return detail?.title ?? 'Ürün Satış Talebi';
-    }
-  }
-}
+/** Detayı okunamayan talepte gösterilecek yedek başlık. */
+const FALLBACK_TITLE: Readonly<Record<RequestRow['kind'], string>> = {
+  moving: 'Nakliye',
+  technical_service: 'Teknik Servis',
+  sell_request: 'Ürün Satış Talebi',
+};
 
+/**
+ * Satırları liste görünümüne çevirir.
+ *
+ * Teklif, randevu ve başlıkların hepsi TOPLU okunur: her biri sayfa başına tek
+ * sorgu turudur. Başlıklar önceden talep başına ayrı sorgu ile üretiliyordu ve
+ * 100 kayıtlık bir sayfa 100 fazladan gidiş-dönüş demekti.
+ */
 async function toSummaries(rows: readonly RequestRow[]): Promise<ServiceRequestSummary[]> {
   const ids = rows.map((row) => row.id);
 
-  // Teklif ve randevular tek sorguda toplanır; N+1 oluşmaz.
-  const [quotes, appointments] = await Promise.all([
+  const [quotes, appointments, titles] = await Promise.all([
     repository.findCurrentQuotesForRequests(ids),
     repository.findAppointmentsForRequests(ids),
+    detailRepository.findTitlesForRequests(ids),
   ]);
 
-  return Promise.all(
-    rows.map(async (row) => ({
-      id: row.id,
-      referenceNumber: row.referenceNumber,
-      kind: row.kind,
-      status: row.status,
-      title: await buildTitle(row),
-      quotedAmount: quotes.get(row.id)?.amountKurus ?? null,
-      appointmentDate: appointments.get(row.id)?.scheduledDate ?? null,
-      createdAt: row.createdAt.toISOString(),
-    })),
-  );
+  return rows.map((row) => ({
+    id: row.id,
+    referenceNumber: row.referenceNumber,
+    kind: row.kind,
+    status: row.status,
+    title: titles.get(row.id) ?? FALLBACK_TITLE[row.kind],
+    quotedAmount: quotes.get(row.id)?.amountKurus ?? null,
+    appointmentDate: appointments.get(row.id)?.scheduledDate ?? null,
+    createdAt: row.createdAt.toISOString(),
+  }));
 }
 
 export async function listMyRequests(
@@ -231,9 +250,7 @@ export async function respondToQuote(
     }
 
     // Sahiplik denetimi: müşteri yalnızca kendi talebine yanıt verebilir.
-    if (!isStaff(actor.role) && row.userId !== actor.id) {
-      throw forbidden();
-    }
+    assertCanAccess(actor, row.userId);
 
     if (!canRespondToQuote(row.status)) {
       throw businessRule(
@@ -413,9 +430,7 @@ export async function cancelRequest(
       throw notFound('Talep');
     }
 
-    if (!isStaff(actor.role) && row.userId !== actor.id) {
-      throw forbidden();
-    }
+    assertCanAccess(actor, row.userId);
 
     if (!canCancelRequest(row.status, actor.role)) {
       throw businessRule('Bu talep artık iptal edilemez.');
@@ -463,9 +478,4 @@ export async function assertCanCreateRequest(userId: string): Promise<void> {
         'Mevcut taleplerinizden biri sonuçlandığında yeni talep oluşturabilirsiniz.',
     );
   }
-}
-
-/** Talep türüne göre kaç açık talep olduğunu döndürür. Müşteri paneli sayaçları için. */
-export async function getActiveRequestCount(userId: string): Promise<number> {
-  return repository.countActiveForUser(userId);
 }

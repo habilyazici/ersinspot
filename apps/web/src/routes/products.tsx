@@ -8,11 +8,13 @@ import {
 } from '@ersinspot/shared';
 import type { ProductCondition, ProductSort } from '@ersinspot/shared';
 import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
+import { Pagination } from '@/components/ui/pagination.tsx';
 import { Button } from '@/components/ui/button.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { Spinner } from '@/components/ui/spinner.tsx';
 import { ProductCard, useCategories, useProducts } from '@/features/catalog';
+import { FavoriteButton, useFavoriteStatus } from '@/features/ordering';
 
 /**
  * Ürün listesi.
@@ -32,6 +34,12 @@ export default function ProductsPage() {
   };
 
   const { data, isLoading, isError, error, refetch } = useProducts(filters);
+
+  /*
+    Sayfadaki ürünlerin favori durumu TEK istekte sorulur. Kart başına ayrı
+    istek, 24 ürünlük bir sayfada 24 çağrı demekti.
+  */
+  const { data: favorites } = useFavoriteStatus(data?.items.map((product) => product.id) ?? []);
   const { data: categories } = useCategories();
 
   function updateFilter(key: string, value: string | undefined): void {
@@ -194,36 +202,27 @@ export default function ProductsPage() {
               <ul className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                 {data.items.map((product) => (
                   <li key={product.id}>
-                    <ProductCard product={product} />
+                    <ProductCard
+                      product={product}
+                      action={
+                        <FavoriteButton
+                          productId={product.id}
+                          productTitle={product.title}
+                          isFavorite={favorites?.has(product.id) ?? false}
+                        />
+                      }
+                    />
                   </li>
                 ))}
               </ul>
 
-              {data.totalPages > 1 ? (
-                <nav aria-label="Sayfalama" className="mt-8 flex items-center justify-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={data.page <= 1}
-                    onClick={() => updateFilter('sayfa', String(data.page - 1))}
-                  >
-                    Önceki
-                  </Button>
-
-                  <span className="px-3 text-sm text-slate-600">
-                    Sayfa {data.page} / {data.totalPages}
-                  </span>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={data.page >= data.totalPages}
-                    onClick={() => updateFilter('sayfa', String(data.page + 1))}
-                  >
-                    Sonraki
-                  </Button>
-                </nav>
-              ) : null}
+              <Pagination
+                page={data.page}
+                totalPages={data.totalPages}
+                onPageChange={(next) => {
+                  updateFilter('sayfa', String(next));
+                }}
+              />
             </>
           )}
         </section>

@@ -31,42 +31,54 @@ export const slugSchema = z
     message: 'Bağlantı adı yalnızca küçük harf, rakam ve tire içerebilir.',
   });
 
-export const categorySchema = z.object({
+/**
+ * Ürünün içinde taşınan kısa kategori/marka göndermesi.
+ *
+ * Tam kayıt değil, yalnızca bağlantı kurmaya yetecek alanlar: liste yanıtları
+ * her ürünle birlikte bunu da taşır ve fazlası ağ trafiğini şişirir.
+ */
+export const categoryRefSchema = z.object({
   id: uuidSchema,
   name: z.string(),
   slug: slugSchema,
-  parentId: uuidSchema.nullable(),
-  displayOrder: z.number().int(),
-  productCount: z.number().int().nonnegative().optional(),
 });
 
-export type Category = z.infer<typeof categorySchema>;
-
-export const createCategorySchema = z.object({
-  name: requiredText('Kategori adı', 2, 80),
-  slug: slugSchema,
-  parentId: uuidSchema.nullable().default(null),
-  displayOrder: z.number().int().min(0).default(0),
-});
-
-export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
-
-export const brandSchema = z.object({
+export const brandRefSchema = z.object({
   id: uuidSchema,
   name: z.string(),
   slug: slugSchema,
-  logoUrl: z.string().url().nullable(),
 });
 
-export type Brand = z.infer<typeof brandSchema>;
+/**
+ * Vitrin menüsündeki kategori ağacının bir düğümü.
+ *
+ * `GET /api/categories` yanıtının biçimidir. Sunucu ve tarayıcı AYNI tipi
+ * kullanır; önceden ikisi de kendi kopyasını tanımlıyordu ve alan eklendiğinde
+ * birinin unutulması işten değildi.
+ *
+ * Şema değil arayüz olarak tanımlıdır: yalnızca yanıt biçimidir, hiçbir yerde
+ * gelen veri olarak doğrulanmaz. Özyinelemeli bir zod şeması burada karşılığı
+ * olmayan bir karmaşıklık getirirdi.
+ */
+export interface CategoryNode {
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
+  readonly displayOrder: number;
+  /** Bu kategoride ve alt kategorilerinde satıştaki ürün sayısı. */
+  readonly productCount: number;
+  readonly children: readonly CategoryNode[];
+}
 
-export const createBrandSchema = z.object({
-  name: requiredText('Marka adı', 1, 80),
-  slug: slugSchema,
-  logoUrl: z.string().url({ message: 'Geçerli bir görsel adresi girin.' }).nullable().default(null),
-});
-
-export type CreateBrandInput = z.infer<typeof createBrandSchema>;
+/** `GET /api/brands` yanıtının biçimi. Ürünü olmayan markalar listelenmez. */
+export interface BrandSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
+  /** Depolama anahtarından türetilen görüntüleme adresi. */
+  readonly logoUrl: string | null;
+  readonly productCount: number;
+}
 
 // ---------------------------------------------------------------------------
 // Ürün
@@ -89,15 +101,11 @@ export const productImageSchema = z.object({
   displayOrder: z.number().int(),
 });
 
-export type ProductImage = z.infer<typeof productImageSchema>;
-
 /** Ürüne özgü teknik bilgiler: "Enerji Sınıfı: A++", "Kapasite: 9 kg" gibi. */
 export const productSpecSchema = z.object({
   key: z.string(),
   value: z.string(),
 });
-
-export type ProductSpec = z.infer<typeof productSpecSchema>;
 
 export const productSchema = z.object({
   id: uuidSchema,
@@ -110,8 +118,8 @@ export const productSchema = z.object({
   status: z.enum(PRODUCT_STATUSES),
   /** Garanti süresi (ay). 0 ise garanti yok. */
   warrantyMonths: z.number().int().min(0),
-  category: categorySchema.pick({ id: true, name: true, slug: true }),
-  brand: brandSchema.pick({ id: true, name: true, slug: true }).nullable(),
+  category: categoryRefSchema,
+  brand: brandRefSchema.nullable(),
   images: z.array(productImageSchema),
   specs: z.array(productSpecSchema),
   viewCount: z.number().int().nonnegative(),
@@ -121,6 +129,17 @@ export const productSchema = z.object({
 });
 
 export type Product = z.infer<typeof productSchema>;
+
+/**
+ * Ürün detay ucunun yanıtı.
+ *
+ * `warrantyLabel`, garanti ayının okunabilir karşılığıdır ("2 Yıl Garanti").
+ * Sunucuda üretilir: aynı metni iki tarafta ayrı hesaplamak, bir gün ikisinin
+ * ayrışması demektir.
+ */
+export interface ProductDetail extends Product {
+  readonly warrantyLabel: string;
+}
 
 /** Liste görünümünde taşınan hafif ürün özeti. Ağ trafiğini gereksiz büyütmemek için. */
 export const productSummarySchema = productSchema
@@ -194,8 +213,6 @@ export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 export const updateProductStatusSchema = z.object({
   status: z.enum(PRODUCT_STATUSES),
 });
-
-export type UpdateProductStatusInput = z.infer<typeof updateProductStatusSchema>;
 
 // ---------------------------------------------------------------------------
 // Listeleme ve filtreleme

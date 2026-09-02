@@ -33,6 +33,23 @@ const envSchema = z
      */
     SESSION_SECRET: z.string().min(32, 'SESSION_SECRET en az 32 karakter olmalıdır.'),
 
+    /**
+     * Uygulama bir ters vekilin (nginx, Cloudflare, yük dengeleyici) arkasında mı?
+     *
+     * Hız sınırı ve denetim kaydı istemcinin IP adresine dayanır. `X-Forwarded-For`
+     * başlığını İSTEMCİ de gönderebilir: doğrudan internete açık bir sunucuda bu
+     * başlığa güvenmek, saldırganın her istekte farklı bir adres uydurup giriş
+     * denemesi sınırını tamamen atlaması demektir.
+     *
+     * Bu yüzden başlık yalnızca burası açıkken okunur. Kapalıyken adres TCP
+     * bağlantısından alınır ve uydurulamaz. Vekil arkasında çalışıyorsanız
+     * açın — vekil başlığı kendisi yazar ve istemcininkini ezer.
+     */
+    TRUST_PROXY: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
+
     STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
     STORAGE_LOCAL_DIR: z.string().default('./.storage'),
     STORAGE_PUBLIC_URL: z.string().url('STORAGE_PUBLIC_URL geçerli bir adres olmalıdır.'),
@@ -117,5 +134,4 @@ function loadEnv(): Env {
 export const env = loadEnv();
 
 export const isProduction = env.NODE_ENV === 'production';
-export const isDevelopment = env.NODE_ENV === 'development';
 export const isTest = env.NODE_ENV === 'test';

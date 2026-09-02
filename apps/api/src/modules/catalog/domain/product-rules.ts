@@ -7,7 +7,7 @@
  */
 
 import type { ProductStatus } from '@ersinspot/shared';
-import { PUBLICLY_VISIBLE_PRODUCT_STATUSES, PURCHASABLE_PRODUCT_STATUS } from '@ersinspot/shared';
+import { PURCHASABLE_PRODUCT_STATUS } from '@ersinspot/shared';
 
 /**
  * İzin verilen ürün durumu geçişleri.
@@ -33,15 +33,6 @@ export function canTransitionProduct(from: ProductStatus, to: ProductStatus): bo
   return TRANSITIONS[from].includes(to);
 }
 
-export function allowedProductTransitions(from: ProductStatus): readonly ProductStatus[] {
-  return TRANSITIONS[from];
-}
-
-/** Ürün site vitrininde listelenebilir mi? */
-export function isPubliclyVisible(status: ProductStatus): boolean {
-  return (PUBLICLY_VISIBLE_PRODUCT_STATUSES as readonly ProductStatus[]).includes(status);
-}
-
 /** Ürün sepete eklenebilir ve sipariş edilebilir mi? */
 export function isPurchasable(status: ProductStatus): boolean {
   return status === PURCHASABLE_PRODUCT_STATUS;
@@ -51,7 +42,6 @@ export function isPurchasable(status: ProductStatus): boolean {
 // Bağlantı adı (slug) üretimi
 // ---------------------------------------------------------------------------
 
-/**
 /**
  * Bağlantı adı üretimi paylaşılan çekirdektedir.
  *
@@ -72,23 +62,6 @@ export function withSlugSuffix(baseSlug: string, attempt: number): string {
   const maxBaseLength = 80 - suffix.length;
 
   return `${baseSlug.slice(0, maxBaseLength).replace(/-+$/, '')}${suffix}`;
-}
-
-// ---------------------------------------------------------------------------
-// Görsel sıralaması
-// ---------------------------------------------------------------------------
-
-/**
- * Ürün görsellerini görüntüleme sırasına göre düzenler.
- *
- * İlk görsel kapak görselidir; liste ekranlarında ve paylaşım önizlemelerinde
- * kullanılır. Sıra numaraları boşluklu gelebilir (araya görsel eklenmiş veya
- * silinmiş olabilir), bu yüzden yeniden numaralandırılır.
- */
-export function normalizeImageOrder<T extends { displayOrder: number }>(images: readonly T[]): T[] {
-  return [...images]
-    .sort((a, b) => a.displayOrder - b.displayOrder)
-    .map((image, index) => ({ ...image, displayOrder: index }));
 }
 
 // ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@
  * adres ve olay kaydı ya birlikte yazılır ya da hiçbiri yazılmaz.
  */
 
-import { and, desc, eq, gte, ilike, inArray, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, ilike, inArray, lt, lte, or, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type {
   AdminOrderListQuery,
@@ -390,6 +390,28 @@ export async function updateStatus(
 
 export async function updateStaffNote(orderId: string, staffNote: string): Promise<void> {
   await db.update(orders).set({ staffNote }).where(eq(orders.id, orderId));
+}
+
+/**
+ * Ödemesi zamanında gelmemiş siparişlerin kimliklerini döndürür.
+ *
+ * Havale/EFT ile verilen sipariş `pending_payment` durumunda başlar ve
+ * ürünleri rezerve eder. Müşteri parayı göndermez ve siparişi de iptal etmezse
+ * ürünler satıştan kalıcı olarak çıkardı; bakım görevi bu siparişleri iptal
+ * ederek rezervasyonu çözer.
+ *
+ * @param cutoff Bu andan önce oluşturulmuş siparişler süresi geçmiş sayılır.
+ * @param limit Tek turda işlenecek en fazla sipariş.
+ */
+export async function findExpiredPendingPayment(cutoff: Date, limit: number): Promise<string[]> {
+  const rows = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(and(eq(orders.status, 'pending_payment'), lt(orders.createdAt, cutoff)))
+    .orderBy(asc(orders.createdAt))
+    .limit(limit);
+
+  return rows.map((row) => row.id);
 }
 
 /**

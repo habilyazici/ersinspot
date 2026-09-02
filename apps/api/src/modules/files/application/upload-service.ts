@@ -16,20 +16,26 @@
  */
 
 import { and, eq, inArray, isNull, lt } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
 import type { UploadPurpose, UserRole } from '@ersinspot/shared';
 import {
   ALLOWED_IMAGE_TYPES,
   MAX_IMAGE_BYTES,
   hasRoleAtLeast,
   isAllowedImageType,
+  isPublicUploadPurpose,
 } from '@ersinspot/shared';
+import { assertCanAccess } from '../../../platform/authorization.ts';
+import type { Actor } from '../../../platform/authorization.ts';
 import { db } from '../../../platform/db/client.ts';
 import type { Transaction } from '../../../platform/db/client.ts';
 import {
   fileTooLarge,
   forbidden,
   notFound,
+  unauthenticated,
   unsupportedFileType,
+  validationFailed,
 } from '../../../platform/errors/index.ts';
 import { logger } from '../../../platform/observability/logger.ts';
 import * as storage from '../../../platform/storage.ts';
@@ -90,10 +96,8 @@ export interface UploadResult {
   readonly sizeBytes: number;
 }
 
-export interface Uploader {
-  readonly id: string;
-  readonly role: UserRole;
-}
+/** Yükleme yapan veya dosyaya erişmek isteyen kişi. */
+export type Uploader = Actor;
 
 /**
  * Dosyayı doğrular, saklar ve kaydını oluşturur.
@@ -173,6 +177,51 @@ export async function uploadImage(
 }
 
 /**
+ * Depolama anahtarının amaç bölümünü okur.
+ *
+ * Anahtar biçimi `<amaç>/<yıl>/<ay>/<uuid>.<uzantı>`; ilk bölüm dosyanın
+ * hangi amaçla yüklendiğini söyler ve yetkilendirme kararının girdisidir.
+ */
+export function purposeOf(storageKey: string): string {
+  const separator = storageKey.indexOf('/');
+  return separator === -1 ? '' : storageKey.slice(0, separator);
+}
+
+/**
+ * Dosyanın görüntülenebilir olup olmadığını denetler.
+ *
+ * Ürün görselleri ve blog kapakları vitrinin parçasıdır; herkese açıktır.
+ * Talep fotoğrafları ise KİŞİSEL VERİDİR — müşterinin evinin içini gösterir —
+ * ve yalnızca yükleyene ve personele açılır.
+ *
+ * Önceden tüm depolama alanı oturumsuz sunuluyordu; anahtarın rastgele olması
+ * "tahmin edilemez" demektir, "yetkisiz erişilemez" demek değildir. Bağlantı
+ * bir kez paylaşıldığında ya da kayıt dışına sızdığında koruma kalmıyordu.
+ *
+ * @param viewer Oturum yoksa null.
+ */
+export async function assertCanViewFile(viewer: Actor | null, storageKey: string): Promise<void> {
+  if (isPublicUploadPurpose(purposeOf(storageKey))) return;
+
+  if (viewer === null) {
+    throw unauthenticated();
+  }
+
+  if (hasRoleAtLeast(viewer.role, 'staff')) return;
+
+  const rows = await db
+    .select({ uploadedByUserId: uploadedFiles.uploadedByUserId })
+    .from(uploadedFiles)
+    .where(eq(uploadedFiles.storageKey, storageKey))
+    .limit(1);
+
+  // Kaydı olmayan dosya için varlık bilgisi verilmez.
+  if (rows[0]?.uploadedByUserId !== viewer.id) {
+    throw notFound('Dosya');
+  }
+}
+
+/**
  * Dosyayı siler.
  *
  * Yalnızca yükleyen kişi veya personel silebilir. Bir kayda bağlanmış dosya
@@ -195,11 +244,7 @@ export async function deleteFile(actor: Uploader, storageKey: string): Promise<v
     throw notFound('Dosya');
   }
 
-  const isStaff = hasRoleAtLeast(actor.role, 'staff');
-
-  if (!isStaff && file.uploadedByUserId !== actor.id) {
-    throw forbidden();
-  }
+  assertCanAccess(actor, file.uploadedByUserId);
 
   if (file.attachedAt !== null) {
     throw forbidden('Bir kayda bağlı dosya doğrudan silinemez.');
@@ -211,24 +256,62 @@ export async function deleteFile(actor: Uploader, storageKey: string): Promise<v
   logger.info('Dosya silindi', { storageKey, userId: actor.id });
 }
 
+export interface AttachOptions {
+  /** Verilirse yalnızca bu amaçla yüklenmiş dosyalar kabul edilir. */
+  readonly purpose?: UploadPurpose;
+  /** Verilirse yalnızca bu kullanıcının yüklediği dosyalar kabul edilir. */
+  readonly uploaderId?: string;
+}
+
 /**
  * Dosyaları bir kayda bağlar.
  *
  * Ürün oluşturulduğunda veya talep kaydedildiğinde çağrılır: yükleme artık
  * yetim değildir ve temizlik görevi tarafından silinmez.
  *
- * Çağıran işlemin içinde çalışır.
+ * BU ÇAĞRI ZORUNLUDUR. Yapılmadığında `cleanupOrphanedFiles` görevi 24 saat
+ * sonra dosyayı diskten siler ve kayıt, var olmayan bir anahtarı gösterir:
+ * ürün görselleri, blog kapakları ve talep fotoğrafları ertesi gün topluca
+ * kaybolur. Fonksiyon baştan yazılmıştı ama hiçbir yerden çağrılmıyordu.
+ *
+ * Verilen anahtarlardan biri yoksa — ya da `options` ile bildirilen amaç veya
+ * yükleyiciyle eşleşmiyorsa — işlem doğrulama hatasıyla reddedilir. Böylece bir
+ * kayıt, başkasının yüklemesine ya da hiç var olmayan bir anahtara bağlanamaz.
+ *
+ * Çağıran işlemin içinde çalışır: bağlama ile kaydın kendisi ya birlikte kalıcı
+ * olur ya da hiçbiri.
  */
-export async function attachFiles(storageKeys: readonly string[], tx: Transaction): Promise<void> {
+export async function attachFiles(
+  storageKeys: readonly string[],
+  tx: Transaction,
+  options: AttachOptions = {},
+): Promise<void> {
   if (storageKeys.length === 0) return;
 
-  const now = new Date();
+  const unique = [...new Set(storageKeys)];
 
-  for (const storageKey of storageKeys) {
-    await tx
-      .update(uploadedFiles)
-      .set({ attachedAt: now })
-      .where(eq(uploadedFiles.storageKey, storageKey));
+  const conditions: SQL[] = [inArray(uploadedFiles.storageKey, unique)];
+
+  if (options.purpose !== undefined) {
+    conditions.push(eq(uploadedFiles.purpose, options.purpose));
+  }
+  if (options.uploaderId !== undefined) {
+    conditions.push(eq(uploadedFiles.uploadedByUserId, options.uploaderId));
+  }
+
+  const attached = await tx
+    .update(uploadedFiles)
+    .set({ attachedAt: new Date() })
+    .where(and(...conditions))
+    .returning({ storageKey: uploadedFiles.storageKey });
+
+  if (attached.length !== unique.length) {
+    throw validationFailed([
+      {
+        path: 'photos',
+        message: 'Yüklenen dosyalardan biri bulunamadı. Fotoğrafları tekrar yükleyin.',
+      },
+    ]);
   }
 }
 

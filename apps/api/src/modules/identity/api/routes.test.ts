@@ -39,24 +39,61 @@ describe('POST /api/auth/register', () => {
     acceptedTerms: true,
   };
 
-  it('geçerli bilgilerle hesap oluşturur ve oturum açar', async () => {
+  it('geçerli bilgilerle hesap oluşturur', async () => {
     const response = await request('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(validPayload),
     });
 
     expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({ success: true });
 
-    const payload = (await response.json()) as { user: { email: string; role: string } };
-    expect(payload.user.email).toBe('ayse@example.com');
-    expect(payload.user.role).toBe('customer');
+    const [row] = await db
+      .select({ email: users.email, role: users.role })
+      .from(users)
+      .where(eq(users.email, 'ayse@example.com'));
 
-    // Oturum çerezi ayarlanmış olmalı.
-    const cookie = extractCookie(response);
-    expect(cookie).toContain('ersinspot_session=');
+    expect(row?.email).toBe('ayse@example.com');
+    expect(row?.role).toBe('customer');
+  });
 
-    // Çerez httpOnly olmalı: JavaScript erişemesin.
-    expect(response.headers.get('Set-Cookie')).toContain('HttpOnly');
+  /**
+   * Kayıt oturum AÇMAZ.
+   *
+   * Yanıt gövdesi ve çerez davranışı, adresin kayıtlı olup olmadığına göre
+   * değişmemelidir: değişseydi saldırgan yanıtın şeklinden hangi adreslerin
+   * sistemde olduğunu çıkarırdı. Kullanıcı e-postasını doğrulayıp giriş yapar.
+   */
+  it('oturum açmaz ve çerez yazmaz', async () => {
+    const response = await request('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(validPayload),
+    });
+
+    expect(extractCookie(response)).toBeNull();
+  });
+
+  it('kayıtlı adrese kayıt denemesinde ayırt edilebilir yanıt vermez', async () => {
+    const first = await request('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(validPayload),
+    });
+
+    const second = await request('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(validPayload),
+    });
+
+    expect(second.status).toBe(first.status);
+    expect(await second.json()).toEqual(await first.json());
+    expect(extractCookie(second)).toBe(extractCookie(first));
+
+    // İkinci deneme ikinci bir hesap açmamalı.
+    const rows = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, validPayload.email));
+    expect(rows).toHaveLength(1);
   });
 
   it('şifreyi düz metin olarak saklamaz', async () => {
@@ -626,6 +663,36 @@ describe('CSRF koruması', () => {
  * bu doğrudur. Böylece "e-postada gönderilen şey gerçekten işe yarıyor mu"
  * sorusu da yanıtlanmış olur.
  */
+/**
+ * Diğer cihazlardan çıkış.
+ *
+ * Arayüz bu düğmeyi "Diğer cihazlardan çık" diye adlandırır ve kullanıcının
+ * kendi oturumunda kalmasını bekler. Uç önceden TÜM oturumları kapatıyordu:
+ * kullanıcı düğmeye basar basmaz kendisi de dışarı atılıyor, üstelik yanıt
+ * kapatılan oturum sayısını bir fazla bildiriyordu.
+ */
+describe('POST /api/auth/logout-all', () => {
+  it('diğer oturumları kapatır, mevcut oturumu korur', async () => {
+    const user = await createTestUser({ email: 'coklu@ornek.com' });
+
+    const first = await loginAs(user.email, user.password);
+    await loginAs(user.email, user.password);
+    await loginAs(user.email, user.password);
+
+    const response = await request('/api/auth/logout-all', { method: 'POST', cookie: first });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ success: true, closedSessions: 2 });
+
+    // Kendi oturumu hâlâ geçerli olmalı.
+    const me = await request('/api/auth/me', { cookie: first });
+    expect(me.status).toBe(200);
+
+    const rows = await db.select({ id: sessions.id }).from(sessions);
+    expect(rows).toHaveLength(1);
+  });
+});
+
 describe('e-posta doğrulama akışı', () => {
   /** Son gönderilen e-postadaki jetonu çıkarır. */
   function tokenFromLastEmail(pathname: string): string {
@@ -643,6 +710,14 @@ describe('e-posta doğrulama akışı', () => {
     return match[1];
   }
 
+  const FRESH_PASSWORD = 'cok-guvenli-parola-123';
+
+  /**
+   * Kayıt olur ve ardından giriş yaparak oturum çerezini döndürür.
+   *
+   * Kayıt oturum açmaz — adresin kayıtlı olup olmadığını yanıtın şeklinden ele
+   * vermemek için — bu yüzden çerez ikinci adımda alınır.
+   */
   async function registerFresh(email: string): Promise<string> {
     clearSentEmails();
 
@@ -652,17 +727,15 @@ describe('e-posta doğrulama akışı', () => {
         fullName: 'Yeni Kullanıcı',
         email,
         phone: '+905071940550',
-        password: 'cok-guvenli-parola-123',
-        passwordConfirm: 'cok-guvenli-parola-123',
+        password: FRESH_PASSWORD,
+        passwordConfirm: FRESH_PASSWORD,
         acceptedTerms: true,
       }),
     });
 
     expect(response.status).toBe(201);
 
-    const cookie = extractCookie(response);
-    if (cookie === null) throw new Error('Oturum çerezi alınamadı.');
-    return cookie;
+    return loginAs(email, FRESH_PASSWORD);
   }
 
   it('kayıt sonrası doğrulama e-postası gönderilir', async () => {

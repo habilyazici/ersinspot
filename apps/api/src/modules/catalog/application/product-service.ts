@@ -11,6 +11,7 @@ import type {
   AdminProductListQuery,
   Paginated,
   Product,
+  ProductDetail,
   ProductListQuery,
   ProductSummary,
 } from '@ersinspot/shared';
@@ -120,23 +121,40 @@ export async function listProductsForAdmin(
   return paginate(items, totalCount, query);
 }
 
+/**
+ * Kimliklere göre vitrin özetleri — `ordering` modülünün favori listesi için.
+ *
+ * Sıra, verilen kimlik sırasıyla korunur: favoriler en yeniden eskiye
+ * sıralanır ve bu sıra veritabanı sorgusunda değil çağıran tarafta bilinir.
+ * Görüntülenemeyen ürünler (silinmiş, taslağa çekilmiş) sonuçta yer almaz.
+ */
+export async function listProductSummaries(
+  productIds: readonly string[],
+): Promise<ProductSummary[]> {
+  const rows = await repository.findPublicByIds(productIds);
+  const summaries = await attachImages(rows);
+  const byId = new Map(summaries.map((summary) => [summary.id, summary]));
+
+  return productIds
+    .map((id) => byId.get(id))
+    .filter((summary): summary is ProductSummary => summary !== undefined);
+}
+
 // ---------------------------------------------------------------------------
 // Ürün detayı
 // ---------------------------------------------------------------------------
 
-export interface ProductDetail extends Product {
-  /** Garanti süresinin okunabilir karşılığı: "2 Yıl Garanti". */
-  readonly warrantyLabel: string;
-}
-
 /**
- * Bağlantı adına göre ürün detayı.
+ * Vitrin için bağlantı adına göre ürün detayı.
+ *
+ * Yalnızca herkese açık durumdaki ürünler döner; taslak ve depodaki ürünler
+ * yönetim panelinden `getProductById` ile okunur.
  *
  * Görüntülenme sayacı artırılır ancak sonucu beklenmez: sayaç güncellemesi
  * başarısız olsa bile sayfa açılmalıdır.
  */
 export async function getProductBySlug(slug: string): Promise<ProductDetail> {
-  const row = await repository.findBySlug(slug);
+  const row = await repository.findPublicBySlug(slug);
 
   if (row === null) {
     throw notFound('Ürün');

@@ -71,7 +71,7 @@ export async function getCart(userId: string): Promise<Cart> {
 
     items.push({
       productId: product.id,
-      slug: '',
+      slug: product.slug,
       title: product.title,
       coverImageUrl:
         product.coverStorageKey === null ? null : resolveStorageUrl(product.coverStorageKey),
@@ -110,11 +110,10 @@ export async function addToCart(
     throw businessRule(`"${product.title}" şu anda satışta değil.`);
   }
 
-  const currentCount = await repository.countByUser(userId);
   const rows = await repository.findByUser(userId);
   const alreadyInCart = rows.some((row) => row.productId === productId);
 
-  if (!alreadyInCart && currentCount >= MAX_CART_ITEMS) {
+  if (!alreadyInCart && rows.length >= MAX_CART_ITEMS) {
     throw businessRule(`Sepetinizde en fazla ${MAX_CART_ITEMS} farklı ürün bulunabilir.`);
   }
 

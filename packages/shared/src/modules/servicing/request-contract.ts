@@ -30,8 +30,6 @@ export const requestContactSchema = z.object({
   phone: phoneSchema,
 });
 
-export type RequestContact = z.infer<typeof requestContactSchema>;
-
 /** Yüklenen fotoğrafın depolama anahtarı ve açıklaması. */
 export const requestPhotoInputSchema = z.object({
   storageKey: z.string().min(1),
@@ -43,8 +41,6 @@ export const requestPhotoSchema = z.object({
   url: z.string().url(),
   caption: z.string().nullable(),
 });
-
-export type RequestPhoto = z.infer<typeof requestPhotoSchema>;
 
 /**
  * Talebin geçmişindeki bir olay. Hem durum değişikliklerini hem de taraflar
@@ -58,8 +54,6 @@ export const requestEventSchema = z.object({
   occurredAt: z.string().datetime(),
 });
 
-export type RequestEvent = z.infer<typeof requestEventSchema>;
-
 /** Yönetim tarafından girilen fiyat teklifi. */
 export const requestQuoteSchema = z.object({
   /** Kuruş cinsinden teklif tutarı. */
@@ -70,16 +64,12 @@ export const requestQuoteSchema = z.object({
   createdAt: z.string().datetime(),
 });
 
-export type RequestQuote = z.infer<typeof requestQuoteSchema>;
-
 /** Planlanmış randevu. */
 export const requestAppointmentSchema = z.object({
   date: z.string(),
   timeSlot: timeSlotSchema,
   note: z.string().nullable(),
 });
-
-export type RequestAppointment = z.infer<typeof requestAppointmentSchema>;
 
 /**
  * Her hizmet talebinde ortak olan alanlar. Modüle özgü şemalar bunu `extend` eder.
@@ -145,8 +135,6 @@ export const cancelRequestSchema = z.object({
   reason: optionalText(500),
 });
 
-export type CancelRequestInput = z.infer<typeof cancelRequestSchema>;
-
 // ---------------------------------------------------------------------------
 // Yönetim işlemleri
 // ---------------------------------------------------------------------------
@@ -174,8 +162,6 @@ export const updateRequestStatusSchema = z.object({
   status: z.enum(REQUEST_STATUSES),
   note: optionalText(1000),
 });
-
-export type UpdateRequestStatusInput = z.infer<typeof updateRequestStatusSchema>;
 
 export const addStaffNoteSchema = z.object({
   note: requiredText('Not', 1, 2000),

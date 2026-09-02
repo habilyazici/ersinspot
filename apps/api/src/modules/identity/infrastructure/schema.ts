@@ -30,7 +30,6 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { userRoleEnum } from '../../../platform/db/enums.ts';
-import { addressColumns } from '../../../platform/db/columns.ts';
 
 export const users = pgTable(
   'users',
@@ -191,45 +190,5 @@ export const loginAttempts = pgTable(
   (table) => [
     index('login_attempts_email_created_idx').on(table.email, table.createdAt),
     index('login_attempts_ip_created_idx').on(table.ipAddress, table.createdAt),
-  ],
-);
-
-/**
- * Müşterinin adres defteri.
- *
- * Düzenlenebilir kayıtlardır: kullanıcı adresini değiştirebilir veya silebilir.
- * Sipariş verilirken adres BURADAN KOPYALANIR; siparişin kendi adres kaydı
- * oluşturulur. Böylece müşteri sonradan adresini değiştirse bile geçmiş
- * siparişin teslimat adresi olduğu gibi kalır.
- *
- * Eski kod tabanında adres, müşteri kaydında tek bir metin alanıydı ve sipariş
- * bu alana bakıyordu; müşteri taşındığında eski siparişlerin adresi de değişiyordu.
- */
-export const customerAddresses = pgTable(
-  'customer_addresses',
-  {
-    id: uuid().primaryKey().defaultRandom(),
-
-    userId: uuid()
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-
-    /** Kullanıcının verdiği ad: "Ev", "İş", "Annemler". */
-    label: text().notNull(),
-
-    ...addressColumns,
-
-    /** Ödeme adımında ön seçili gelen adres. Kullanıcı başına en fazla bir tane. */
-    isDefault: boolean().notNull().default(false),
-
-    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-
-    /** Yumuşak silme: adres silinse bile geçmiş siparişler etkilenmez. */
-    deletedAt: timestamp({ withTimezone: true }),
-  },
-  (table) => [
-    index('customer_addresses_user_idx').on(table.userId),
-    index('customer_addresses_district_idx').on(table.district),
   ],
 );

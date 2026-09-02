@@ -19,11 +19,6 @@ export function canTransitionOrder(from: OrderStatus, to: OrderStatus): boolean 
   return canTransition(ORDER_STATUS_TRANSITIONS, from, to);
 }
 
-/** Bir durumdan gidilebilecek durumlar. Yönetim panelinde seçenek listesi üretmek için. */
-export function allowedOrderTransitions(from: OrderStatus): readonly OrderStatus[] {
-  return ORDER_STATUS_TRANSITIONS[from];
-}
-
 /**
  * Siparişin başlangıç durumu ödeme yöntemine göre belirlenir.
  *
@@ -76,3 +71,12 @@ export function requiresUpfrontPayment(paymentMethod: PaymentMethod): boolean {
  * arayüzü hem sipariş oluşturma işlemini makul tutar.
  */
 export const MAX_CART_ITEMS = 20;
+
+/**
+ * Bir kullanıcının tutabileceği en fazla favori sayısı.
+ *
+ * Favori listesi tek seferde döndürülür; sınırsız bırakıldığında hem yanıt
+ * boyutu hem sorgu maliyeti kullanıcının insafına kalırdı. Sınır cömerttir:
+ * normal kullanımda ulaşılmaz, kötüye kullanımı ise sınırlar.
+ */
+export const MAX_FAVORITES = 200;

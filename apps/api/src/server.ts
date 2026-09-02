@@ -12,9 +12,11 @@ import { createApp } from './app.ts';
 import { closeDatabase } from './platform/db/client.ts';
 import { env } from './platform/config/env.ts';
 import { logger } from './platform/observability/logger.ts';
+import { closeMailer } from './platform/mailer.ts';
 import { startMaintenance, stopMaintenance } from './platform/maintenance.ts';
 import { pruneExpiredSessions } from './modules/identity/index.ts';
 import { releaseExpiredReservations } from './modules/catalog/index.ts';
+import { cancelExpiredUnpaidOrders } from './modules/ordering/index.ts';
 import { cleanupOrphanedFiles } from './modules/files/index.ts';
 
 const app = createApp();
@@ -35,6 +37,15 @@ const maintenanceTasks = [
     name: 'sureli-oturumlari-temizle',
     intervalMs: 60 * 60 * 1000,
     run: pruneExpiredSessions,
+  },
+  {
+    /*
+      Sıra önemlidir: önce sipariş iptal edilir, ürünler normal yoldan serbest
+      kalır; ardından emniyet ağı kalanları toplar.
+    */
+    name: 'odemesi-gelmeyen-siparisleri-iptal-et',
+    intervalMs: 15 * 60 * 1000,
+    run: cancelExpiredUnpaidOrders,
   },
   {
     name: 'suresi-gecmis-rezervasyonlari-serbest-birak',
@@ -80,6 +91,8 @@ async function shutdown(signal: string): Promise<void> {
 
   // Devam eden isteklerin tamamlanması için kısa bir süre tanınır.
   await new Promise((resolve) => setTimeout(resolve, 2_000));
+
+  closeMailer();
 
   await closeDatabase();
   logger.info('Veritabanı bağlantıları kapandı.');

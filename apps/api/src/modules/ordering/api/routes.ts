@@ -12,11 +12,13 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import {
+  MAX_PAGE_SIZE,
   adminOrderListQuerySchema,
   cancelOrderSchema,
   cartItemInputSchema,
   createOrderSchema,
   orderListQuerySchema,
+  toggleFavoriteSchema,
   updateOrderStatusSchema,
   uuidSchema,
 } from '@ersinspot/shared';
@@ -33,6 +35,7 @@ import {
 } from '../../../platform/http/validate.ts';
 import { rateLimit } from '../../../platform/http/security.ts';
 import * as cartService from '../application/cart-service.ts';
+import * as favoriteService from '../application/favorite-service.ts';
 import * as orderService from '../application/order-service.ts';
 
 type Variables = AuthVariables & ValidatedVariables;
@@ -44,6 +47,14 @@ const referenceParamSchema = z.object({
     .string()
     .regex(/^(SIP|NAK|TSV|SAT)-\d{4}-\d{6}$/, { message: 'Geçersiz takip numarası.' }),
 });
+
+/**
+ * Tek istekte sorulabilecek en fazla favori durumu.
+ *
+ * Sayfa boyutunun üst sınırıyla aynıdır: liste ekranı en fazla o kadar ürün
+ * gösterir ve daha fazlasını sormasının bir nedeni yoktur.
+ */
+const MAX_FAVORITE_LOOKUP = MAX_PAGE_SIZE;
 
 export const orderingRoutes = new Hono<{ Variables: Variables }>();
 
@@ -78,6 +89,48 @@ orderingRoutes.delete(
 orderingRoutes.delete('/cart', requireAuth, async (c) => {
   return c.json({ cart: await cartService.clearCart(currentUser(c).id) });
 });
+
+// ---------------------------------------------------------------------------
+// Favoriler
+// ---------------------------------------------------------------------------
+// Oturum gerektirir: favori kişiye özeldir ve kullanıcıya bağlı saklanır.
+
+orderingRoutes.get('/favorites', requireAuth, async (c) => {
+  return c.json({ products: await favoriteService.listFavorites(currentUser(c).id) });
+});
+
+/**
+ * Favoriye ekler veya çıkarır.
+ *
+ * Tek uç, iki yön: istemci mevcut durumu bilmek zorunda kalmasın diye. Yanıt
+ * işlem sonundaki durumu bildirir; arayüz kalp simgesini ona göre çizer.
+ */
+orderingRoutes.post('/favorites', requireAuth, validateBody(toggleFavoriteSchema), async (c) => {
+  const { productId } = body(c, toggleFavoriteSchema);
+  const isFavorite = await favoriteService.toggleFavorite(currentUser(c).id, productId);
+
+  return c.json({ isFavorite });
+});
+
+/** Verilen ürünlerden hangileri favoride? Liste ekranı tek istekte sorar. */
+const favoriteQuerySchema = z.object({
+  productIds: z
+    .string()
+    .transform((value) => value.split(',').filter((id) => id !== ''))
+    .pipe(z.array(uuidSchema).max(MAX_FAVORITE_LOOKUP)),
+});
+
+orderingRoutes.get(
+  '/favorites/status',
+  requireAuth,
+  validateQuery(favoriteQuerySchema),
+  async (c) => {
+    const { productIds } = query(c, favoriteQuerySchema);
+    const favorited = await favoriteService.findFavoritedIds(currentUser(c).id, productIds);
+
+    return c.json({ favorited });
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Sipariş oluşturma

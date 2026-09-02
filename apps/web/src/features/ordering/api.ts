@@ -11,25 +11,25 @@ import type {
   CreateOrderInput,
   Order,
   OrderListQuery,
+  CreateOrderResult,
   OrderSummary,
   OrderStatus,
   Paginated,
+  ProductSummary,
+  PublicOrderStatus,
 } from '@ersinspot/shared';
 import { apiRequest } from '@/lib/api';
+import { useAuth } from '@/features/auth';
 
-export interface PublicOrderStatus {
-  readonly referenceNumber: string;
-  readonly status: OrderStatus;
-  readonly itemCount: number;
-  readonly deliveryDate: string | null;
-  readonly createdAt: string;
-  readonly timeline: readonly { status: OrderStatus; occurredAt: string }[];
-}
+export type { CreateOrderResult, PublicOrderStatus };
 
 export const orderingKeys = {
   adminOrders: (filters: Partial<AdminOrderListQuery>) =>
     ['ordering', 'admin', 'orders', filters] as const,
   cart: ['ordering', 'cart'] as const,
+  favorites: ['ordering', 'favorites'] as const,
+  favoriteStatus: (productIds: readonly string[]) =>
+    ['ordering', 'favorites', 'status', [...productIds].sort()] as const,
   cartCount: ['ordering', 'cart', 'count'] as const,
   orders: (filters: Partial<OrderListQuery>) => ['ordering', 'orders', filters] as const,
   order: (id: string) => ['ordering', 'order', id] as const,
@@ -52,15 +52,22 @@ export function useCart() {
   });
 }
 
-/** Başlıktaki rozet için; tam sepeti çekmeye gerek yok. */
+/**
+ * Başlıktaki rozet için; tam sepeti çekmeye gerek yok.
+ *
+ * Yalnızca oturum açıkken sorulur. Misafirde sepet zaten yoktur ve istek
+ * atmak her sayfa açılışında gereksiz bir 401 üretirdi.
+ */
 export function useCartCount() {
+  const { isAuthenticated } = useAuth();
+
   return useQuery({
     queryKey: orderingKeys.cartCount,
     queryFn: async () => {
       const response = await apiRequest<{ count: number }>('/api/cart/count');
       return response.count;
     },
-    // Oturumsuz kullanıcıda 401 döner; hata gösterilmez, sayaç sıfır kalır.
+    enabled: isAuthenticated,
     retry: false,
     staleTime: 30_000,
   });
@@ -113,14 +120,68 @@ export function useClearCart() {
 }
 
 // ---------------------------------------------------------------------------
-// Sipariş
+// Favoriler
 // ---------------------------------------------------------------------------
 
-export interface CreateOrderResult {
-  readonly orderId: string;
-  readonly referenceNumber: string;
-  readonly totalKurus: number;
+/** Kullanıcının favorilerindeki ürünler, en yeniden eskiye. */
+export function useFavorites() {
+  const { isAuthenticated } = useAuth();
+
+  return useQuery({
+    queryKey: orderingKeys.favorites,
+    queryFn: async () => {
+      const response = await apiRequest<{ products: ProductSummary[] }>('/api/favorites');
+      return response.products;
+    },
+    enabled: isAuthenticated,
+  });
 }
+
+/**
+ * Listedeki ürünlerden hangileri favoride?
+ *
+ * Kart başına ayrı istek yerine sayfadaki tüm ürünler tek istekte sorulur.
+ * Misafirde hiç sorulmaz: favori kişiye özeldir.
+ */
+export function useFavoriteStatus(productIds: readonly string[]) {
+  const { isAuthenticated } = useAuth();
+
+  return useQuery({
+    queryKey: orderingKeys.favoriteStatus(productIds),
+    queryFn: async () => {
+      const response = await apiRequest<{ favorited: string[] }>('/api/favorites/status', {
+        query: { productIds: productIds.join(',') },
+      });
+      return new Set(response.favorited);
+    },
+    enabled: isAuthenticated && productIds.length > 0,
+  });
+}
+
+/** Ürünü favorilere ekler veya çıkarır. */
+export function useToggleFavorite() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (productId: string) => {
+      const response = await apiRequest<{ isFavorite: boolean }>('/api/favorites', {
+        method: 'POST',
+        body: { productId },
+      });
+      return response.isFavorite;
+    },
+
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: orderingKeys.favorites });
+      // Favori sayacı ürün kartında ve sıralamasında görünür.
+      void queryClient.invalidateQueries({ queryKey: ['catalog'] });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Sipariş
+// ---------------------------------------------------------------------------
 
 export function useCreateOrder() {
   const queryClient = useQueryClient();

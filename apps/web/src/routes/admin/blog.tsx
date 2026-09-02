@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Newspaper, Pencil, Plus, Trash2 } from 'lucide-react';
 // Bağlantı adı, sunucunun kullandığı AYNI fonksiyonla üretilir; ekranda
@@ -24,7 +25,9 @@ import { ErrorState } from '@/components/ui/error-state.tsx';
 import { SelectField, TextAreaField, TextField } from '@/components/ui/form-field.tsx';
 import { Markdown } from '@/components/ui/markdown.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
+import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
+import { StatusBadge } from '@/components/ui/status-badge.tsx';
 import { formatDate } from '@/lib/format.ts';
 import {
   useAdminBlogPosts,
@@ -55,7 +58,28 @@ const EMPTY: FormState = {
 };
 
 export default function AdminBlogPage() {
-  const { data, isLoading, isError, error, refetch } = useAdminBlogPosts();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const category = (searchParams.get('kategori') ?? undefined) as BlogCategory | undefined;
+  const search = searchParams.get('ara') ?? '';
+  const page = Number(searchParams.get('sayfa') ?? '1');
+
+  const { data, isLoading, isError, error, refetch } = useAdminBlogPosts({
+    page,
+    ...(category === undefined ? {} : { category }),
+    ...(search === '' ? {} : { search }),
+  });
+
+  function setFilter(key: string, value: string | undefined): void {
+    const next = new URLSearchParams(searchParams);
+
+    if (value === undefined || value === '') next.delete(key);
+    else next.set(key, value);
+
+    // Süzgeç değişince ilk sayfaya dönülür; ikinci sayfada boş liste kalmasın.
+    if (key !== 'sayfa') next.delete('sayfa');
+    setSearchParams(next);
+  }
 
   const createPost = useCreateBlogPost();
   const updatePost = useUpdateBlogPost();
@@ -305,62 +329,113 @@ export default function AdminBlogPage() {
         </Card>
       ) : null}
 
+      <div className="mt-6 space-y-3">
+        <TextField
+          label="Ara"
+          type="search"
+          placeholder="Başlık, özet veya bağlantı adı"
+          defaultValue={search}
+          onChange={(event) => {
+            setFilter('ara', event.target.value);
+          }}
+        />
+
+        <FilterChips
+          label="Kategori"
+          value={category}
+          onChange={(next) => {
+            setFilter('kategori', next);
+          }}
+          options={BLOG_CATEGORIES.map((value) => ({
+            value,
+            label: BLOG_CATEGORY_LABELS[value],
+          }))}
+        />
+      </div>
+
       {data === undefined || data.items.length === 0 ? (
         <EmptyState
           icon={Newspaper}
-          title="Henüz yazı yok"
-          description="İlk yazıyı ekleyerek başlayın."
+          title={search === '' && category === undefined ? 'Henüz yazı yok' : 'Sonuç bulunamadı'}
+          description={
+            search === '' && category === undefined
+              ? 'İlk yazıyı ekleyerek başlayın.'
+              : 'Süzgeçleri değiştirerek tekrar deneyin.'
+          }
           className="mt-8"
         />
       ) : (
-        <ul className="mt-8 space-y-2">
-          {data.items.map((post) => (
-            <Card as="li" key={post.id} className="flex flex-wrap items-center gap-4">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-900">{post.title}</p>
+        <>
+          <ul className="mt-8 space-y-2">
+            {data.items.map((post) => (
+              <Card as="li" key={post.id} className="flex flex-wrap items-center gap-4">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-900">{post.title}</p>
 
-                <p className="mt-1 text-xs text-slate-500">
-                  {BLOG_CATEGORY_LABELS[post.category]}
-                  {post.publishedAt === null ? '' : ` · ${formatDate(post.publishedAt)}`} ·{' '}
-                  {post.readingMinutes} dk
-                </p>
-              </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {BLOG_CATEGORY_LABELS[post.category]}
+                    {post.publishedAt === null ? '' : ` · ${formatDate(post.publishedAt)}`} ·{' '}
+                    {post.readingMinutes} dk
+                  </p>
+                </div>
 
-              <div className="flex shrink-0 gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Düzenle"
-                  onClick={() => {
-                    startEdit(post.id, post.slug);
-                  }}
-                >
-                  <Pencil aria-hidden="true" />
-                </Button>
+                {/*
+                Taslak/yayında ayrımı listede görünmeli: yayın tarihinin
+                yokluğundan çıkarmak, personelin her satırda tahmin yürütmesi
+                demekti.
+              */}
+                <StatusBadge
+                  meta={
+                    post.publishedAt === null
+                      ? { label: 'Taslak', description: 'Yayınlanmadı', tone: 'neutral' }
+                      : { label: 'Yayında', description: 'Vitrinde görünür', tone: 'success' }
+                  }
+                />
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Sil"
-                  className="text-state-danger-fg"
-                  isLoading={deletePost.isPending}
-                  onClick={() => {
-                    deletePost.mutate(post.id, {
-                      onSuccess: () => {
-                        toast.success('Yazı silindi.');
-                      },
-                      onError: (failure) => {
-                        reportError(failure, 'Yazı silinemedi.');
-                      },
-                    });
-                  }}
-                >
-                  <Trash2 aria-hidden="true" />
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </ul>
+                <div className="flex shrink-0 gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Düzenle"
+                    onClick={() => {
+                      startEdit(post.id, post.slug);
+                    }}
+                  >
+                    <Pencil aria-hidden="true" />
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Sil"
+                    className="text-state-danger-fg"
+                    isLoading={deletePost.isPending}
+                    onClick={() => {
+                      deletePost.mutate(post.id, {
+                        onSuccess: () => {
+                          toast.success('Yazı silindi.');
+                        },
+                        onError: (failure) => {
+                          reportError(failure, 'Yazı silinemedi.');
+                        },
+                      });
+                    }}
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </ul>
+
+          <Pagination
+            page={data.page}
+            totalPages={data.totalPages}
+            onPageChange={(next) => {
+              setFilter('sayfa', String(next));
+            }}
+          />
+        </>
       )}
     </>
   );

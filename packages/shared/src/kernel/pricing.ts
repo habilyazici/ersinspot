@@ -12,7 +12,7 @@
  */
 
 import type { Kurus } from './money.ts';
-import { ZERO, add, fromLira, multiply, sum } from './money.ts';
+import { ZERO, add, fromKurus, fromLira, multiply, sum } from './money.ts';
 import type { DeliveryMethod } from './status.ts';
 import type { IzmirDistrict } from './locations.ts';
 import { HOME_DISTRICT } from './locations.ts';
@@ -160,7 +160,13 @@ function floorCost(floor: number, hasElevator: boolean): Kurus {
   if (floor <= 0) return ZERO;
   const raw = MOVING_FLOOR_SURCHARGE * floor;
   const adjusted = hasElevator ? raw * ELEVATOR_DISCOUNT_FACTOR : raw;
-  return Math.round(adjusted) as Kurus;
+
+  /*
+    `as Kurus` yerine yapıcı kullanılır. Markalı tipin tüm anlamı, para
+    değerinin doğrulamadan geçmeden üretilememesidir; dönüşümle atlandığında
+    tip bir belge notundan ibaret kalır.
+  */
+  return fromKurus(Math.round(adjusted));
 }
 
 /**
@@ -172,7 +178,7 @@ function floorCost(floor: number, hasElevator: boolean): Kurus {
  */
 export function estimateMoving(input: MovingEstimateInput): MovingEstimate {
   const multiplier = HOUSE_SIZE_MULTIPLIER[input.houseSize];
-  const basePrice = Math.round(MOVING_BASE_PRICE * multiplier) as Kurus;
+  const basePrice = fromKurus(Math.round(MOVING_BASE_PRICE * multiplier));
 
   const floorSurcharge = add(
     floorCost(input.fromFloor, input.fromHasElevator),
