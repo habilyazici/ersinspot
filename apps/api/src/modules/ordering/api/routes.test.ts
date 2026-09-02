@@ -18,6 +18,7 @@ import {
   products,
 } from '../../catalog/infrastructure/schema.ts';
 import { orderItems, orders } from '../infrastructure/schema.ts';
+import { cancelExpiredUnpaidOrders } from '../index.ts';
 
 /**
  * Ürün fiyatı, ücretsiz teslimat eşiğinin (15.000 TL) ALTINDA seçilmiştir ki
@@ -752,5 +753,152 @@ describe('sipariş sahipliği', () => {
 
     const [order] = await db.select({ userId: orders.userId }).from(orders);
     expect(order?.userId).toBe(customerId);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Favoriler
+// ---------------------------------------------------------------------------
+
+describe('favoriler', () => {
+  it('oturum gerektirir', async () => {
+    for (const [path, init] of [
+      ['/api/favorites', {}],
+      ['/api/favorites', { method: 'POST', body: JSON.stringify({ productId }) }],
+    ] as const) {
+      const response = await request(path, init);
+      expect(response.status).toBe(401);
+    }
+  });
+
+  it('ekler, listeler ve çıkarır', async () => {
+    const added = await request('/api/favorites', {
+      method: 'POST',
+      cookie: customerCookie,
+      body: JSON.stringify({ productId }),
+    });
+
+    expect(added.status).toBe(200);
+    expect(await added.json()).toEqual({ isFavorite: true });
+
+    const list = await request('/api/favorites', { cookie: customerCookie });
+    const listed = (await list.json()) as { products: { id: string }[] };
+    expect(listed.products.map((product) => product.id)).toEqual([productId]);
+
+    const removed = await request('/api/favorites', {
+      method: 'POST',
+      cookie: customerCookie,
+      body: JSON.stringify({ productId }),
+    });
+
+    expect(await removed.json()).toEqual({ isFavorite: false });
+
+    const empty = await request('/api/favorites', { cookie: customerCookie });
+    expect(((await empty.json()) as { products: unknown[] }).products).toEqual([]);
+  });
+
+  it('favori sayacını veritabanı tetikleyicisi günceller', async () => {
+    await request('/api/favorites', {
+      method: 'POST',
+      cookie: customerCookie,
+      body: JSON.stringify({ productId }),
+    });
+
+    const [row] = await db
+      .select({ favoriteCount: products.favoriteCount })
+      .from(products)
+      .where(eq(products.id, productId));
+
+    expect(row?.favoriteCount).toBe(1);
+  });
+
+  it('listedeki ürünlerin durumunu tek istekte döndürür', async () => {
+    await request('/api/favorites', {
+      method: 'POST',
+      cookie: customerCookie,
+      body: JSON.stringify({ productId }),
+    });
+
+    const response = await request(`/api/favorites/status?productIds=${productId}`, {
+      cookie: customerCookie,
+    });
+
+    expect(await response.json()).toEqual({ favorited: [productId] });
+  });
+
+  it('favori bir ürün vitrinden kalkarsa listede görünmez', async () => {
+    await request('/api/favorites', {
+      method: 'POST',
+      cookie: customerCookie,
+      body: JSON.stringify({ productId }),
+    });
+
+    await db.update(products).set({ status: 'draft' }).where(eq(products.id, productId));
+
+    const list = await request('/api/favorites', { cookie: customerCookie });
+    expect(((await list.json()) as { products: unknown[] }).products).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ödemesi gelmeyen siparişler
+// ---------------------------------------------------------------------------
+
+describe('ödeme süresi dolan siparişler', () => {
+  /**
+   * Havale ile verilen sipariş `pending_payment` başlar ve ürünü rezerve eder.
+   *
+   * Ödeme gelmezse rezervasyon süresi dolar. Önceden yalnızca ÜRÜN serbest
+   * bırakılıyor, sipariş açık kalıyordu: aynı ürün ikinci kez satılabilir hâle
+   * gelirken bekleyen sipariş hâlâ onu bekliyordu.
+   */
+  async function createUnpaidOrder(): Promise<string> {
+    await addToCart(customerCookie, productId);
+
+    const response = await request('/api/orders', {
+      method: 'POST',
+      cookie: customerCookie,
+      body: JSON.stringify(orderPayload({ paymentMethod: 'bank_transfer' })),
+    });
+
+    const payload = (await response.json()) as { order: { orderId: string } };
+    return payload.order.orderId;
+  }
+
+  it('süresi dolan siparişi iptal eder ve ürünü satışa döndürür', async () => {
+    const orderId = await createUnpaidOrder();
+
+    // Siparişi rezervasyon süresinden daha eskiye taşı.
+    await db
+      .update(orders)
+      .set({ createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000) })
+      .where(eq(orders.id, orderId));
+
+    expect(await cancelExpiredUnpaidOrders()).toBe(1);
+
+    const [order] = await db
+      .select({ status: orders.status })
+      .from(orders)
+      .where(eq(orders.id, orderId));
+    expect(order?.status).toBe('cancelled');
+
+    const [product] = await db
+      .select({ status: products.status, reservedUntil: products.reservedUntil })
+      .from(products)
+      .where(eq(products.id, productId));
+    expect(product?.status).toBe('for_sale');
+    expect(product?.reservedUntil).toBeNull();
+  });
+
+  it('süresi dolmamış siparişe dokunmaz', async () => {
+    const orderId = await createUnpaidOrder();
+
+    expect(await cancelExpiredUnpaidOrders()).toBe(0);
+
+    const [order] = await db
+      .select({ status: orders.status })
+      .from(orders)
+      .where(eq(orders.id, orderId));
+    expect(order?.status).toBe('pending_payment');
   });
 });

@@ -162,4 +162,88 @@ describe('Mimari sözleşmesi', () => {
 
     expect(unguarded).toEqual([]);
   });
+
+  it('oturumsuz erişilebilen uçlar açık listede bildirilir', () => {
+    /*
+      Kural 3'ün diğer yarısı: `/admin/` ön eki olmayan bir ucun korumasız
+      kalması da bir karardır ve unutmakla olmamalıdır.
+
+      Bu liste, dışarıya oturumsuz açılan TÜM yüzeydir. Yeni bir uç eklendiğinde
+      ya bir yetki middleware'i bildirilir ya da bilinçli olarak buraya yazılır;
+      üçüncü bir seçenek yoktur. Eski kod tabanında 98 ucun 58'i korumasızdı ve
+      bunu kimse bir yerde görmüyordu.
+    */
+    const PUBLIC_ROUTES: readonly string[] = [
+      // Vitrin: ürün, kategori, marka.
+      'GET /products',
+      'GET /products/:slug',
+      'GET /categories',
+      'GET /brands',
+
+      // İçerik: blog, SSS, site ayarları.
+      'GET /blog',
+      'GET /blog/tags',
+      'GET /blog/:slug',
+      'GET /faqs',
+      'GET /settings',
+
+      // Üye olmadan yapılabilenler.
+      'POST /contact',
+      'GET /order-tracking/:reference',
+      'GET /moving/estimate',
+
+      // Kimlik: giriş yapamayan kullanıcının kullanması gereken uçlar.
+      'POST /register',
+      'POST /login',
+      'POST /forgot-password',
+      'POST /reset-password',
+      'POST /verify-email',
+
+      /*
+        Yerel dosya sunumu.
+
+        Yetki KAYNAĞA bağlıdır, rotaya değil: ürün görselleri ve blog kapakları
+        vitrinin parçasıdır ve oturumsuz açılır, talep fotoğrafları ise kişisel
+        veridir. Hangisi olduğu ancak depolama anahtarının amaç bölümü okunarak
+        bilinir; bir middleware bunu rota tanımında bildiremez. Karar,
+        sahipliğin tek kontrol noktası olan `assertCanViewFile` içinde verilir.
+      */
+      'GET /:key{.+}',
+    ];
+
+    const GUARDS = /\b(requireAuth|requireStaff|requireAdmin)\b/;
+    const unexpected: string[] = [];
+
+    for (const moduleName of knownModules()) {
+      const routesPath = path.join(MODULES_DIR, moduleName, 'api/routes.ts');
+
+      let source: string;
+      try {
+        source = readFileSync(routesPath, 'utf8');
+      } catch {
+        continue;
+      }
+
+      const definitions = source.split(/(?=^\w+Routes\.(?:get|post|put|patch|delete)\()/m);
+
+      for (const definition of definitions.slice(1)) {
+        const header = /^\w+Routes\.(\w+)\(\s*'([^']*)'/.exec(definition);
+        if (header === null) continue;
+
+        const [, method = '', routePath = ''] = header;
+
+        const handlerStart = definition.search(/async \(c\)|\(c\) =>/);
+        const args = definition.slice(0, handlerStart > 0 ? handlerStart : 900);
+
+        if (GUARDS.test(args)) continue;
+
+        const label = `${method.toUpperCase()} ${routePath}`;
+        if (!PUBLIC_ROUTES.includes(label)) {
+          unexpected.push(`${label} (${moduleName})`);
+        }
+      }
+    }
+
+    expect(unexpected).toEqual([]);
+  });
 });

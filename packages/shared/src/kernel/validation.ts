@@ -51,8 +51,6 @@ const INVISIBLE_CHARACTERS =
  */
 const cleanText = (value: string): string => value.trim().replace(INVISIBLE_CHARACTERS, '');
 
-export const trimmedString = z.string().transform(cleanText);
-
 export function requiredText(field: string, min = 1, max = 500) {
   return z
     .string({
@@ -160,8 +158,6 @@ export const addressSchema = z.object({
   directions: optionalText(300),
 });
 
-export type AddressInput = z.infer<typeof addressSchema>;
-
 // ---------------------------------------------------------------------------
 // Para
 // ---------------------------------------------------------------------------
@@ -268,15 +264,46 @@ export const LEAD_TIME_DAYS = {
 export const QUOTE_VALIDITY_DAYS = 7;
 
 /**
+ * İşletmenin saat dilimi.
+ *
+ * "Bugün" tek bir yerde tanımlanmalıdır. UTC kullanıldığında Türkiye'de gece
+ * yarısı ile 03:00 arası bir önceki güne düşülür: yönetim panelindeki
+ * "bugünün randevuları" dün olanları gösterir, randevu formunun en erken günü
+ * bir gün geri kayar. Mağaza tek bir şehirde çalıştığı için doğru referans
+ * sunucunun ya da tarayıcının yerel saati değil, İstanbul'dur.
+ */
+const BUSINESS_TIME_ZONE = 'Europe/Istanbul';
+
+/**
+ * `Intl` üzerinden `YYYY-AA-GG` üreten biçimlendirici.
+ *
+ * `sv-SE` yerel ayarı ISO ile aynı sırayı (yıl-ay-gün) verdiği için elle parça
+ * birleştirmeye gerek kalmaz.
+ */
+const businessDateFormatter = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: BUSINESS_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+/** İşletmenin saat dilimine göre bugünün tarihi: "2026-03-15". */
+export function today(): string {
+  return businessDateFormatter.format(new Date());
+}
+
+/**
  * Bugünden N gün sonrasını `YYYY-AA-GG` biçiminde döndürür.
  *
- * Tarih alanlarının `min` değeri ve varsayılanı bununla üretilir. UTC
- * kullanılır: `appointmentDateSchema` da karşılaştırmayı UTC üzerinden yapar,
- * iki taraf farklı saat dilimi kullansa gün sınırında ayrışırlardı.
+ * Tarih alanlarının `min` değeri ve varsayılanı bununla üretilir. Gün sayımı
+ * takvim günü üzerinden yapılır; yaz saati geçişleri gün sınırını kaydırmasın
+ * diye öğle vaktinden başlanır.
  */
 export function dateAfterDays(days: number): string {
-  const date = new Date();
+  const [year = 0, month = 1, day = 1] = today().split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day, 12));
   date.setUTCDate(date.getUTCDate() + days);
+
   return date.toISOString().slice(0, 10);
 }
 
@@ -285,25 +312,28 @@ export function formatTimeSlot(slot: TimeSlot): string {
   return `${slot.startTime} - ${slot.endTime}`;
 }
 
+/** Randevu en fazla bu kadar gün ileriye alınabilir. */
+export const MAX_APPOINTMENT_LEAD_DAYS = 60;
+
 /**
- * Randevu tarihini doğrular: geçmiş bir gün seçilemez ve en fazla 60 gün
- * ileriye randevu alınabilir.
+ * Randevu tarihini doğrular: geçmiş bir gün seçilemez ve en fazla
+ * `MAX_APPOINTMENT_LEAD_DAYS` gün ileriye randevu alınabilir.
  */
 export const appointmentDateSchema = dateOnlySchema.superRefine((value, ctx) => {
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+  /*
+    Karşılaştırma metin üzerinden yapılır.
 
-  const selected = new Date(`${value}T00:00:00Z`);
-  const maxDate = new Date(today);
-  maxDate.setUTCDate(maxDate.getUTCDate() + 60);
-
-  if (selected < today) {
+    `YYYY-AA-GG` biçimi sözlük sırasıyla takvim sırasına eşittir; Date
+    nesnesine çevirmeye ve saat dilimi belirsizliğine gerek kalmaz. Sınırlar
+    işletmenin saat dilimine göre üretilir.
+  */
+  if (value < today()) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Geçmiş bir tarih seçilemez.' });
   }
-  if (selected > maxDate) {
+  if (value > dateAfterDays(MAX_APPOINTMENT_LEAD_DAYS)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'En fazla 60 gün sonrasına randevu alabilirsiniz.',
+      message: `En fazla ${MAX_APPOINTMENT_LEAD_DAYS} gün sonrasına randevu alabilirsiniz.`,
     });
   }
 });

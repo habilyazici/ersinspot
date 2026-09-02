@@ -125,8 +125,6 @@ export const verifyEmailSchema = z.object({
   token: z.string().min(32, { message: 'Geçersiz doğrulama bağlantısı.' }),
 });
 
-export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
-
 // ---------------------------------------------------------------------------
 // Profil
 // ---------------------------------------------------------------------------

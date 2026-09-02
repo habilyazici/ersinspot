@@ -6,15 +6,16 @@ müşteriden ürün alımı.
 
 ## Teknolojiler
 
-| Katman           | Seçim                                          |
-| ---------------- | ---------------------------------------------- |
-| Dil              | TypeScript (strict)                            |
-| Sunucu           | Hono (Node.js 22+)                             |
-| Veritabanı       | PostgreSQL 16 + Drizzle ORM                    |
-| Doğrulama        | Zod — sunucu ve tarayıcı aynı şemayı paylaşır  |
-| Kimlik           | argon2id + httpOnly çerezde opak oturum jetonu |
-| Arayüz           | React 18 + Vite + Tailwind                     |
-| Paket yöneticisi | pnpm workspace                                 |
+| Katman           | Seçim                                              |
+| ---------------- | -------------------------------------------------- |
+| Dil              | TypeScript (strict)                                |
+| Sunucu           | Hono (Node.js 22+)                                 |
+| Veritabanı       | PostgreSQL 16 + Drizzle ORM                        |
+| Doğrulama        | Zod — sunucu ve tarayıcı aynı şemayı paylaşır      |
+| Kimlik           | argon2id + httpOnly çerezde opak oturum jetonu     |
+| Arayüz           | React 18 + Vite + Tailwind                         |
+| E-posta          | SMTP (nodemailer); yapılandırılmazsa log'a yazılır |
+| Paket yöneticisi | pnpm workspace                                     |
 
 Mimari **modüler monolittir**: tek süreç olarak dağıtılır, ancak içeride iş
 alanına göre ayrılmış ve sınırları lint ile zorunlu kılınmış modüllerden oluşur.
@@ -89,7 +90,20 @@ paket çözümleme sorunları yalnızca orada görünür.
 3. PR açın — şablondaki kontrol listesini doldurun.
 
 Yeni bir uç nokta eklerken yetkilendirmenin rota tanımında bildirildiğinden
-emin olun; ayrıntı için [docs/MIMARI.md](docs/MIMARI.md), Kural 3.
+emin olun; ayrıntı için [docs/MIMARI.md](docs/MIMARI.md), Kural 3. Bir kayda
+dosya bağlıyorsanız `attachFiles` çağrısını atlamayın — Kural 5.
+
+## Dağıtım notları
+
+| Değişken         | Ne zaman değiştirilir                                                                                                                                                                                                |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TRUST_PROXY`    | Uygulama nginx/Cloudflare gibi bir ters vekilin arkasındaysa `true`. Doğrudan internete açıksa `false` bırakın: `X-Forwarded-For` başlığını istemci de gönderebilir ve ona güvenmek giriş denemesi sınırını atlatır. |
+| `SESSION_SECRET` | Üretimde rastgele üretin (`openssl rand -base64 48`). Geliştirme anahtarı üretimde reddedilir.                                                                                                                       |
+| `SMTP_*`         | Boş bırakılırsa e-postalar gönderilmez, log'a yazılır. Şifre sıfırlama ve e-posta doğrulama bu ayarlar olmadan çalışmaz.                                                                                             |
+| `STORAGE_DRIVER` | Şimdilik yalnızca `local` uygulanmıştır; `s3` seçilirse süreç ilk dosya işleminde hata verir.                                                                                                                        |
+
+Bakım görevleri sunucu sürecinin içinde çalışır. Birden çok örneğe geçildiğinde
+her örnek aynı görevi çalıştırır; ayrıntı için [docs/MIMARI.md](docs/MIMARI.md).
 
 ## Belgeler
 

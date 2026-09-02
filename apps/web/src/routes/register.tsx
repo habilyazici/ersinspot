@@ -36,20 +36,14 @@ export default function RegisterPage() {
 
   function onSubmit(values: RegisterFormValues): void {
     registerMutation.mutate(values, {
-      onSuccess: (data) => {
-        if (data.user === undefined) {
-          /*
-           * Sunucu, adres zaten kayıtlıysa da başarı yanıtı döner ve kullanıcı
-           * bilgisi göndermez — bu, geçerli e-posta adreslerinin keşfedilmesini
-           * engeller. Arayüz de aynı belirsizliği korur.
-           */
-          toast.success('Kayıt işlemi alındı. E-postanızı kontrol edin.');
-          void navigate('/giris', { replace: true });
-          return;
-        }
-
-        toast.success('Hesabınız oluşturuldu. Hoş geldiniz.');
-        void navigate('/', { replace: true });
+      onSuccess: () => {
+        /*
+         * Sunucu, adres zaten kayıtlı olsa da aynı yanıtı döner ve oturum
+         * açmaz — bu, geçerli e-posta adreslerinin keşfedilmesini engeller.
+         * Arayüz de aynı belirsizliği korur: tek mesaj, tek yönlendirme.
+         */
+        toast.success('Kayıt alındı. Doğrulama bağlantısı için e-postanızı kontrol edin.');
+        void navigate('/giris', { replace: true });
       },
 
       onError: (error) => {

@@ -6,8 +6,18 @@
  * bu yerlerin hepsine dokunmayı gerektiriyordu.
  */
 
-import { money } from '@ersinspot/shared';
-import type { Kurus } from '@ersinspot/shared';
+import { formatTimeSlot as formatSlot, money } from '@ersinspot/shared';
+import type { Kurus, TimeSlot } from '@ersinspot/shared';
+
+/**
+ * Tarihler işletmenin saat diliminde gösterilir.
+ *
+ * Tarayıcının yerel saatine bırakıldığında, yurt dışındaki bir cihazdan
+ * bakan personel teslimat gününü bir gün kaymış görürdü: gün bilgisi taşıyan
+ * alanlar (`2026-09-05`) UTC gece yarısı olarak ayrıştırılır ve geride kalan
+ * bir saat diliminde bir önceki güne düşer.
+ */
+const BUSINESS_TIME_ZONE = 'Europe/Istanbul';
 
 /** Kuruş cinsinden tutarı para biçiminde yazar: "₺24.500", "₺24.500,50". */
 export function formatPrice(kurus: number, options?: { compact?: boolean }): string {
@@ -17,12 +27,14 @@ export function formatPrice(kurus: number, options?: { compact?: boolean }): str
 }
 
 const dateFormatter = new Intl.DateTimeFormat('tr-TR', {
+  timeZone: BUSINESS_TIME_ZONE,
   day: '2-digit',
   month: 'long',
   year: 'numeric',
 });
 
 const dateTimeFormatter = new Intl.DateTimeFormat('tr-TR', {
+  timeZone: BUSINESS_TIME_ZONE,
   day: '2-digit',
   month: 'long',
   year: 'numeric',
@@ -31,6 +43,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat('tr-TR', {
 });
 
 const shortDateFormatter = new Intl.DateTimeFormat('tr-TR', {
+  timeZone: BUSINESS_TIME_ZONE,
   day: '2-digit',
   month: '2-digit',
   year: 'numeric',
@@ -51,9 +64,15 @@ export function formatShortDate(value: string | Date): string {
   return shortDateFormatter.format(typeof value === 'string' ? new Date(value) : value);
 }
 
-/** Saat aralığını yazar: "09:00 - 11:00". */
-export function formatTimeSlot(slot: { startTime: string; endTime: string } | null): string {
-  return slot === null ? '—' : `${slot.startTime} - ${slot.endTime}`;
+/**
+ * Saat aralığını yazar: "09:00 - 11:00". Aralık yoksa tire.
+ *
+ * Biçim paylaşılan çekirdekten gelir; buradaki sarmalayıcı yalnızca "yok"
+ * durumunu ekler. İki ayrı biçimlendirme yazılsaydı biri değiştiğinde
+ * diğerinin unutulması işten değildi.
+ */
+export function formatTimeSlot(slot: TimeSlot | null): string {
+  return slot === null ? '—' : formatSlot(slot);
 }
 
 /**

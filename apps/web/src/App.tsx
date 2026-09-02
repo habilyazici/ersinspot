@@ -7,14 +7,15 @@
  */
 
 import { Suspense, lazy, useEffect } from 'react';
-import { BrowserRouter, Route, Routes, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
-import { queryClient, setSessionExpiredHandler } from '@/lib/api';
+import { queryClient, setUnauthenticatedHandler } from '@/lib/api';
 import { AppErrorBoundary } from '@/components/layout/error-boundary.tsx';
+import { ScrollToTop } from '@/components/layout/scroll-to-top.tsx';
 import { SiteLayout } from '@/components/layout/site-layout.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
-import { RequireAuth, RequireStaff } from '@/features/auth';
+import { RequireAuth, RequireStaff, authKeys } from '@/features/auth';
 
 // Vitrin sayfaları
 const HomePage = lazy(() => import('./routes/home.tsx'));
@@ -45,6 +46,7 @@ const AdminBlogPage = lazy(() => import('./routes/admin/blog.tsx'));
 const BlogPage = lazy(() => import('./routes/blog.tsx'));
 const BlogDetailPage = lazy(() => import('./routes/blog-detail.tsx'));
 const CartPage = lazy(() => import('./routes/cart.tsx'));
+const FavoritesPage = lazy(() => import('./routes/favorites.tsx'));
 const FaqPage = lazy(() => import('./routes/faq.tsx'));
 const ForgotPasswordPage = lazy(() => import('./routes/forgot-password.tsx'));
 const ResetPasswordPage = lazy(() => import('./routes/reset-password.tsx'));
@@ -60,20 +62,19 @@ const MyOrdersPage = lazy(() => import('./routes/my-orders.tsx'));
 const OrderDetailPage = lazy(() => import('./routes/order-detail.tsx'));
 
 /**
- * Oturum düştüğünde giriş sayfasına yönlendirir.
+ * Sunucu 401 döndüğünde oturum önbelleğini misafir durumuna çeker.
  *
- * API istemcisi yönlendirmeyi kendisi yapamaz; yapsaydı React Router'a bağımlı
- * olurdu. Bunun yerine bir geri çağrı kaydeder ve kabuk yönlendirmeyi üstlenir.
+ * YÖNLENDİRME YAPMAZ. Korumalı sayfada `RequireAuth` zaten oturumsuz
+ * kullanıcıyı girişe gönderir; herkese açık sayfada ise yönlendirme
+ * istenmez — misafir ziyaretçide de 401 dönen uçlar var (başlıktaki sepet
+ * sayacı, oturum sorgusu) ve bunlar anasayfayı açan herkesi girişe atardı.
  */
 function SessionWatcher() {
-  const navigate = useNavigate();
-
   useEffect(() => {
-    setSessionExpiredHandler(() => {
-      // React Router 7'de `navigate` söz döndürür; sonucu beklemiyoruz.
-      void navigate('/giris', { replace: true });
+    setUnauthenticatedHandler(() => {
+      queryClient.setQueryData(authKeys.currentUser, null);
     });
-  }, [navigate]);
+  }, []);
 
   return null;
 }
@@ -84,6 +85,7 @@ export function App() {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <SessionWatcher />
+          <ScrollToTop />
 
           <Suspense fallback={<PageSpinner />}>
             <Routes>
@@ -162,6 +164,14 @@ export function App() {
                   element={
                     <RequireAuth>
                       <AccountPage />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/hesabim/favorilerim"
+                  element={
+                    <RequireAuth>
+                      <FavoritesPage />
                     </RequireAuth>
                   }
                 />

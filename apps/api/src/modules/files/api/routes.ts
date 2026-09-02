@@ -8,9 +8,9 @@
 
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { MAX_IMAGE_BYTES, uploadRequestSchema } from '@ersinspot/shared';
+import { MAX_IMAGE_BYTES, isPublicUploadPurpose, uploadRequestSchema } from '@ersinspot/shared';
 import type { AuthVariables } from '../../../platform/http/auth.ts';
-import { currentUser, requireAuth } from '../../../platform/http/auth.ts';
+import { attachSession, currentUser, requireAuth } from '../../../platform/http/auth.ts';
 import type { ValidatedVariables } from '../../../platform/http/validate.ts';
 import { params, validateParams } from '../../../platform/http/validate.ts';
 import { rateLimit } from '../../../platform/http/security.ts';
@@ -25,6 +25,13 @@ const storageKeyParamSchema = z.object({
   key: z.string().min(1).max(300),
 });
 
+/**
+ * Çok parçalı gövdenin üst sınırı.
+ *
+ * Dosya sınırına, sınır dizeleri ve alan başlıkları için pay eklenir.
+ */
+const MAX_UPLOAD_BODY_BYTES = MAX_IMAGE_BYTES + 64 * 1024;
+
 export const filesRoutes = new Hono<{ Variables: Variables }>();
 
 /**
@@ -38,6 +45,23 @@ filesRoutes.post(
   requireAuth,
   rateLimit(60, 60 * 60 * 1000, 'dosya-yukle'),
   async (c) => {
+    /*
+      Gövde boyutu, İÇERİK OKUNMADAN ÖNCE denetlenir.
+
+      `formData()` tüm gövdeyi belleğe alır; boyut kontrolü ondan sonra
+      yapıldığında gigabaytlık bir yükleme sunucunun belleğini tüketebiliyordu.
+      Bildirilen uzunluk uydurulabilir ama küçük gösterildiğinde de aşağıdaki
+      gerçek boyut kontrolü devrededir; buradaki denetim ucuz olan ilk süzgeçtir.
+
+      Sınır, dosya sınırının bir katı fazlasıdır: çok parçalı gövde dosyanın
+      yanında sınır dizeleri ve alan başlıkları da taşır.
+    */
+    const declaredLength = Number(c.req.header('Content-Length') ?? '0');
+
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_UPLOAD_BODY_BYTES) {
+      throw fileTooLarge(MAX_IMAGE_BYTES);
+    }
+
     const form = await c.req.formData().catch(() => null);
 
     if (form === null) {
@@ -109,12 +133,16 @@ filesRoutes.delete(
  * Üretimde `STORAGE_DRIVER=s3` kullanılır ve dosyalar CDN'den sunulur; bu rota
  * o durumda hiç bağlanmaz (bkz. `app.ts`).
  *
- * Oturum GEREKTİRMEZ: ürün görselleri vitrinde herkese açıktır ve depolama
- * anahtarı rastgele UUID içerdiği için tahmin edilemez. Talep fotoğrafları da
- * aynı yerde durur; bunları korumak gerekirse anahtar bazlı imzalı adres
- * gerekir — o gün geldiğinde burası değişir.
+ * YETKİ AMACA GÖRE değişir. Ürün görselleri ve blog kapakları vitrinin
+ * parçasıdır; oturumsuz sunulur ve uzun süre önbelleklenir. Talep fotoğrafları
+ * kişisel veridir — müşterinin evinin içini gösterir — ve yalnızca yükleyene
+ * ve personele açılır.
+ *
+ * Önceki hâlinde tüm depolama alanı oturumsuz sunuluyordu. Anahtarın rastgele
+ * olması "tahmin edilemez" demektir, "yetkisiz erişilemez" demek değildir:
+ * bağlantı bir kez paylaşıldığında koruma kalmıyordu.
  */
-export const localFileRoutes = new Hono();
+export const localFileRoutes = new Hono<{ Variables: Variables }>();
 
 /** Uzantıdan içerik türü. Kullanıcının bildirdiği türe güvenilmez. */
 const CONTENT_TYPE_BY_EXTENSION: Readonly<Record<string, string>> = {
@@ -124,7 +152,7 @@ const CONTENT_TYPE_BY_EXTENSION: Readonly<Record<string, string>> = {
   pdf: 'application/pdf',
 };
 
-localFileRoutes.get('/:key{.+}', async (c) => {
+localFileRoutes.get('/:key{.+}', attachSession, async (c) => {
   const key = c.req.param('key');
 
   // Yol geçişi ve biçimsiz anahtar burada da denetlenir: savunma katmanları
@@ -132,6 +160,10 @@ localFileRoutes.get('/:key{.+}', async (c) => {
   if (!isValidStorageKey(key)) {
     throw notFound('Dosya');
   }
+
+  const isPublic = isPublicUploadPurpose(uploadService.purposeOf(key));
+
+  await uploadService.assertCanViewFile(c.var.user ?? null, key);
 
   const data = await retrieve(key);
 
@@ -153,11 +185,16 @@ localFileRoutes.get('/:key{.+}', async (c) => {
   return c.body(new Uint8Array(data), 200, {
     'Content-Type': contentType,
     /*
-      Dosya adı içeriğe göre bir kez üretilir ve değişmez; uzun önbellek
-      güvenlidir. Genel güvenlik middleware'i tüm yanıtlara `no-store` yazar,
-      bu yüzden orada bu yol için istisna tanımlıdır.
+      Dosya adı içeriğe göre bir kez üretilir ve değişmez; herkese açık
+      dosyalarda uzun önbellek güvenlidir. Genel güvenlik middleware'i tüm
+      yanıtlara `no-store` yazar, bu yüzden orada bu yol için istisna tanımlıdır.
+
+      Kişisel dosyalar paylaşılan önbelleklere (vekil, CDN) düşmemelidir:
+      `private` işaretlenir ve saklama süresi kısa tutulur.
     */
-    'Cache-Control': 'public, max-age=31536000, immutable',
+    'Cache-Control': isPublic
+      ? 'public, max-age=31536000, immutable'
+      : 'private, max-age=300, must-revalidate',
     // Tarayıcı dosyayı indirmek yerine göstersin; tür yukarıda sabitlendi.
     'Content-Disposition': 'inline',
   });

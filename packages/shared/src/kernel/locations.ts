@@ -46,19 +46,6 @@ export type IzmirDistrict = (typeof IZMIR_DISTRICTS)[number];
 export const HOME_DISTRICT: IzmirDistrict = 'Buca';
 
 /**
- * Teslimatın aynı gün yapılabildiği, mağazaya yakın ilçeler.
- * Randevu takviminde daha geniş saat aralığı sunulur.
- */
-export const NEARBY_DISTRICTS: readonly IzmirDistrict[] = [
-  'Buca',
-  'Bornova',
-  'Konak',
-  'Gaziemir',
-  'Karabağlar',
-  'Balçova',
-];
-
-/**
  * Hizmet verilmeyen ilçeler. Şehir merkezine uzak oldukları için nakliye ve
  * teknik servis talebi bu ilçelerden kabul edilmez; kullanıcıya form aşamasında bildirilir.
  */
@@ -73,16 +60,8 @@ export const UNSERVICED_DISTRICTS: readonly IzmirDistrict[] = [
   'Karaburun',
 ];
 
-export function isValidDistrict(value: string): value is IzmirDistrict {
-  return (IZMIR_DISTRICTS as readonly string[]).includes(value);
-}
-
 export function isServiced(district: IzmirDistrict): boolean {
   return !UNSERVICED_DISTRICTS.includes(district);
-}
-
-export function isNearby(district: IzmirDistrict): boolean {
-  return NEARBY_DISTRICTS.includes(district);
 }
 
 /** Hizmet verilen ilçeler — form seçeneklerini üretmek için. */

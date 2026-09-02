@@ -13,7 +13,7 @@
  * kullanıldığını bilmez.
  */
 
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { env } from './config/env.ts';
@@ -169,14 +169,4 @@ export async function remove(key: StorageKey): Promise<void> {
     return;
   }
   s3NotImplemented();
-}
-
-/**
- * İçeriğin özetini hesaplar.
- *
- * Aynı dosyanın tekrar tekrar yüklenmesini tespit etmek için kullanılır:
- * kullanıcı aynı fotoğrafı iki kez seçtiğinde depolamada iki kopya oluşmaz.
- */
-export function contentHash(data: Uint8Array): string {
-  return createHash('sha256').update(data).digest('hex');
 }

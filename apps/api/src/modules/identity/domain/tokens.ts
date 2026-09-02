@@ -40,12 +40,13 @@ export const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1 saat
 export const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 1 gün
 
 /**
- * Yeni bir jeton üretir.
+ * Yeni bir jeton üretir. Yalnızca `createTokenPair` üzerinden kullanılır;
+ * özetlenmemiş bir jetonun tek başına dolaşması istenmez.
  *
  * URL-güvenli base64 kullanılır: jeton e-posta bağlantısında ve çerezde
  * kodlama gerektirmeden taşınabilir.
  */
-export function generateToken(): string {
+function generateToken(): string {
   return randomBytes(TOKEN_BYTES).toString('base64url');
 }
 
@@ -69,9 +70,4 @@ export function createTokenPair(): { token: string; tokenHash: string } {
 /** Verilen süre kadar ileride bir son kullanma zamanı üretir. */
 export function expiresIn(milliseconds: number): Date {
   return new Date(Date.now() + milliseconds);
-}
-
-/** Zamanın geçmişte kalıp kalmadığını söyler. */
-export function isExpired(expiresAt: Date): boolean {
-  return expiresAt.getTime() <= Date.now();
 }

@@ -249,9 +249,23 @@ export async function listForAdmin(query: AdminProductListQuery): Promise<ListRe
 // Tekil okuma
 // ---------------------------------------------------------------------------
 
-export async function findBySlug(slug: string): Promise<ProductRow | null> {
+/**
+ * Vitrin için bağlantı adına göre ürün.
+ *
+ * Durum filtresi çağıranın kontrolünde DEĞİLDİR: liste sorgusuyla aynı küme
+ * uygulanır. Filtre olmadığında taslak ve depodaki ürünler, bağlantı adı
+ * bilinen herkese açılıyordu — listede gizlenen bir ürünün detayının açık
+ * kalması, gizlemeyi anlamsız kılar.
+ */
+export async function findPublicBySlug(slug: string): Promise<ProductRow | null> {
   const rows = await baseQuery()
-    .where(and(eq(products.slug, slug), isNull(products.deletedAt)))
+    .where(
+      and(
+        eq(products.slug, slug),
+        isNull(products.deletedAt),
+        inArray(products.status, [...PUBLICLY_VISIBLE_PRODUCT_STATUSES]),
+      ),
+    )
     .limit(1);
 
   return rows[0] ?? null;
@@ -263,6 +277,27 @@ export async function findById(id: string, executor: Executor = db): Promise<Pro
     .limit(1);
 
   return rows[0] ?? null;
+}
+
+/**
+ * Verilen kimliklerdeki ürünleri vitrin kurallarıyla döndürür.
+ *
+ * Favori listesi gibi, kimlik kümesi başka bir modülden gelen ekranlar için.
+ * Durum filtresi burada da uygulanır: favorilere eklenmiş bir ürün sonradan
+ * taslağa çekildiyse listede görünmemelidir.
+ *
+ * Sıra korunmaz; çağıran taraf kendi sırasını uygular.
+ */
+export async function findPublicByIds(productIds: readonly string[]): Promise<ProductRow[]> {
+  if (productIds.length === 0) return [];
+
+  return baseQuery().where(
+    and(
+      inArray(products.id, [...productIds]),
+      isNull(products.deletedAt),
+      inArray(products.status, [...PUBLICLY_VISIBLE_PRODUCT_STATUSES]),
+    ),
+  );
 }
 
 /** Bağlantı adının kullanımda olup olmadığını söyler. */
@@ -342,6 +377,7 @@ export async function findSpecsForProduct(productId: string): Promise<ProductSpe
 
 export interface PurchasableRow {
   id: string;
+  slug: string;
   title: string;
   priceKurus: number;
   status: ProductStatus;
@@ -366,6 +402,7 @@ export async function findPurchasableForUpdate(
   const rows = await tx
     .select({
       id: products.id,
+      slug: products.slug,
       title: products.title,
       priceKurus: products.priceKurus,
       status: products.status,

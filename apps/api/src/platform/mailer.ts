@@ -10,6 +10,8 @@
  * Hata loglanır ve akış devam eder.
  */
 
+import { createTransport } from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 import { env, isTest } from './config/env.ts';
 import { logger } from './observability/logger.ts';
 
@@ -69,17 +71,52 @@ export async function sendEmail(message: EmailMessage): Promise<void> {
 }
 
 /**
- * SMTP üzerinden teslim.
+ * SMTP taşıyıcısı.
  *
- * Şimdilik yer tutucu: gerçek gönderim, dağıtım hedefi belirlendiğinde ilgili
- * sağlayıcının istemcisiyle (Resend, Postmark, SES vb.) doldurulacak. Arayüz
- * sabit kaldığı için çağıran kod değişmeyecek.
+ * Tembel kurulur ve tekrar kullanılır: her e-postada yeni bağlantı açmak hem
+ * yavaştır hem de sağlayıcıların bağlantı sınırlarına takılır. Nodemailer
+ * havuzu kendisi yönetir.
+ *
+ * Port 465 örtük TLS'tir (`secure: true`); 587 ve 25 düz başlar ve STARTTLS
+ * ile yükseltilir — `secure: false` bunu kapatmaz, yalnızca başlangıcı
+ * bildirir. `requireTLS`, şifrelenmemiş teslimatı reddeder: kimlik bilgisi ve
+ * şifre sıfırlama bağlantısı açık ağdan geçmemelidir.
  */
+let transport: Transporter | null = null;
+
+function getTransport(): Transporter {
+  if (transport !== null) return transport;
+
+  const port = env.SMTP_PORT ?? 587;
+
+  transport = createTransport({
+    host: env.SMTP_HOST,
+    port,
+    secure: port === 465,
+    requireTLS: port !== 465,
+    auth: { user: env.SMTP_USER, pass: env.SMTP_PASSWORD },
+    pool: true,
+    maxConnections: 3,
+  });
+
+  return transport;
+}
+
+/** SMTP üzerinden teslim. */
 async function deliver(message: EmailMessage): Promise<void> {
-  void message;
-  return Promise.reject(
-    new Error('SMTP teslimatı henüz uygulanmadı. Sağlayıcı seçildiğinde eklenecek.'),
-  );
+  await getTransport().sendMail({
+    from: env.MAIL_FROM,
+    to: message.to,
+    subject: message.subject,
+    text: message.text,
+    ...(message.html === undefined ? {} : { html: message.html }),
+  });
+}
+
+/** Taşıyıcıyı kapatır. Düzgün kapanışta çağrılır; bekleyen bağlantı kalmasın. */
+export function closeMailer(): void {
+  transport?.close();
+  transport = null;
 }
 
 /** Testlerde gönderilen e-postaları okur. */

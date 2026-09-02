@@ -30,6 +30,7 @@ import {
   PAYMENT_METHODS,
   PRODUCT_CONDITIONS,
 } from '../../kernel/status.ts';
+import type { OrderStatus } from '../../kernel/status.ts';
 
 // ---------------------------------------------------------------------------
 // Sepet
@@ -50,8 +51,6 @@ export const cartItemInputSchema = z.object({
     .max(10, { message: 'Bu üründen en fazla 10 adet alabilirsiniz.' })
     .default(1),
 });
-
-export type CartItemInput = z.infer<typeof cartItemInputSchema>;
 
 /** Sunucudan dönen sepet kalemi: fiyat ve güncel uygunluk bilgisiyle birlikte. */
 export const cartItemSchema = z.object({
@@ -107,8 +106,6 @@ export const deliveryInputSchema = z.discriminatedUnion('method', [
   }),
 ]);
 
-export type DeliveryInput = z.infer<typeof deliveryInputSchema>;
-
 /**
  * Sipariş oluşturma girdisi.
  *
@@ -158,15 +155,11 @@ export const orderItemSchema = z.object({
   lineTotal: z.number().int(),
 });
 
-export type OrderItem = z.infer<typeof orderItemSchema>;
-
 export const orderStatusEventSchema = z.object({
   status: z.enum(ORDER_STATUSES),
   note: z.string().nullable(),
   occurredAt: z.string().datetime(),
 });
-
-export type OrderStatusEvent = z.infer<typeof orderStatusEventSchema>;
 
 export const orderSchema = z.object({
   id: uuidSchema,
@@ -226,15 +219,11 @@ export const cancelOrderSchema = z.object({
   reason: optionalText(500),
 });
 
-export type CancelOrderInput = z.infer<typeof cancelOrderSchema>;
-
 /** Yönetim panelinden durum değiştirme. Geçişin geçerliliği sunucuda doğrulanır. */
 export const updateOrderStatusSchema = z.object({
   status: z.enum(ORDER_STATUSES),
   note: optionalText(500),
 });
-
-export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
 
 export const orderListQuerySchema = paginationSchema.extend({
   status: z.enum(ORDER_STATUSES).optional(),
@@ -251,6 +240,29 @@ export const adminOrderListQuerySchema = paginationSchema.extend({
 
 export type AdminOrderListQuery = z.infer<typeof adminOrderListQuerySchema>;
 
+/** Sipariş oluşturma ucunun yanıtı. */
+export interface CreateOrderResult {
+  readonly orderId: string;
+  readonly referenceNumber: string;
+  readonly totalKurus: number;
+}
+
+/**
+ * Takip numarasıyla sorgulanan sipariş durumu.
+ *
+ * Oturum gerektirmeyen bir uçtan döndüğü için bilinçli olarak DARDIR: adres,
+ * telefon ve kalem fiyatları yer almaz. Takip numarası tahmin edilemez olsa da,
+ * kişisel veriyi oturumsuz bir uçta açmak doğru değildir.
+ */
+export interface PublicOrderStatus {
+  readonly referenceNumber: string;
+  readonly status: OrderStatus;
+  readonly itemCount: number;
+  readonly deliveryDate: string | null;
+  readonly createdAt: string;
+  readonly timeline: readonly { status: OrderStatus; occurredAt: string }[];
+}
+
 // ---------------------------------------------------------------------------
 // Favoriler
 // ---------------------------------------------------------------------------
@@ -258,5 +270,3 @@ export type AdminOrderListQuery = z.infer<typeof adminOrderListQuerySchema>;
 export const toggleFavoriteSchema = z.object({
   productId: uuidSchema,
 });
-
-export type ToggleFavoriteInput = z.infer<typeof toggleFavoriteSchema>;

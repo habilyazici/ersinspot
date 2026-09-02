@@ -13,3 +13,6 @@
  */
 
 export { orderingRoutes } from './api/routes.ts';
+
+/** Bakım görevi: ödemesi gelmeyen siparişleri iptal eder ve ürünleri serbest bırakır. */
+export { cancelExpiredUnpaidOrders } from './application/order-service.ts';

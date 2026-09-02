@@ -150,14 +150,6 @@ export function percentage(amount: Kurus, percent: number): Kurus {
   return fromKurus(Math.round((amount * percent) / 100));
 }
 
-export function isZero(amount: Kurus): boolean {
-  return amount === 0;
-}
-
-export function isNegative(amount: Kurus): boolean {
-  return amount < 0;
-}
-
 export function compare(a: Kurus, b: Kurus): -1 | 0 | 1 {
   if (a < b) return -1;
   if (a > b) return 1;
@@ -211,9 +203,4 @@ export function toInputValue(amount: Kurus): string {
   const whole = Math.floor(absolute / 100);
   const fraction = String(absolute % 100).padStart(2, '0');
   return `${negative ? '-' : ''}${whole},${fraction}`;
-}
-
-/** JSON'a yazılacak ham kuruş değeri. API sınırında bu biçim kullanılır. */
-export function toJSON(amount: Kurus): number {
-  return amount;
 }

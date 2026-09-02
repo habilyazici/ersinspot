@@ -5,13 +5,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { PUBLICLY_VISIBLE_PRODUCT_STATUSES } from '@ersinspot/shared';
 import {
-  allowedProductTransitions,
   canTransitionProduct,
   formatWarranty,
-  isPubliclyVisible,
   isPurchasable,
-  normalizeImageOrder,
   slugify,
   withSlugSuffix,
 } from './product-rules.ts';
@@ -29,9 +27,10 @@ describe('ürün durumu geçişleri', () => {
   });
 
   it('satılmış ürün son durumdur', () => {
-    expect(allowedProductTransitions('sold')).toHaveLength(0);
     expect(canTransitionProduct('sold', 'for_sale')).toBe(false);
     expect(canTransitionProduct('sold', 'reserved')).toBe(false);
+    expect(canTransitionProduct('sold', 'in_storage')).toBe(false);
+    expect(canTransitionProduct('sold', 'draft')).toBe(false);
   });
 
   it('satıştaki ürün doğrudan satılmış yapılamaz', () => {
@@ -54,12 +53,8 @@ describe('ürün durumu geçişleri', () => {
 
 describe('görünürlük ve satılabilirlik', () => {
   it('yalnızca satıştaki ve rezerve ürünler vitrinde görünür', () => {
-    expect(isPubliclyVisible('for_sale')).toBe(true);
-    expect(isPubliclyVisible('reserved')).toBe(true);
-
-    expect(isPubliclyVisible('draft')).toBe(false);
-    expect(isPubliclyVisible('in_storage')).toBe(false);
-    expect(isPubliclyVisible('sold')).toBe(false);
+    // Küme paylaşılan çekirdekte tanımlıdır; sorgular da doğrudan onu kullanır.
+    expect([...PUBLICLY_VISIBLE_PRODUCT_STATUSES]).toEqual(['for_sale', 'reserved']);
   });
 
   it('yalnızca satıştaki ürün sepete eklenebilir', () => {
@@ -128,37 +123,6 @@ describe('bağlantı adı çakışma eki', () => {
 
     expect(result.length).toBeLessThanOrEqual(80);
     expect(result.endsWith('-12')).toBe(true);
-  });
-});
-
-describe('görsel sıralaması', () => {
-  it('sıra numarasına göre düzenler ve boşlukları kapatır', () => {
-    const images = [
-      { id: 'c', displayOrder: 10 },
-      { id: 'a', displayOrder: 0 },
-      { id: 'b', displayOrder: 5 },
-    ];
-
-    const result = normalizeImageOrder(images);
-
-    expect(result.map((image) => image.id)).toEqual(['a', 'b', 'c']);
-    expect(result.map((image) => image.displayOrder)).toEqual([0, 1, 2]);
-  });
-
-  it('girdiyi değiştirmez', () => {
-    const images = [
-      { id: 'b', displayOrder: 5 },
-      { id: 'a', displayOrder: 0 },
-    ];
-    const snapshot = structuredClone(images);
-
-    normalizeImageOrder(images);
-
-    expect(images).toEqual(snapshot);
-  });
-
-  it('boş listede boş liste döner', () => {
-    expect(normalizeImageOrder([])).toEqual([]);
   });
 });
 

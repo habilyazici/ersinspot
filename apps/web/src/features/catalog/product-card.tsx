@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ImageOff } from 'lucide-react';
 import type { ProductSummary } from '@ersinspot/shared';
@@ -13,8 +14,20 @@ import { cn } from '@/lib/utils.ts';
  * bağlantıyı taşır, kartın geri kalanı `::after` ile tıklanabilir alanı
  * genişletir. Böylece ekran okuyucu tek bir bağlantı duyurur, kart içinde
  * iç içe bağlantı oluşmaz.
+ *
+ * Kart SUNUM bileşenidir ve kendi başına veri çekmez. Köşedeki `action` yuvası
+ * bu yüzden var: favori düğmesi `ordering` modülüne aittir ve katalog kartının
+ * onu tanıması, iki özellik modülünü birbirine bağlardı. Çağıran sayfa hangi
+ * eylemi koyacağına karar verir.
  */
-export function ProductCard({ product }: { product: ProductSummary }) {
+export function ProductCard({
+  product,
+  action,
+}: {
+  product: ProductSummary;
+  /** Görselin sağ üst köşesine yerleşen eylem; favori düğmesi gibi. */
+  action?: ReactNode;
+}) {
   const isReserved = product.status === 'reserved';
 
   return (
@@ -38,6 +51,8 @@ export function ProductCard({ product }: { product: ProductSummary }) {
             className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         )}
+
+        {action === undefined ? null : <div className="absolute right-2 top-2">{action}</div>}
 
         {isReserved ? (
           <div className="absolute inset-x-0 bottom-0 bg-brand-navy-800/90 px-3 py-1.5 text-center text-xs font-medium text-white">

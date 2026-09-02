@@ -21,7 +21,13 @@ import { z } from 'zod';
 import { serviceRequestSchema } from '@ersinspot/shared';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '../../../platform/db/client.ts';
-import { createTestUser, loginAs, request, resetDatabase } from '../../../test/helpers.ts';
+import {
+  createTestUser,
+  createUploads,
+  loginAs,
+  request,
+  resetDatabase,
+} from '../../../test/helpers.ts';
 import { categories, products } from '../../catalog/infrastructure/schema.ts';
 import { serviceRequests } from '../infrastructure/schema.ts';
 
@@ -88,7 +94,13 @@ const technicalPayload = {
   acceptedInspectionFee: true,
 };
 
-function sellPayload(catId: string) {
+/**
+ * Satış talebi gövdesi.
+ *
+ * Fotoğraf anahtarları gerçek yükleme kayıtlarından gelir: sunucu, kaydı
+ * olmayan bir anahtara bağlanmayı reddeder.
+ */
+function sellPayload(catId: string, photoKeys: readonly string[]) {
   return {
     contact: { fullName: 'Ayşe Yılmaz', phone: '0507 194 05 50' },
     title: 'Bosch Çamaşır Makinesi 9 Kg',
@@ -105,11 +117,7 @@ function sellPayload(catId: string) {
       street: 'Cadde',
       buildingNo: '5',
     },
-    photos: [
-      { storageKey: 'request_photo/2026/08/00000000-0000-0000-0000-000000000001.webp' },
-      { storageKey: 'request_photo/2026/08/00000000-0000-0000-0000-000000000002.webp' },
-      { storageKey: 'request_photo/2026/08/00000000-0000-0000-0000-000000000003.webp' },
-    ],
+    photos: photoKeys.map((storageKey) => ({ storageKey })),
   };
 }
 
@@ -468,10 +476,16 @@ describe('teknik servis talebi', () => {
 
 describe('satış talebi', () => {
   it('talep oluşturur', async () => {
+    const photos = await createUploads({
+      uploaderId: customerId,
+      purpose: 'request_photo',
+      count: 3,
+    });
+
     const response = await request('/api/sell-requests', {
       method: 'POST',
       cookie: customerCookie,
-      body: JSON.stringify(sellPayload(categoryId)),
+      body: JSON.stringify(sellPayload(categoryId, photos)),
     });
 
     expect(response.status).toBe(201);
@@ -484,7 +498,7 @@ describe('satış talebi', () => {
     const response = await request('/api/sell-requests', {
       method: 'POST',
       cookie: customerCookie,
-      body: JSON.stringify({ ...sellPayload(categoryId), photos: [] }),
+      body: JSON.stringify({ ...sellPayload(categoryId, []), photos: [] }),
     });
 
     expect(response.status).toBe(400);
@@ -786,7 +800,12 @@ describe('erişim yetkisi', () => {
     await request('/api/sell-requests', {
       method: 'POST',
       cookie: customerCookie,
-      body: JSON.stringify(sellPayload(categoryId)),
+      body: JSON.stringify(
+        sellPayload(
+          categoryId,
+          await createUploads({ uploaderId: customerId, purpose: 'request_photo', count: 3 }),
+        ),
+      ),
     });
 
     const response = await request('/api/requests', { cookie: customerCookie });
@@ -853,10 +872,16 @@ describe('iptal', () => {
 
 describe('satış talebinden ürüne dönüşüm', () => {
   async function acceptedSellRequest(): Promise<string> {
+    const photos = await createUploads({
+      uploaderId: customerId,
+      purpose: 'request_photo',
+      count: 3,
+    });
+
     const created = await request('/api/sell-requests', {
       method: 'POST',
       cookie: customerCookie,
-      body: JSON.stringify(sellPayload(categoryId)),
+      body: JSON.stringify(sellPayload(categoryId, photos)),
     });
     const { request: created2 } = (await created.json()) as {
       request: { requestId: string };
@@ -906,10 +931,16 @@ describe('satış talebinden ürüne dönüşüm', () => {
   });
 
   it('kabul edilmemiş talep dönüştürülemez', async () => {
+    const photos = await createUploads({
+      uploaderId: customerId,
+      purpose: 'request_photo',
+      count: 3,
+    });
+
     const created = await request('/api/sell-requests', {
       method: 'POST',
       cookie: customerCookie,
-      body: JSON.stringify(sellPayload(categoryId)),
+      body: JSON.stringify(sellPayload(categoryId, photos)),
     });
     const { request: req } = (await created.json()) as { request: { requestId: string } };
 

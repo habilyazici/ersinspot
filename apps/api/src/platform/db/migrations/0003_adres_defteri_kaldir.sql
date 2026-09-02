@@ -1,0 +1,15 @@
+-- Kullanılmayan adres defteri tablosu kaldırılıyor.
+--
+-- `customer_addresses`, müşterinin kayıtlı adreslerini tutmak üzere tasarlanmış
+-- ama hiçbir yerden okunmuyor veya yazılmıyordu: ne bir uç, ne bir ekran, ne de
+-- bir servis ona dokunuyordu. Ödeme adımında adres her seferinde elle giriliyor
+-- ve siparişin kendi adres kaydına (`order_addresses`) kopyalanıyor — o kopya
+-- mekanizması çalışıyor ve yerinde duruyor.
+--
+-- Boş bir tablo bedava değildir: şemada, migration'larda, mimari belgesindeki
+-- sahiplik haritasında ve onu doğrulayan testte yer tutar; her şema
+-- değişikliğinde birlikte düşünülmesi gerekir. Adres defteri özelliği
+-- yazıldığında tablo yeni bir migration ile geri gelir.
+--
+-- Tabloda hiç satır yok; veri kaybı riski taşımaz.
+DROP TABLE "customer_addresses" CASCADE;

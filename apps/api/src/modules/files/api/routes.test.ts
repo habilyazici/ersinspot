@@ -6,8 +6,10 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { request } from '../../../test/helpers.ts';
+import { db } from '../../../platform/db/client.ts';
+import { createTestUser, loginAs, request, resetDatabase } from '../../../test/helpers.ts';
 import { createStorageKey, remove, store } from '../../../platform/storage.ts';
+import { uploadedFiles } from '../infrastructure/schema.ts';
 
 // 1x1 saydam PNG.
 const PNG = Buffer.from(
@@ -78,5 +80,75 @@ describe('Yerel dosya sunumu', () => {
     const missing = createStorageKey('product_image', 'image/png');
     const response = await request(`/files/${missing}`);
     expect(response.status).toBe(404);
+  });
+});
+
+/**
+ * Kişisel dosyaların yetkilendirilmesi.
+ *
+ * Talep fotoğrafları müşterinin evinin içini gösterir; ürün görselleriyle aynı
+ * klasörde durmaları onları herkese açık yapmaz. Önceden tüm depolama alanı
+ * oturumsuz sunuluyordu: anahtarın rastgele olması "tahmin edilemez" demektir,
+ * "yetkisiz erişilemez" demek değildir.
+ */
+describe('Kişisel dosyalarda erişim denetimi', () => {
+  let photoKey: string;
+  let ownerCookie: string;
+  let otherCookie: string;
+  let staffCookie: string;
+
+  beforeAll(async () => {
+    await resetDatabase();
+
+    const owner = await createTestUser({ email: 'sahip@ornek.com' });
+    const other = await createTestUser({ email: 'baskasi@ornek.com' });
+    const staff = await createTestUser({ email: 'personel@ornek.com', role: 'staff' });
+
+    ownerCookie = await loginAs(owner.email, owner.password);
+    otherCookie = await loginAs(other.email, other.password);
+    staffCookie = await loginAs(staff.email, staff.password);
+
+    const stored = await store('request_photo', 'image/png', new Uint8Array(PNG));
+    photoKey = stored.key;
+
+    await db.insert(uploadedFiles).values({
+      storageKey: photoKey,
+      purpose: 'request_photo',
+      contentType: 'image/png',
+      sizeBytes: PNG.byteLength,
+      uploadedByUserId: owner.id,
+    });
+  });
+
+  afterAll(async () => {
+    await remove(photoKey);
+    await resetDatabase();
+  });
+
+  it('oturumsuz erişimi reddeder', async () => {
+    const response = await request(`/files/${photoKey}`);
+    expect(response.status).toBe(401);
+  });
+
+  it('başka bir kullanıcıya kapalıdır', async () => {
+    const response = await request(`/files/${photoKey}`, { cookie: otherCookie });
+    expect(response.status).toBe(404);
+  });
+
+  it('yükleyen kişiye açıktır', async () => {
+    const response = await request(`/files/${photoKey}`, { cookie: ownerCookie });
+    expect(response.status).toBe(200);
+  });
+
+  it('personele açıktır', async () => {
+    const response = await request(`/files/${photoKey}`, { cookie: staffCookie });
+    expect(response.status).toBe(200);
+  });
+
+  it('paylaşılan önbelleklere düşmez', async () => {
+    const response = await request(`/files/${photoKey}`, { cookie: ownerCookie });
+
+    expect(response.headers.get('Cache-Control')).toContain('private');
+    expect(response.headers.get('Cache-Control')).not.toContain('immutable');
   });
 });

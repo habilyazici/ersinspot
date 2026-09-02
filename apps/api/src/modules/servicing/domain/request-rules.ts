@@ -24,10 +24,6 @@ export function canTransitionRequest(from: RequestStatus, to: RequestStatus): bo
   return canTransition(REQUEST_STATUS_TRANSITIONS, from, to);
 }
 
-export function allowedRequestTransitions(from: RequestStatus): readonly RequestStatus[] {
-  return REQUEST_STATUS_TRANSITIONS[from];
-}
-
 /**
  * Müşteri talebini iptal edebilir mi?
  *
@@ -60,11 +56,6 @@ export function requiresQuote(status: RequestStatus): boolean {
 /** Bu duruma geçmek için planlanmış bir randevunun bulunması gerekir. */
 export function requiresAppointment(status: RequestStatus): boolean {
   return status === 'scheduled';
-}
-
-/** Talep hâlâ işlemde mi? Müşteri panelindeki "aktif talepler" sayacı için. */
-export function isActive(status: RequestStatus): boolean {
-  return status !== 'completed' && status !== 'rejected' && status !== 'cancelled';
 }
 
 /**

@@ -7,6 +7,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AdminProductListQuery,
+  BrandSummary,
+  CategoryNode,
+  ProductDetail,
   CreateProductInput,
   ProductStatus,
   UpdateProductInput,
@@ -17,26 +20,7 @@ import type {
 } from '@ersinspot/shared';
 import { apiRequest } from '@/lib/api';
 
-export interface CategoryNode {
-  readonly id: string;
-  readonly name: string;
-  readonly slug: string;
-  readonly displayOrder: number;
-  readonly productCount: number;
-  readonly children: readonly CategoryNode[];
-}
-
-export interface BrandSummary {
-  readonly id: string;
-  readonly name: string;
-  readonly slug: string;
-  readonly logoUrl: string | null;
-  readonly productCount: number;
-}
-
-export interface ProductDetail extends Product {
-  readonly warrantyLabel: string;
-}
+export type { BrandSummary, CategoryNode, ProductDetail };
 
 export const catalogKeys = {
   all: ['catalog'] as const,

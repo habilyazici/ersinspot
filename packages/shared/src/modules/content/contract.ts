@@ -10,7 +10,6 @@ import { z } from 'zod';
 import {
   emailSchema,
   fullNameSchema,
-  optionalText,
   paginationSchema,
   phoneSchema,
   requiredText,
@@ -286,6 +285,19 @@ export const uploadRequestSchema = z.object({
   purpose: z.enum(UPLOAD_PURPOSES),
 });
 
-export type UploadRequestInput = z.infer<typeof uploadRequestSchema>;
+/**
+ * Herkese açık sunulan yükleme amaçları.
+ *
+ * Ürün görselleri ve blog kapakları vitrinin parçasıdır; oturumsuz ziyaretçi
+ * de görmelidir. Diğer amaçlar KİŞİSEL VERİDİR: talep fotoğrafları müşterinin
+ * evinin içini, profil resmi kişinin kendisini gösterir. Bunlar yalnızca
+ * sahibine ve personele açılır.
+ *
+ * Ayrım burada tanımlıdır çünkü hem sunucu (dosya sunumu yetkilendirmesi) hem
+ * arayüz (önbellek davranışı) aynı listeye bakar.
+ */
+export const PUBLIC_UPLOAD_PURPOSES = ['product_image', 'blog_cover'] as const;
 
-export const optionalContactNote = optionalText(500);
+export function isPublicUploadPurpose(purpose: string): boolean {
+  return (PUBLIC_UPLOAD_PURPOSES as readonly string[]).includes(purpose);
+}
