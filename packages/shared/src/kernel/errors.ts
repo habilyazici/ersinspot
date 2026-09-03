@@ -18,7 +18,6 @@ export const ERROR_CODES = [
 
   // 401 — kimlik doğrulanmamış
   'unauthenticated',
-  'session_expired',
   'invalid_credentials',
 
   // 403 — yetki yok
@@ -54,7 +53,6 @@ export const ERROR_STATUS: Readonly<Record<ErrorCode, number>> = {
   business_rule_violated: 400,
 
   unauthenticated: 401,
-  session_expired: 401,
   invalid_credentials: 401,
 
   forbidden: 403,
@@ -88,7 +86,6 @@ export const ERROR_MESSAGES: Readonly<Record<ErrorCode, string>> = {
   business_rule_violated: 'Bu işlem iş kurallarına uymuyor.',
 
   unauthenticated: 'Bu işlem için giriş yapmanız gerekiyor.',
-  session_expired: 'Oturumunuz sona erdi. Lütfen tekrar giriş yapın.',
   invalid_credentials: 'E-posta veya şifre hatalı.',
 
   forbidden: 'Bu işlem için yetkiniz yok.',
@@ -168,9 +165,9 @@ export class ApiError extends Error {
     this.traceId = body.error.traceId;
   }
 
-  /** Oturumun yenilenmesi ya da girişe yönlendirme gerektiren hatalar. */
+  /** Girişe yönlendirme gerektiren hata. */
   get requiresLogin(): boolean {
-    return this.code === 'unauthenticated' || this.code === 'session_expired';
+    return this.code === 'unauthenticated';
   }
 
   /** Kullanıcı aynı isteği tekrar deneyerek başarılı olabilir mi? */

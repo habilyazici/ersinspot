@@ -31,7 +31,7 @@ import type {
   SessionContext,
 } from '../../modules/identity/application/session.ts';
 import { resolveSession } from '../../modules/identity/application/session.ts';
-import { forbidden, unauthenticated } from '../errors/index.ts';
+import { emailNotVerified, forbidden, unauthenticated } from '../errors/index.ts';
 
 /**
  * Hono bağlamına eklenen değişkenlerin tipi.
@@ -121,8 +121,16 @@ export const requireAdmin = requireRole('admin');
 /**
  * E-posta doğrulaması zorunlu kılar.
  *
- * Sipariş verme ve hizmet talebi oluşturma gibi, iletişim kurulabilirliğin
- * önemli olduğu işlemlerde kullanılır. `requireAuth`'tan sonra zincirlenir.
+ * Hizmet talepleri (nakliye, teknik servis, ürün satışı) için kullanılır: bu
+ * işlerde ekip müşteriyle randevu ve teklif için iletişime geçer, adresin
+ * gerçekten kişiye ait olması gerekir.
+ *
+ * SİPARİŞ VERMEDE UYGULANMAZ. Satın alma yolunu doğrulama adımıyla kesmek
+ * mağazanın tercihi değildir; sipariş zaten teslimatta teyit edilen bir
+ * telefon numarası taşır. Hesap sayfasındaki uyarı da bu ayrımı aynen
+ * anlatır — iki yerin aynı şeyi söylemesi bilinçlidir.
+ *
+ * `requireAuth`'tan sonra zincirlenir.
  */
 export const requireVerifiedEmail: MiddlewareHandler<{ Variables: AuthVariables }> = async (
   c: Context<{ Variables: AuthVariables }>,
@@ -135,7 +143,7 @@ export const requireVerifiedEmail: MiddlewareHandler<{ Variables: AuthVariables 
   }
 
   if (!user.emailVerified) {
-    throw forbidden('Bu işlem için e-posta adresinizi doğrulamanız gerekiyor.');
+    throw emailNotVerified();
   }
 
   await next();

@@ -16,7 +16,7 @@
  */
 
 import { createHmac } from 'node:crypto';
-import { and, eq, gt, lt, ne } from 'drizzle-orm';
+import { and, desc, eq, gt, lt, ne } from 'drizzle-orm';
 import type { Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { db } from '../../../platform/db/client.ts';
@@ -24,8 +24,8 @@ import { sessions, users } from '../infrastructure/schema.ts';
 import { env, isProduction } from '../../../platform/config/env.ts';
 import { constantTimeEquals } from '../domain/password.ts';
 import {
+  SESSION_LAST_USED_WRITE_INTERVAL_MS,
   SESSION_REMEMBER_TTL_MS,
-  SESSION_SLIDING_THRESHOLD_MS,
   SESSION_TTL_MS,
   createTokenPair,
   expiresIn,
@@ -169,8 +169,13 @@ export async function resolveSession(c: Context): Promise<SessionContext | null>
     return null;
   }
 
-  // Kayan yenileme: son kullanımın üzerinden eşik kadar süre geçtiyse güncelle.
-  if (Date.now() - row.lastUsedAt.getTime() > SESSION_SLIDING_THRESHOLD_MS) {
+  /*
+    Son kullanım bilgisini tazele.
+
+    Oturumun süresini UZATMAZ; `expiresAt` açılışta belirlenir ve sabittir.
+    Eşik yalnızca yazma sıklığını sınırlar.
+  */
+  if (Date.now() - row.lastUsedAt.getTime() > SESSION_LAST_USED_WRITE_INTERVAL_MS) {
     await db.update(sessions).set({ lastUsedAt: new Date() }).where(eq(sessions.id, row.sessionId));
   }
 
@@ -224,7 +229,12 @@ export function clearSessionCookie(c: Context): void {
   });
 }
 
-/** Kullanıcının açık oturumlarını listeler. "Aktif cihazlarım" ekranı için. */
+/**
+ * Kullanıcının açık oturumlarını listeler. "Aktif cihazlarım" ekranı için.
+ *
+ * En son kullanılan en üstte: kullanıcının kendi cihazı listenin başında
+ * durmalı, tanımadığı bir giriş de en yeni olduğu için hemen görünmelidir.
+ */
 export async function listUserSessions(userId: string) {
   return db
     .select({
@@ -237,7 +247,7 @@ export async function listUserSessions(userId: string) {
     })
     .from(sessions)
     .where(and(eq(sessions.userId, userId), gt(sessions.expiresAt, new Date())))
-    .orderBy(sessions.lastUsedAt);
+    .orderBy(desc(sessions.lastUsedAt));
 }
 
 /**

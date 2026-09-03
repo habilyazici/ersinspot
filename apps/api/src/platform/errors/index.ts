@@ -66,6 +66,18 @@ export function forbidden(message?: string): AppError {
   return new AppError('forbidden', message === undefined ? undefined : { message });
 }
 
+/**
+ * E-posta doğrulaması gerekiyor.
+ *
+ * Genel `forbidden` yerine kendi kodunu taşır: arayüz "yetkiniz yok" ile
+ * "adresinizi doğrulayın" arasındaki farkı görebilmeli ve ikincisinde
+ * doğrulama e-postasını yeniden göndermeyi önerebilmelidir. Serbest metne
+ * bakarak ayırt etmek, mesaj değiştiğinde sessizce bozulurdu.
+ */
+export function emailNotVerified(): AppError {
+  return new AppError('email_not_verified');
+}
+
 export function notFound(resource?: string): AppError {
   return new AppError('not_found', {
     message: resource === undefined ? undefined : `${resource} bulunamadı.`,

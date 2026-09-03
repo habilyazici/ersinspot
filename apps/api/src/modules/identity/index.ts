@@ -15,10 +15,17 @@ export { authRoutes } from './api/routes.ts';
 export { resolveSession } from './application/session.ts';
 export type { AuthenticatedUser, SessionContext } from './application/session.ts';
 
-// Diğer modüllerin kullanıcı bilgisine erişimi bu fonksiyon üzerinden olur;
-// users tablosuna doğrudan sorgu yapılmaz.
-export { getUserSummary, getUserSummaries } from './application/user-directory.ts';
-export type { UserSummary } from './application/user-directory.ts';
+/*
+  Diğer modüller kullanıcı adına ve iletişim bilgisine İHTİYAÇ DUYMAZ.
 
-// Bakım görevi: süresi dolmuş oturumları temizler.
-export { pruneExpiredSessions } from './application/session.ts';
+  Sipariş ve talep kayıtları iletişim bilgisini kendi satırlarında anlık
+  görüntü olarak taşır: müşteri sonradan adını değiştirse bile geçmiş sipariş,
+  teslimatın yapıldığı ada bakar. Buraya bir okuma yüzeyi (`getUserSummary`)
+  yazılmıştı ama hiçbir modül çağırmıyordu — sözleşmede duran, çağıranı
+  olmayan bir yüzey ilk ihtiyaçta yanlış yere bağlanmayı davet eder.
+  Gerçekten gerektiğinde eklemek kolaydır.
+*/
+
+// Bakım görevi: süresi dolmuş oturumları, tükenmiş jetonları ve saklama
+// süresi geçmiş giriş denemelerini temizler.
+export { pruneExpiredAuthRecords } from './application/retention.ts';

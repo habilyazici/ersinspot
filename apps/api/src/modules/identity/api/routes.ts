@@ -43,6 +43,7 @@ import {
   checkAccountLock,
   checkIpRateLimit,
   recordFailedAttempt,
+  recordLockedAttempt,
   recordSuccessfulAttempt,
 } from '../application/rate-limit.ts';
 import {
@@ -244,11 +245,17 @@ authRoutes.post(
 
     const user = rows[0];
 
-    // Hesap kilidi kontrolü. Hesap yoksa da aynı yol izlenir.
+    /*
+      Hesap kilidi kontrolü. Hesap yoksa da aynı yol izlenir.
+
+      Kilitli hesaptaki deneme denetim kaydına yazılır ama hesap sayacını
+      ARTIRMAZ: şifre hiç denenmedi. Sayacı burada da artırmak, saldırganın
+      istek göndermeye devam ederek kilidi süresiz uzatmasına izin veriyordu.
+    */
     if (user !== undefined) {
       const lock = checkAccountLock(user.lockedUntil);
       if (!lock.allowed) {
-        await recordFailedAttempt(input.email, ip, user.id);
+        await recordLockedAttempt(input.email, ip);
         throw accountLocked(lock.retryAfterSeconds);
       }
     }

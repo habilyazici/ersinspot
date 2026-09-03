@@ -28,10 +28,14 @@ export const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 1 gün
 export const SESSION_REMEMBER_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 gün
 
 /**
- * Oturum bu süre içinde kullanılırsa süresi uzatılır (kayan pencere).
- * Her istekte veritabanına yazmamak için eşik konur.
+ * "Son kullanım" bilgisinin ne sıklıkla tazeleneceği.
+ *
+ * Oturum SÜRESİ UZAMAZ: `expiresAt` oturum açılırken bir kez belirlenir ve
+ * sabit kalır. Bu eşik yalnızca bir yazma frenidir — `lastUsedAt` her istekte
+ * güncellenseydi, her sayfa görüntülemesi bir `UPDATE` demek olurdu. Alan,
+ * hesap sayfasındaki "açık oturumlar" listesinde cihazı tanımaya yarar.
  */
-export const SESSION_SLIDING_THRESHOLD_MS = 60 * 60 * 1000; // 1 saat
+export const SESSION_LAST_USED_WRITE_INTERVAL_MS = 60 * 60 * 1000; // 1 saat
 
 /** Şifre sıfırlama bağlantısının geçerlilik süresi. Kısa tutulur. */
 export const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1 saat

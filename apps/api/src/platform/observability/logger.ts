@@ -25,9 +25,11 @@ const LEVEL_RANK: Readonly<Record<LogLevel, number>> = {
 };
 
 /**
+ * Alt sınır ortamdan türetilir; ayrıca yapılandırılmaz.
+ *
  * Testlerde loglar susturulur: her istek için satır basmak test çıktısını
- * okunmaz hale getirir. Bir testte log içeriğini incelemek gerekirse
- * `LOG_LEVEL=debug` ile çalıştırılabilir.
+ * okunmaz hale getirir. Üretimde `debug` satırları elenir, geliştirmede hepsi
+ * görünür.
  */
 const MIN_LEVEL: LogLevel = isTest ? 'silent' : isProduction ? 'info' : 'debug';
 

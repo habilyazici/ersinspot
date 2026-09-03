@@ -18,7 +18,7 @@
  * IP katmanı asıl yükü taşır.
  */
 
-import { and, count, eq, gte, sql } from 'drizzle-orm';
+import { and, count, eq, gte, lt, sql } from 'drizzle-orm';
 import { db } from '../../../platform/db/client.ts';
 import { loginAttempts, users } from '../infrastructure/schema.ts';
 
@@ -91,17 +91,43 @@ export function checkAccountLock(lockedUntil: Date | null): RateLimitResult {
   return { allowed: false, retryAfterSeconds: Math.ceil(remainingMs / 1000) };
 }
 
+/** Denemeyi denetim kaydına yazar. Sayaçlara dokunmaz. */
+async function logAttempt(
+  email: string,
+  ipAddress: string | null,
+  succeeded: boolean,
+): Promise<void> {
+  await db.insert(loginAttempts).values({
+    email: email.toLowerCase(),
+    ipAddress,
+    succeeded,
+  });
+}
+
+/**
+ * Kilitli hesaba yapılan denemeyi kaydeder.
+ *
+ * Hesap sayacına DOKUNMAZ. Kilitli bir hesapta şifre hiç denenmez; bu bir
+ * kimlik bilgisi hatası değil, kapıda geri çevrilmiş bir istektir. Sayaç
+ * burada da artırıldığında saldırgan kilidi durmadan yenileyip kademeleri
+ * yukarı taşıyabiliyordu: kurbanın hesabı, saldırgan istek göndermeye devam
+ * ettiği sürece bir saatlik kilitte kalıyordu — şifreyi bilmesine hiç gerek
+ * kalmadan.
+ *
+ * Kayıt yine de yazılır: IP katmanının sayacı bu satırları okur ve denetim
+ * izinde ısrarlı denemeler görünür kalmalıdır.
+ */
+export async function recordLockedAttempt(email: string, ipAddress: string | null): Promise<void> {
+  await logAttempt(email, ipAddress, false);
+}
+
 /** Başarısız denemeyi kaydeder ve gerekirse hesabı kilitler. */
 export async function recordFailedAttempt(
   email: string,
   ipAddress: string | null,
   userId: string | null,
 ): Promise<void> {
-  await db.insert(loginAttempts).values({
-    email: email.toLowerCase(),
-    ipAddress,
-    succeeded: false,
-  });
+  await logAttempt(email, ipAddress, false);
 
   // Hesap yoksa sayaç tutulacak bir satır da yoktur.
   if (userId === null) return;
@@ -133,16 +159,41 @@ export async function recordSuccessfulAttempt(
   ipAddress: string | null,
   userId: string,
 ): Promise<void> {
-  await db.insert(loginAttempts).values({
-    email: email.toLowerCase(),
-    ipAddress,
-    succeeded: true,
-  });
+  await logAttempt(email, ipAddress, true);
 
   await db
     .update(users)
     .set({ failedLoginCount: 0, lockedUntil: null })
     .where(eq(users.id, userId));
+}
+
+/**
+ * Giriş denemesi kaydının saklanma süresi.
+ *
+ * Kayıtlar iki işe yarar: hız sınırının 15 dakikalık penceresi ve şüpheli
+ * erişimi sonradan inceleyebilmek. İkincisi için bir aylık geçmiş yeterlidir.
+ *
+ * Süre olmadan tablo hiç küçülmezdi: her giriş denemesi — başarılısı dahil —
+ * kalıcı bir satır bırakıyor ve `checkIpRateLimit` sorgusu tablo büyüdükçe
+ * yavaşlıyordu. Yalnızca oturumların temizliği yazılmıştı; denetim tablosu
+ * atlanmıştı.
+ */
+const LOGIN_ATTEMPT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * Saklama süresi geçmiş giriş denemelerini siler.
+ *
+ * @returns Silinen satır sayısı.
+ */
+export async function pruneOldLoginAttempts(): Promise<number> {
+  const cutoff = new Date(Date.now() - LOGIN_ATTEMPT_RETENTION_MS);
+
+  const deleted = await db
+    .delete(loginAttempts)
+    .where(lt(loginAttempts.createdAt, cutoff))
+    .returning({ id: loginAttempts.id });
+
+  return deleted.length;
 }
 
 /**

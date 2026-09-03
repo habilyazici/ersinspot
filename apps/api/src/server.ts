@@ -14,7 +14,7 @@ import { env } from './platform/config/env.ts';
 import { logger } from './platform/observability/logger.ts';
 import { closeMailer } from './platform/mailer.ts';
 import { startMaintenance, stopMaintenance } from './platform/maintenance.ts';
-import { pruneExpiredSessions } from './modules/identity/index.ts';
+import { pruneExpiredAuthRecords } from './modules/identity/index.ts';
 import { releaseExpiredReservations } from './modules/catalog/index.ts';
 import { cancelExpiredUnpaidOrders } from './modules/ordering/index.ts';
 import { cleanupOrphanedFiles } from './modules/files/index.ts';
@@ -34,9 +34,9 @@ const app = createApp();
  */
 const maintenanceTasks = [
   {
-    name: 'sureli-oturumlari-temizle',
+    name: 'suresi-gecmis-kimlik-kayitlarini-temizle',
     intervalMs: 60 * 60 * 1000,
-    run: pruneExpiredSessions,
+    run: pruneExpiredAuthRecords,
   },
   {
     /*

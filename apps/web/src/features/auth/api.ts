@@ -6,6 +6,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ApiError } from '@ersinspot/shared';
 import type {
   ChangePasswordInput,
   CurrentUser,
@@ -25,8 +26,13 @@ export const authKeys = {
 /**
  * Oturum sahibini getirir.
  *
- * Oturum yoksa 401 döner ve sorgu `null` ile sonuçlanır — bu bir hata değil,
- * geçerli bir durumdur (misafir kullanıcı).
+ * YALNIZCA 401 "misafir" demektir; başka her hata olduğu gibi yükselir.
+ * Önceki hâlinde `catch` bloğu tüm hataları yutup `null` döndürüyordu: sunucu
+ * bir an cevap veremediğinde kullanıcı oturumu kapanmış sayılıyor ve korumalı
+ * bir sayfadaysa giriş ekranına atılıyordu — oysa oturumu duruyordu.
+ *
+ * Geçici hatalarda sorgu istemcisinin varsayılan yeniden deneme politikası
+ * devreye girer; bu yüzden `retry` burada kapatılmaz.
  */
 export function useCurrentUser() {
   return useQuery({
@@ -35,13 +41,13 @@ export function useCurrentUser() {
       try {
         const response = await apiRequest<{ user: CurrentUser }>('/api/auth/me');
         return response.user;
-      } catch {
-        return null;
+      } catch (error) {
+        if (error instanceof ApiError && error.requiresLogin) return null;
+        throw error;
       }
     },
     // Oturum bilgisi sık değişmez; sekme değişiminde tekrar sorulmaz.
     staleTime: 5 * 60_000,
-    retry: false,
   });
 }
 
