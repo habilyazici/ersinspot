@@ -16,6 +16,7 @@ import {
   CUSTOMER_CANCELLABLE_REQUEST_STATUSES,
   REQUEST_STATUS_TRANSITIONS,
   RESPONDABLE_REQUEST_STATUS,
+  businessDayEnd,
   canTransition,
   hasRoleAtLeast,
 } from '@ersinspot/shared';
@@ -63,11 +64,14 @@ export function requiresAppointment(status: RequestStatus): boolean {
  *
  * Süresi dolmuş bir teklif kabul edilemez; işletme fiyatı yeniden
  * değerlendirmelidir.
+ *
+ * Teklif, geçerlilik gününün SONUNA kadar kabul edilir ve o gün işletmenin
+ * saat dilimine göre biter. Sınır UTC'den alındığında teklif Türkiye'de
+ * ertesi sabah 03:00'e kadar kabul edilmeye devam ediyordu: müşteriye
+ * bildirilen son gün ile sunucunun uyguladığı sınır aynı değildi.
  */
 export function isQuoteExpired(validUntil: string, now: Date = new Date()): boolean {
-  // Geçerlilik günü sonuna kadar kabul edilir.
-  const expiry = new Date(`${validUntil}T23:59:59.999Z`);
-  return expiry.getTime() < now.getTime();
+  return now.getTime() >= businessDayEnd(validUntil).getTime();
 }
 
 /**
