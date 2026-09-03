@@ -55,12 +55,6 @@ export function calculateDeliveryFee(input: DeliveryFeeInput): Kurus {
 // Sipariş toplamı
 // ---------------------------------------------------------------------------
 
-export interface OrderLineInput {
-  /** Ürünün sipariş anındaki birim fiyatı. Sunucuda veritabanından okunur. */
-  readonly unitPrice: Kurus;
-  readonly quantity: number;
-}
-
 export interface OrderTotals {
   readonly subtotal: Kurus;
   readonly deliveryFee: Kurus;
@@ -70,14 +64,19 @@ export interface OrderTotals {
 /**
  * Sipariş toplamlarını hesaplar.
  *
- * İkinci el ürünler tekil olduğu için adet normalde 1'dir, ancak model
- * ileride çok adetli ürünleri de desteklesin diye adet parametresi korunmuştur.
+ * Girdi, kalem fiyatlarının listesidir; adet yoktur. İkinci el ürünler tekildir
+ * ve bir üründen yalnızca bir tane satılabilir — adet parametresi "ileride
+ * lazım olur" diye duruyordu ve tek etkisi, doğrudan API'ye istek atan birinin
+ * tek bir ürün için birden çok kez ücretlendirilmesiydi.
+ *
+ * Hem sunucu hem tarayıcı bu fonksiyonu çağırır; iki tarafın hesabı yapısal
+ * olarak aynıdır.
  */
 export function calculateOrderTotals(
-  lines: readonly OrderLineInput[],
+  prices: readonly Kurus[],
   delivery: Omit<DeliveryFeeInput, 'subtotal'>,
 ): OrderTotals {
-  const subtotal = sum(lines.map((line) => multiply(line.unitPrice, line.quantity)));
+  const subtotal = sum(prices);
   const deliveryFee = calculateDeliveryFee({ ...delivery, subtotal });
 
   return {

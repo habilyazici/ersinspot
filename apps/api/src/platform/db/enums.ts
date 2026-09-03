@@ -90,17 +90,3 @@ export const settingValueTypeEnum = pgEnum('setting_value_type', [
   'boolean',
   'time',
 ] as const);
-
-/**
- * Ödeme kaydının durumu.
- *
- * Havale/EFT'de ödeme beklenir ve personel gelen parayı elle eşleştirir;
- * kapıda ödemede tahsilat teslimatta yapılır. İkisinde de "para geldi mi"
- * sorusunun kaydı tutulmalıdır.
- */
-export const paymentStatusEnum = pgEnum('payment_status', [
-  'pending',
-  'confirmed',
-  'refunded',
-  'failed',
-] as const);

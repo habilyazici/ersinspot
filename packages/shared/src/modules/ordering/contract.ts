@@ -2,9 +2,9 @@
  * Sipariş şemaları.
  *
  * KRİTİK TASARIM KARARI: sipariş oluşturma girdisi hiçbir tutar alanı içermez.
- * İstemci yalnızca *hangi ürünü* ve *kaç adet* istediğini bildirir; birim fiyat,
- * ara toplam, teslimat ücreti ve genel toplam sunucuda veritabanından okunan
- * fiyatlarla hesaplanır.
+ * İstemci yalnızca *hangi ürünü* istediğini bildirir; fiyat, ara toplam,
+ * teslimat ücreti ve genel toplam sunucuda veritabanından okunan fiyatlarla
+ * hesaplanır.
  *
  * Eski kod tabanında toplam, istemcinin gönderdiği `item.price` değerlerinden
  * hesaplanıyordu (`items.reduce((sum, item) => sum + item.price, 0)`). Bu, herhangi
@@ -16,6 +16,7 @@ import { z } from 'zod';
 import {
   addressSchema,
   appointmentDateSchema,
+  dateOnlySchema,
   fullNameSchema,
   optionalText,
   paginationSchema,
@@ -37,19 +38,21 @@ import type { OrderStatus } from '../../kernel/status.ts';
 // ---------------------------------------------------------------------------
 
 /**
- * Sepet kalemi girdisi. Fiyat taşımaz.
+ * Sepet kalemi girdisi. Fiyat ve ADET taşımaz.
  *
- * İkinci el ürünler tekil olduğu için adet üst sınırı düşüktür; model ileride
- * çok adetli ürünleri desteklesin diye alan korunmuştur.
+ * İkinci el ürünler tekildir: bir ürünün stok adedi her zaman 1'dir ve yaşam
+ * döngüsü bir sayaç değil, durum makinesidir (`for_sale → reserved → sold`).
+ * Aynı buzdolabından "üç adet" diye bir şey yoktur.
+ *
+ * Şema önceden 1–10 arası adet kabul ediyordu. Arayüzde adet seçici hiç
+ * olmadığı için bu alan yalnızca API'ye doğrudan istek atan biri tarafından
+ * doldurulabiliyordu ve sonucu şuydu: sipariş kalemi `birim fiyat × adet`
+ * tutarıyla yazılıyor, buna karşılık rezerve edilen ve satılan tek bir ürün
+ * oluyordu — müşteri bir buzdolabı için üç buzdolabı parası ödüyordu. Alanı
+ * kaldırmak, bu hatanın tekrar yazılmasını yapısal olarak engeller.
  */
 export const cartItemInputSchema = z.object({
   productId: uuidSchema,
-  quantity: z
-    .number()
-    .int({ message: 'Adet tam sayı olmalıdır.' })
-    .min(1, { message: 'Adet en az 1 olmalıdır.' })
-    .max(10, { message: 'Bu üründen en fazla 10 adet alabilirsiniz.' })
-    .default(1),
 });
 
 /** Sunucudan dönen sepet kalemi: fiyat ve güncel uygunluk bilgisiyle birlikte. */
@@ -59,10 +62,8 @@ export const cartItemSchema = z.object({
   title: z.string(),
   coverImageUrl: z.string().url().nullable(),
   condition: z.enum(PRODUCT_CONDITIONS),
-  /** Kuruş cinsinden güncel birim fiyat. */
-  unitPrice: z.number().int(),
-  quantity: z.number().int(),
-  lineTotal: z.number().int(),
+  /** Kuruş cinsinden güncel fiyat. */
+  price: z.number().int(),
   /**
    * Ürün sepete eklendikten sonra satıştan kalkmış olabilir. Bu durumda kalem
    * sepette görünmeye devam eder ama sipariş verilemez; arayüz bunu belirtir.
@@ -150,9 +151,8 @@ export const orderItemSchema = z.object({
   titleSnapshot: z.string(),
   imageUrlSnapshot: z.string().url().nullable(),
   conditionSnapshot: z.enum(PRODUCT_CONDITIONS),
-  unitPrice: z.number().int(),
-  quantity: z.number().int(),
-  lineTotal: z.number().int(),
+  /** Sipariş anındaki fiyat. Ürün fiyatı sonradan değişse bile sabit kalır. */
+  price: z.number().int(),
 });
 
 export const orderStatusEventSchema = z.object({
@@ -231,11 +231,19 @@ export const orderListQuerySchema = paginationSchema.extend({
 
 export type OrderListQuery = z.infer<typeof orderListQuerySchema>;
 
+/**
+ * Yönetim paneli sipariş listesi süzgeçleri.
+ *
+ * Tarih alanları takvim günü şemasından geçer. Serbest metin kabul edildiğinde
+ * sunucu bu değeri `new Date(...)` içine koyuyor ve geçersiz bir gün ("dun"
+ * gibi) sorgu sürücüsünde `Invalid time value` ile 500'e dönüşüyordu: bir
+ * süzgeç parametresi, doğrulanmadığı için hata sayfasına çıkıyordu.
+ */
 export const adminOrderListQuerySchema = paginationSchema.extend({
   status: z.enum(ORDER_STATUSES).optional(),
   search: z.string().trim().max(120).optional(),
-  fromDate: z.string().optional(),
-  toDate: z.string().optional(),
+  fromDate: dateOnlySchema.optional(),
+  toDate: dateOnlySchema.optional(),
 });
 
 export type AdminOrderListQuery = z.infer<typeof adminOrderListQuerySchema>;
@@ -248,11 +256,31 @@ export interface CreateOrderResult {
 }
 
 /**
+ * Sipariş takibi sorgusu.
+ *
+ * Takip numarası TEK BAŞINA yeterli değildir. Numaralar sırayla üretilir
+ * ("SIP-2026-000123"); yalnızca numarayla sorgulanabilen bir uç, sayacı
+ * artırarak mağazanın tüm siparişlerinin durumunun, tarihinin ve zaman
+ * çizelgesinin dışarıdan taranabilmesi demektir. Hız sınırı bunu yavaşlatır
+ * ama engellemez.
+ *
+ * Bu yüzden siparişin iletişim numarası da istenir: müşterinin bildiği,
+ * saldırganın numaradan türetemeyeceği ikinci bir bilgi.
+ */
+export const orderTrackingQuerySchema = z.object({
+  reference: referenceNumberSchema,
+  phone: phoneSchema,
+});
+
+export type OrderTrackingQuery = z.infer<typeof orderTrackingQuerySchema>;
+
+/**
  * Takip numarasıyla sorgulanan sipariş durumu.
  *
  * Oturum gerektirmeyen bir uçtan döndüğü için bilinçli olarak DARDIR: adres,
- * telefon ve kalem fiyatları yer almaz. Takip numarası tahmin edilemez olsa da,
- * kişisel veriyi oturumsuz bir uçta açmak doğru değildir.
+ * telefon ve kalem fiyatları yer almaz. Sorgulayan kişi siparişin iletişim
+ * numarasını bildiğini kanıtlamış olsa da, oturumsuz bir uçta gösterilen
+ * kişisel veri en aza indirilir.
  */
 export interface PublicOrderStatus {
   readonly referenceNumber: string;

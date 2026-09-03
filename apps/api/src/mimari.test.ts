@@ -4,9 +4,9 @@
  * `docs/MIMARI.md` bir niyet beyanı değil, uyulması gereken bir sözleşmedir.
  * Ama belge kodla birlikte güncellenmezse tam tersi olur: yanlış bir haritaya
  * bakan kişi yanlış yere yazar. Denetimde tam olarak bu görüldü — jsonb'den
- * ilişkisele geçişte eklenen altı tablo (`customer_addresses`,
- * `order_addresses`, `request_addresses`, `payments`, `tags`,
- * `blog_post_tags`) belgedeki sahiplik haritasına hiç işlenmemişti.
+ * ilişkisele geçişte eklenen tablolar (`order_addresses`, `request_addresses`,
+ * `tags`, `blog_post_tags` ve o dönem var olan birkaçı) belgedeki sahiplik
+ * haritasına hiç işlenmemişti.
  *
  * Bu test belgeyi kaynak kabul eder ve koda karşı doğrular. Sınır ihlallerini
  * ESLint zaten engelliyor; buradaki kontrol tamamlayıcıdır: ESLint "yanlış
@@ -189,7 +189,7 @@ describe('Mimari sözleşmesi', () => {
 
       // Üye olmadan yapılabilenler.
       'POST /contact',
-      'GET /order-tracking/:reference',
+      'GET /order-tracking',
       'GET /moving/estimate',
 
       // Kimlik: giriş yapamayan kullanıcının kullanması gereken uçlar.

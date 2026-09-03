@@ -19,6 +19,7 @@ export { catalogRoutes } from './api/routes.ts';
 
 import {
   RESERVATION_DURATION_MS,
+  getProductsForDisplay,
   getPurchasableProducts,
   markProductsAsSold,
   releaseExpiredReservations,
@@ -36,8 +37,12 @@ import { createProductFromSellRequest } from './application/product-writer.ts';
  * biçiminde görünür ve hangi modülün sorumluluğunda olduğu okunurken belli olur.
  */
 export const catalog = {
-  // ordering: sipariş oluştururken fiyat ve uygunluk sorar, envanteri günceller
+  // ordering: sipariş oluştururken fiyat ve uygunluk sorar, envanteri günceller.
+  // Satırları kilitler; yalnızca yazma yolunda kullanılır.
   getPurchasableProducts,
+
+  // ordering: sepeti görüntülerken aynı bilgiyi kilitsiz okur
+  getProductsForDisplay,
 
   // ordering: favori listesinde gösterilecek ürün özetlerini alır
   listProductSummaries,

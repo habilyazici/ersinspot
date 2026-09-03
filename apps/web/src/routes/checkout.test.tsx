@@ -46,9 +46,7 @@ const cart: { current: Cart } = {
         title: 'Arçelik Buzdolabı',
         coverImageUrl: null,
         condition: 'good',
-        unitPrice: 800_000, // 8.000 TL
-        quantity: 1,
-        lineTotal: 800_000,
+        price: 800_000, // 8.000 TL
         isAvailable: true,
       },
     ],

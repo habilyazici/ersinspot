@@ -1,10 +1,12 @@
 /**
  * Sepet işlemleri.
  *
- * Sepet, ürün fiyatını SAKLAMAZ. Kalemler yalnızca ürün kimliği ve adet taşır;
- * fiyat her okumada `catalog` modülünden alınır. Böylece sepette duran bir
- * ürünün fiyatı değiştiğinde kullanıcı güncel fiyatı görür ve eski fiyatla
- * sipariş verilemez.
+ * Sepet, ürün fiyatını SAKLAMAZ. Kalemler yalnızca ürün kimliği taşır; fiyat
+ * her okumada `catalog` modülünden alınır. Böylece sepette duran bir ürünün
+ * fiyatı değiştiğinde kullanıcı güncel fiyatı görür ve eski fiyatla sipariş
+ * verilemez.
+ *
+ * Adet yoktur: ikinci el ürün tekildir, bir üründen bir tane satılır.
  *
  * Eski kod tabanında sepet hem tarayıcıda hem sunucuda tutuluyordu ve fiyat
  * kopyalanıyordu; iki kaynak ayrışabiliyordu.
@@ -13,7 +15,6 @@
 import type { Cart, CartItem } from '@ersinspot/shared';
 import { money } from '@ersinspot/shared';
 import { catalog } from '../../catalog/index.ts';
-import { db } from '../../../platform/db/client.ts';
 import { businessRule, notFound } from '../../../platform/errors/index.ts';
 import { resolveStorageUrl } from '../../../platform/storage.ts';
 import { MAX_CART_ITEMS } from '../domain/order-rules.ts';
@@ -32,17 +33,16 @@ export async function getCart(userId: string): Promise<Cart> {
   }
 
   /*
-   * Okuma yolunda da işlem kullanılır: `getPurchasableProducts` satır kilidi
-   * gerektirir (imzası `Transaction` ister). Burada kilit gerekli değildir ama
-   * tek bir tutarlı görüntü elde edilir — liste okunurken bir ürünün durumu
-   * değişirse yarım tutarlı sonuç dönmez.
+   * KİLİTSİZ okuma.
+   *
+   * Sepeti görüntülemek bir okuma işidir; ürün satırlarını kilitlemez.
+   * Önceden burada `getPurchasableProducts` çağrılıyordu — o fonksiyon sipariş
+   * akışı için `SELECT ... FOR UPDATE` yapar. Sepete bakan her ziyaretçi
+   * ürünleri kilitliyor, aynı ürüne bakan ikinci kişi ve o sırada sipariş veren
+   * müşteri kilidin çözülmesini bekliyordu. Sepet, sitenin en sık açılan
+   * sayfalarından biridir; kilit orada değil, sipariş anında gerekir.
    */
-  const products = await db.transaction(async (tx) =>
-    catalog.getPurchasableProducts(
-      rows.map((row) => row.productId),
-      tx,
-    ),
-  );
+  const products = await catalog.getProductsForDisplay(rows.map((row) => row.productId));
 
   const productsById = new Map(products.map((product) => [product.id, product]));
 
@@ -60,11 +60,10 @@ export async function getCart(userId: string): Promise<Cart> {
       continue;
     }
 
-    const unitPrice = money.fromKurus(product.unitPrice);
-    const lineTotal = money.multiply(unitPrice, row.quantity);
+    const price = money.fromKurus(product.price);
 
     if (product.isPurchasable) {
-      subtotal = money.add(subtotal, lineTotal);
+      subtotal = money.add(subtotal, price);
     } else {
       hasUnavailableItems = true;
     }
@@ -76,9 +75,7 @@ export async function getCart(userId: string): Promise<Cart> {
       coverImageUrl:
         product.coverStorageKey === null ? null : resolveStorageUrl(product.coverStorageKey),
       condition: product.condition,
-      unitPrice,
-      quantity: row.quantity,
-      lineTotal,
+      price,
       isAvailable: product.isPurchasable,
     });
   }
@@ -93,14 +90,8 @@ export async function getCart(userId: string): Promise<Cart> {
  * doğrulanır. Sepete eklemek bir rezervasyon değildir — ürün başkası tarafından
  * satın alınabilir.
  */
-export async function addToCart(
-  userId: string,
-  productId: string,
-  quantity: number,
-): Promise<Cart> {
-  const [product] = await db.transaction(async (tx) =>
-    catalog.getPurchasableProducts([productId], tx),
-  );
+export async function addToCart(userId: string, productId: string): Promise<Cart> {
+  const [product] = await catalog.getProductsForDisplay([productId]);
 
   if (product === undefined) {
     throw notFound('Ürün');
@@ -117,7 +108,7 @@ export async function addToCart(
     throw businessRule(`Sepetinizde en fazla ${MAX_CART_ITEMS} farklı ürün bulunabilir.`);
   }
 
-  await repository.upsert(userId, productId, quantity);
+  await repository.add(userId, productId);
 
   return getCart(userId);
 }

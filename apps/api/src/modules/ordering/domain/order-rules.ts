@@ -55,16 +55,6 @@ export function releasesReservation(status: OrderStatus): boolean {
 }
 
 /**
- * Ödeme bu yöntemde önceden mi bekleniyor?
- *
- * Havale/EFT'de müşteri parayı gönderir, personel eşleştirir. Kapıda ödemede
- * tahsilat teslimatta yapılır ve teslim eden kişi kaydeder.
- */
-export function requiresUpfrontPayment(paymentMethod: PaymentMethod): boolean {
-  return paymentMethod === 'bank_transfer';
-}
-
-/**
  * Sepette en fazla kaç farklı ürün bulunabilir.
  *
  * İkinci el ürünler tekil olduğu için büyük sepetler beklenmez; sınır, hem

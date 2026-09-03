@@ -59,7 +59,7 @@ export default function CartPage() {
     <PageContainer width="form">
       <PageHeader
         title="Sepetim"
-        description="Sipariş vermeden önce ürünlerinizi ve adetlerini gözden geçirin."
+        description="Sipariş vermeden önce sepetinizdeki ürünleri gözden geçirin."
       />
 
       {cart.hasUnavailableItems ? (
@@ -109,7 +109,7 @@ export default function CartPage() {
                 </div>
 
                 <p className="mt-2 font-semibold text-brand-orange-600">
-                  {formatPrice(item.lineTotal)}
+                  {formatPrice(item.price)}
                 </p>
               </div>
 

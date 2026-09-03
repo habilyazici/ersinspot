@@ -5,8 +5,9 @@
  * adres ve olay kaydı ya birlikte yazılır ya da hiçbiri yazılmaz.
  */
 
-import { and, asc, desc, eq, gte, ilike, inArray, lt, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lt, or, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
+import { businessDayEnd, businessDayStart } from '@ersinspot/shared';
 import type {
   AdminOrderListQuery,
   DeliveryMethod,
@@ -16,9 +17,10 @@ import type {
   ProductCondition,
   IzmirDistrict,
 } from '@ersinspot/shared';
+import { contains } from '../../../platform/db/search.ts';
 import { db } from '../../../platform/db/client.ts';
 import type { Transaction } from '../../../platform/db/client.ts';
-import { orderAddresses, orderEvents, orderItems, orders, payments } from './schema.ts';
+import { orderAddresses, orderEvents, orderItems, orders } from './schema.ts';
 
 type Executor = Transaction | typeof db;
 
@@ -54,9 +56,7 @@ export interface OrderItemRow {
   titleSnapshot: string;
   imageStorageKeySnapshot: string | null;
   conditionSnapshot: ProductCondition;
-  unitPriceKurus: number;
-  quantity: number;
-  lineTotalKurus: number;
+  priceKurus: number;
 }
 
 export interface OrderAddressRow {
@@ -133,9 +133,7 @@ export interface CreateOrderItemRow {
   titleSnapshot: string;
   imageStorageKeySnapshot: string | null;
   conditionSnapshot: ProductCondition;
-  unitPriceKurus: number;
-  quantity: number;
-  lineTotalKurus: number;
+  priceKurus: number;
 }
 
 export async function insertItems(
@@ -168,21 +166,6 @@ export async function insertEvent(
     note: options.note ?? null,
     actorUserId: options.actorUserId ?? null,
   });
-}
-
-export async function insertPayment(
-  row: {
-    orderId: string;
-    method: PaymentMethod;
-    amountKurus: number;
-    status: 'pending' | 'confirmed';
-    confirmedAt: Date | null;
-    recordedByUserId: string | null;
-    reference: string | null;
-  },
-  tx: Transaction,
-): Promise<void> {
-  await tx.insert(payments).values(row);
 }
 
 // ---------------------------------------------------------------------------
@@ -218,9 +201,7 @@ export async function findItems(orderId: string, executor: Executor = db): Promi
       titleSnapshot: orderItems.titleSnapshot,
       imageStorageKeySnapshot: orderItems.imageStorageKeySnapshot,
       conditionSnapshot: orderItems.conditionSnapshot,
-      unitPriceKurus: orderItems.unitPriceKurus,
-      quantity: orderItems.quantity,
-      lineTotalKurus: orderItems.lineTotalKurus,
+      priceKurus: orderItems.priceKurus,
     })
     .from(orderItems)
     .where(eq(orderItems.orderId, orderId));
@@ -245,9 +226,7 @@ export async function findItemsForOrders(
       titleSnapshot: orderItems.titleSnapshot,
       imageStorageKeySnapshot: orderItems.imageStorageKeySnapshot,
       conditionSnapshot: orderItems.conditionSnapshot,
-      unitPriceKurus: orderItems.unitPriceKurus,
-      quantity: orderItems.quantity,
-      lineTotalKurus: orderItems.lineTotalKurus,
+      priceKurus: orderItems.priceKurus,
     })
     .from(orderItems)
     .where(inArray(orderItems.orderId, [...orderIds]));
@@ -338,19 +317,25 @@ export async function listForAdmin(query: AdminOrderListQuery): Promise<ListResu
   if (query.status !== undefined) {
     conditions.push(eq(orders.status, query.status));
   }
+  /*
+    Sınırlar İŞLETMENİN saat dilimine göre alınır ve aralık yarı açıktır.
+
+    UTC gece yarısı kullanıldığında bir gün Türkiye'de 03:00'te başlıyordu:
+    gece verilen siparişler o günün süzgecinde görünmüyor, ertesi günün
+    süzgecinde ise fazladan sayılıyordu.
+  */
   if (query.fromDate !== undefined) {
-    conditions.push(gte(orders.createdAt, new Date(`${query.fromDate}T00:00:00Z`)));
+    conditions.push(gte(orders.createdAt, businessDayStart(query.fromDate)));
   }
   if (query.toDate !== undefined) {
-    conditions.push(lte(orders.createdAt, new Date(`${query.toDate}T23:59:59Z`)));
+    conditions.push(lt(orders.createdAt, businessDayEnd(query.toDate)));
   }
 
   if (query.search !== undefined && query.search !== '') {
-    const pattern = `%${query.search}%`;
     const searchCondition = or(
-      ilike(orders.referenceNumber, pattern),
-      ilike(orders.contactName, pattern),
-      ilike(orders.contactPhone, pattern),
+      contains(orders.referenceNumber, query.search),
+      contains(orders.contactName, query.search),
+      contains(orders.contactPhone, query.search),
     );
     if (searchCondition !== undefined) {
       conditions.push(searchCondition);
@@ -388,12 +373,19 @@ export async function updateStatus(
   await tx.update(orders).set({ status }).where(eq(orders.id, orderId));
 }
 
-/** Personel notunu yazar. Boş metin notu SİLER; talep tarafıyla aynı sözleşme. */
-export async function updateStaffNote(orderId: string, staffNote: string): Promise<void> {
-  await db
+/**
+ * Personel notunu yazar. Boş metin notu SİLER; talep tarafıyla aynı sözleşme.
+ *
+ * @returns Böyle bir sipariş varsa `true`.
+ */
+export async function updateStaffNote(orderId: string, staffNote: string): Promise<boolean> {
+  const updated = await db
     .update(orders)
     .set({ staffNote: staffNote === '' ? null : staffNote })
-    .where(eq(orders.id, orderId));
+    .where(eq(orders.id, orderId))
+    .returning({ id: orders.id });
+
+  return updated.length > 0;
 }
 
 /**

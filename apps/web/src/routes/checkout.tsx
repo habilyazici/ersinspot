@@ -146,12 +146,9 @@ export default function CheckoutPage() {
   const totals = useMemo(() => {
     if (cart === undefined) return null;
 
-    const lines = cart.items
+    const prices = cart.items
       .filter((item) => item.isAvailable)
-      .map((item) => ({
-        unitPrice: money.fromKurus(item.unitPrice),
-        quantity: item.quantity,
-      }));
+      .map((item) => money.fromKurus(item.price));
 
     /*
       İlçe seçilmeden teslimat ücreti hesaplanamaz. Varsayılan alanda boş
@@ -164,7 +161,7 @@ export default function CheckoutPage() {
       chosen === undefined || chosen === '' ? 'Buca' : chosen
     ) as IzmirDistrict;
 
-    return calculateOrderTotals(lines, {
+    return calculateOrderTotals(prices, {
       method: deliveryMethod ?? 'home_delivery',
       district: selectedDistrict,
     });
@@ -399,7 +396,7 @@ export default function CheckoutPage() {
             {cart.items.map((item) => (
               <li key={item.productId} className="flex justify-between gap-2 text-sm">
                 <span className="min-w-0 flex-1 truncate text-slate-700">{item.title}</span>
-                <span className="shrink-0 font-medium">{formatPrice(item.lineTotal)}</span>
+                <span className="shrink-0 font-medium">{formatPrice(item.price)}</span>
               </li>
             ))}
           </ul>

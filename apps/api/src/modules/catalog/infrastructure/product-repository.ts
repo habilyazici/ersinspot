@@ -9,7 +9,7 @@
  * (`.or(\`email.eq.${email}\`)`), bu da filtre enjeksiyonuna açıktı.
  */
 
-import { and, asc, desc, eq, gte, ilike, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type {
   AdminProductListQuery,
@@ -19,6 +19,7 @@ import type {
   ProductStatus,
 } from '@ersinspot/shared';
 import { PUBLICLY_VISIBLE_PRODUCT_STATUSES } from '@ersinspot/shared';
+import { contains } from '../../../platform/db/search.ts';
 import { db } from '../../../platform/db/client.ts';
 import type { Transaction } from '../../../platform/db/client.ts';
 import { brands, categories, productImages, productSpecs, products } from './schema.ts';
@@ -150,10 +151,12 @@ function publicConditions(query: ProductListQuery): SQL[] {
   }
 
   if (query.search !== undefined && query.search !== '') {
-    // Başlık ve marka üzerinde kısmi eşleşme. `ilike` parametreli üretilir;
-    // arama metni sorgu yapısını etkileyemez.
-    const pattern = `%${query.search}%`;
-    const searchCondition = or(ilike(products.title, pattern), ilike(brands.name, pattern));
+    // Başlık ve marka üzerinde kısmi eşleşme. Desen parametreli üretilir ve
+    // joker karakterler kaçırılır; arama metni sorgu yapısını etkileyemez.
+    const searchCondition = or(
+      contains(products.title, query.search),
+      contains(brands.name, query.search),
+    );
     if (searchCondition !== undefined) {
       conditions.push(searchCondition);
     }
@@ -180,11 +183,10 @@ function adminConditions(query: AdminProductListQuery): SQL[] {
   }
 
   if (query.search !== undefined && query.search !== '') {
-    const pattern = `%${query.search}%`;
     const searchCondition = or(
-      ilike(products.title, pattern),
-      ilike(products.slug, pattern),
-      ilike(brands.name, pattern),
+      contains(products.title, query.search),
+      contains(products.slug, query.search),
+      contains(brands.name, query.search),
     );
     if (searchCondition !== undefined) {
       conditions.push(searchCondition);
@@ -385,13 +387,29 @@ export interface PurchasableRow {
   coverStorageKey: string | null;
 }
 
+/** Kapak görseli olmadan, yalnızca fiyat ve durum. */
+const purchasableSelection = {
+  id: products.id,
+  slug: products.slug,
+  title: products.title,
+  priceKurus: products.priceKurus,
+  status: products.status,
+  condition: products.condition,
+} as const;
+
 /**
- * Sipariş oluşturmak için gereken ürün bilgisini döndürür.
+ * Sipariş oluşturmak için gereken ürün bilgisini döndürür ve satırları kilitler.
  *
  * `FOR UPDATE` kilidi kullanılır: iki müşteri aynı tekil ürünü aynı anda sipariş
  * etmeye çalıştığında ikincisi ilkinin işlemi bitene kadar bekler ve ardından
  * ürünü `reserved` durumda görüp reddedilir. Kilit olmadan her iki sipariş de
  * geçerdi ve aynı buzdolabı iki kez satılırdı.
+ *
+ * SIRALAMA KİLİDİN PARÇASIDIR. Kilitler satırların döndüğü sırayla alınır;
+ * sıra belirtilmediğinde bunu tarama planı belirler. İki sepette aynı iki ürün
+ * ters sırada kilitlendiğinde işlemler birbirini bekler ve PostgreSQL birini
+ * ölü kilit (deadlock) hatasıyla düşürür. Kimliğe göre sıralamak, tüm
+ * işlemlerin aynı sırayı izlemesini ve bu durumun hiç oluşmamasını sağlar.
  */
 export async function findPurchasableForUpdate(
   productIds: readonly string[],
@@ -400,16 +418,10 @@ export async function findPurchasableForUpdate(
   if (productIds.length === 0) return [];
 
   const rows = await tx
-    .select({
-      id: products.id,
-      slug: products.slug,
-      title: products.title,
-      priceKurus: products.priceKurus,
-      status: products.status,
-      condition: products.condition,
-    })
+    .select(purchasableSelection)
     .from(products)
     .where(and(inArray(products.id, [...productIds]), isNull(products.deletedAt)))
+    .orderBy(asc(products.id))
     .for('update');
 
   // Kapak görselleri ayrı çekilir: `FOR UPDATE`, dış birleşimle birlikte kullanılamaz.
@@ -419,6 +431,51 @@ export async function findPurchasableForUpdate(
     ...row,
     coverStorageKey: images.get(row.id)?.[0]?.storageKey ?? null,
   }));
+}
+
+/**
+ * Aynı bilgiyi KİLİTSİZ döndürür: sepet ve benzeri okuma yolları için.
+ *
+ * Sepeti görüntülemek ürün satırlarını kilitlememelidir. Önceden okuma yolu da
+ * `findPurchasableForUpdate` çağırıyordu; sepete bakan her ziyaretçi ürünleri
+ * kilitliyor ve o sırada sipariş vermeye çalışan müşteri bekliyordu.
+ */
+export async function findPurchasable(productIds: readonly string[]): Promise<PurchasableRow[]> {
+  if (productIds.length === 0) return [];
+
+  const rows = await db
+    .select(purchasableSelection)
+    .from(products)
+    .where(and(inArray(products.id, [...productIds]), isNull(products.deletedAt)));
+
+  const images = await findImagesForProducts(rows.map((row) => row.id));
+
+  return rows.map((row) => ({
+    ...row,
+    coverStorageKey: images.get(row.id)?.[0]?.storageKey ?? null,
+  }));
+}
+
+/**
+ * Durum geçişi için gereken en az bilgiyi kilitleyerek okur.
+ *
+ * Rezervasyonu çözmek ve satıldı işaretlemek yalnızca mevcut durumu bilmeyi
+ * gerektirir. Önceden bu iki yol da `findPurchasableForUpdate` çağırıyor,
+ * kullanılmayan kapak görsellerini de çekiyordu: her sipariş iptalinde ve her
+ * teslimatta fazladan bir sorgu.
+ */
+export async function findStatusesForUpdate(
+  productIds: readonly string[],
+  tx: Transaction,
+): Promise<{ id: string; status: ProductStatus }[]> {
+  if (productIds.length === 0) return [];
+
+  return tx
+    .select({ id: products.id, status: products.status })
+    .from(products)
+    .where(and(inArray(products.id, [...productIds]), isNull(products.deletedAt)))
+    .orderBy(asc(products.id))
+    .for('update');
 }
 
 /**

@@ -88,7 +88,7 @@ describe('fiyat kaynağı', () => {
 
     const [product] = await db.transaction(async (tx) => getPurchasableProducts([productId], tx));
 
-    expect(product?.unitPrice).toBe(4_999_00);
+    expect(product?.price).toBe(4_999_00);
   });
 
   it('ürün fiyatı değiştiğinde yeni fiyatı döndürür', async () => {
@@ -98,7 +98,7 @@ describe('fiyat kaynağı', () => {
 
     const [product] = await db.transaction(async (tx) => getPurchasableProducts([productId], tx));
 
-    expect(product?.unitPrice).toBe(1_500_00);
+    expect(product?.price).toBe(1_500_00);
   });
 
   it('bulunamayan ürünleri sonuçta döndürmez', async () => {

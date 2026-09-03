@@ -145,13 +145,12 @@ export default function AdminOrderDetailPage() {
                     <p className="font-medium text-slate-900">{item.titleSnapshot}</p>
                     <p className="mt-1 text-xs text-slate-500">
                       {PRODUCT_CONDITION_LABELS[item.conditionSnapshot].label}
-                      {item.quantity > 1 ? ` · ${item.quantity} adet` : ''}
                       {item.productId === null ? ' · ürün kaydı silinmiş' : ''}
                     </p>
                   </div>
 
                   <p className="shrink-0 self-center font-semibold tabular-nums text-slate-900">
-                    {formatPrice(item.lineTotal)}
+                    {formatPrice(item.price)}
                   </p>
                 </Card>
               ))}

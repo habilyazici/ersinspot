@@ -11,6 +11,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   MAX_APPOINTMENT_LEAD_DAYS,
   appointmentDateSchema,
+  businessDayEnd,
+  businessDayStart,
   dateAfterDays,
   dateOnlySchema,
   timeSlotSchema,
@@ -102,6 +104,41 @@ describe('dateOnlySchema', () => {
   it('biçimsiz metni reddeder', () => {
     expect(dateOnlySchema.safeParse('15.03.2026').success).toBe(false);
     expect(dateOnlySchema.safeParse('2026-3-5').success).toBe(false);
+  });
+});
+
+describe('iş günü sınırları', () => {
+  /*
+    Süzgeç sınırları UTC gece yarısından alındığında bir gün, Türkiye'de
+    03:00'te başlayıp ertesi sabah 03:00'te bitiyordu: gece verilen siparişler
+    o günün listesinde görünmüyor, bir sonrakinde iki kez sayılıyordu.
+  */
+  it('gün İstanbul gece yarısında başlar', () => {
+    expect(businessDayStart('2026-03-15').toISOString()).toBe('2026-03-14T21:00:00.000Z');
+  });
+
+  it('gün ertesi günün başlangıcında biter', () => {
+    expect(businessDayEnd('2026-03-15').toISOString()).toBe('2026-03-15T21:00:00.000Z');
+  });
+
+  it('aralık tam olarak 24 saattir', () => {
+    const start = businessDayStart('2026-03-15').getTime();
+    const end = businessDayEnd('2026-03-15').getTime();
+
+    expect(end - start).toBe(24 * 60 * 60 * 1000);
+  });
+
+  it('gece yarısından hemen sonrası günün içinde kalır', () => {
+    // 14 Mart 21:30 UTC = 15 Mart 00:30 İstanbul.
+    const justAfterMidnight = new Date('2026-03-14T21:30:00Z').getTime();
+
+    expect(justAfterMidnight).toBeGreaterThanOrEqual(businessDayStart('2026-03-15').getTime());
+    expect(justAfterMidnight).toBeLessThan(businessDayEnd('2026-03-15').getTime());
+  });
+
+  it('ay ve yıl sınırını doğru geçer', () => {
+    expect(businessDayEnd('2026-03-31').toISOString()).toBe('2026-03-31T21:00:00.000Z');
+    expect(businessDayEnd('2026-12-31').toISOString()).toBe('2026-12-31T21:00:00.000Z');
   });
 });
 

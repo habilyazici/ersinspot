@@ -17,18 +17,28 @@ import { useOrderTracking } from '@/features/ordering';
  * dosyaya gömülü "SIP-123456" gibi kodlar eşleşiyordu ve gerçek bir müşteri
  * kendi sipariş numarasını girdiğinde "bulunamadı" alıyordu.
  *
- * Oturum gerektirmez; bu yüzden dönen bilgi bilinçli olarak dardır: ad,
- * telefon, adres ve fiyat yer almaz.
+ * İKİ BİLGİ İSTENİR. Takip numaraları sırayla üretilir; yalnızca numarayla
+ * sorgulanabilseydi sayacı artıran biri mağazanın tüm siparişlerinin durumunu
+ * tarayabilirdi. Sipariş üzerindeki iletişim numarası, müşterinin bildiği ama
+ * saldırganın numaradan türetemeyeceği ikinci bilgidir.
+ *
+ * Oturum gerektirmez; bu yüzden dönen bilgi ayrıca dardır: ad, telefon, adres
+ * ve fiyat yer almaz.
  */
 export default function OrderTrackingPage() {
-  const [input, setInput] = useState('');
-  const [submitted, setSubmitted] = useState('');
+  const [reference, setReference] = useState('');
+  const [phone, setPhone] = useState('');
+  const [submitted, setSubmitted] = useState<{ reference: string; phone: string } | null>(null);
 
-  const { data, isLoading, isError } = useOrderTracking(submitted, submitted !== '');
+  const { data, isLoading, isError } = useOrderTracking(
+    submitted?.reference ?? '',
+    submitted?.phone ?? '',
+    submitted !== null,
+  );
 
   function handleSubmit(event: FormEvent): void {
     event.preventDefault();
-    setSubmitted(input.trim().toUpperCase());
+    setSubmitted({ reference: reference.trim().toUpperCase(), phone: phone.trim() });
   }
 
   return (
@@ -37,22 +47,36 @@ export default function OrderTrackingPage() {
         align="center"
         icon={PackageSearch}
         title="Sipariş Takibi"
-        description="Sipariş onayında size ilettiğimiz takip numarasını girin."
+        description="Sipariş onayında size ilettiğimiz takip numarasını ve siparişteki telefon numarasını girin."
       />
 
-      {/* `items-end`: alan etiketiyle birlikte çizildiği için düğme alt hizada durmalı. */}
-      <form onSubmit={handleSubmit} className="mt-8 flex items-end gap-2">
-        <TextField
-          label="Takip numarası"
-          className="flex-1"
-          value={input}
-          onChange={(event) => {
-            setInput(event.target.value);
-          }}
-          placeholder="SIP-2026-000123"
-          autoComplete="off"
-          inputMode="text"
-        />
+      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField
+            label="Takip numarası"
+            required
+            value={reference}
+            onChange={(event) => {
+              setReference(event.target.value);
+            }}
+            placeholder="SIP-2026-000123"
+            autoComplete="off"
+            inputMode="text"
+          />
+
+          <TextField
+            label="Telefon"
+            required
+            type="tel"
+            value={phone}
+            onChange={(event) => {
+              setPhone(event.target.value);
+            }}
+            placeholder="0507 194 05 50"
+            hint="Siparişi verirken bildirdiğiniz numara."
+            autoComplete="tel"
+          />
+        </div>
 
         <Button type="submit" size="lg" isLoading={isLoading}>
           Sorgula
@@ -63,7 +87,8 @@ export default function OrderTrackingPage() {
         {isError ? (
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
             <p className="text-sm text-slate-700">
-              Bu takip numarasıyla bir sipariş bulunamadı. Numarayı kontrol edip tekrar deneyin.
+              Bu bilgilerle bir sipariş bulunamadı. Takip ve telefon numarasını kontrol edip tekrar
+              deneyin.
             </p>
           </div>
         ) : data === undefined ? null : (

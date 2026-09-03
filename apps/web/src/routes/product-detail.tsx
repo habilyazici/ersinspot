@@ -37,17 +37,14 @@ export default function ProductDetailPage() {
     kod tabanının başka hiçbir yerinde bulunmayan bir `!` işaretinden kurtarır.
   */
   function handleAddToCart(productId: string): void {
-    addToCart.mutate(
-      { productId },
-      {
-        onSuccess: () => toast.success('Ürün sepetinize eklendi.'),
-        onError: (mutationError) => {
-          toast.error(
-            mutationError instanceof ApiError ? mutationError.message : 'Ürün sepete eklenemedi.',
-          );
-        },
+    addToCart.mutate(productId, {
+      onSuccess: () => toast.success('Ürün sepetinize eklendi.'),
+      onError: (mutationError) => {
+        toast.error(
+          mutationError instanceof ApiError ? mutationError.message : 'Ürün sepete eklenemedi.',
+        );
       },
-    );
+    });
   }
 
   return (

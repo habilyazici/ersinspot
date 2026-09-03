@@ -6,14 +6,14 @@
  * bağlantının da 404'e düştüğü görüldü.
  *
  * Gösterilen kalem bilgisi ürünün GÜNCEL hâli değil, sipariş anındaki
- * kopyasıdır (`titleSnapshot`, `unitPrice`). Ürün sonradan silinse veya fiyatı
+ * kopyasıdır (`titleSnapshot`, `price`). Ürün sonradan silinse veya fiyatı
  * değişse bile müşterinin gördüğü geçmiş bozulmaz.
  */
 
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ImageOff, MapPin, Package, ShoppingBag, Store, Truck } from 'lucide-react';
+import { Banknote, ImageOff, MapPin, Package, ShoppingBag, Store, Truck } from 'lucide-react';
 import {
   ApiError,
   CUSTOMER_CANCELLABLE_ORDER_STATUSES,
@@ -37,11 +37,57 @@ import {
   formatPrice,
   formatTimeSlot,
 } from '@/lib/format.ts';
+import { useSiteSettings } from '@/features/content';
 import { OrderTotals, useCancelOrder, useOrder } from '@/features/ordering';
 
 /** Müşteri bu siparişi kendisi iptal edebilir mi? Kural sunucuyla ortak. */
 function isCancellable(status: OrderStatus): boolean {
   return (CUSTOMER_CANCELLABLE_ORDER_STATUSES as readonly OrderStatus[]).includes(status);
+}
+
+/**
+ * Havale/EFT ödeme bilgileri.
+ *
+ * Müşteri havaleyi seçtiğinde parayı NEREYE göndereceğini bilmek zorundadır.
+ * Bu bilgi sitenin hiçbir yerinde yoktu: sipariş "ödeme bekleniyor" durumunda
+ * açılıyor, üç gün içinde ödeme gelmediği için otomatik iptal ediliyordu —
+ * müşteriye hesap numarası hiç verilmeden. Değerler site ayarlarından gelir;
+ * doldurulmamışsa kutu çizilmez ve müşteri telefonla yönlendirilir.
+ */
+function BankTransferInstructions({ referenceNumber }: { referenceNumber: string }) {
+  const { data: settings } = useSiteSettings();
+
+  const iban = settings?.['payment.bank.iban'] ?? '';
+  const bankName = settings?.['payment.bank.name'] ?? '';
+  const accountHolder = settings?.['payment.bank.account_holder'] ?? '';
+
+  if (iban.trim() === '') return null;
+
+  return (
+    <Card padding="md" className="space-y-3 border-brand-navy-200 bg-brand-navy-50">
+      <h2 className="flex items-center gap-2 font-semibold text-brand-navy-900">
+        <Banknote className="size-4" aria-hidden="true" />
+        Havale / EFT Bilgileri
+      </h2>
+
+      <DetailList
+        rows={[
+          bankName !== '' && { term: 'Banka', value: bankName },
+          accountHolder !== '' && { term: 'Hesap sahibi', value: accountHolder },
+          { term: 'IBAN', value: <span className="font-mono break-all">{iban}</span> },
+          {
+            term: 'Açıklama',
+            value: <span className="font-mono">{referenceNumber}</span>,
+          },
+        ]}
+      />
+
+      <p className="text-xs text-brand-navy-800">
+        Havale açıklamasına takip numaranızı yazın; ödemeniz bu numarayla eşleştirilir. Ödeme
+        bildirimi ulaşmazsa siparişiniz üç gün sonra otomatik olarak iptal edilir.
+      </p>
+    </Card>
+  );
 }
 
 export default function OrderDetailPage() {
@@ -132,12 +178,11 @@ export default function OrderDetailPage() {
 
                     <p className="mt-1 text-xs text-slate-500">
                       {PRODUCT_CONDITION_LABELS[item.conditionSnapshot].label}
-                      {item.quantity > 1 ? ` · ${item.quantity} adet` : ''}
                     </p>
                   </div>
 
                   <p className="shrink-0 self-center font-semibold text-slate-900">
-                    {formatPrice(item.lineTotal)}
+                    {formatPrice(item.price)}
                   </p>
                 </Card>
               ))}
@@ -182,6 +227,14 @@ export default function OrderDetailPage() {
               />
             </Card>
           </Section>
+
+          {/*
+            Havale bilgileri yalnızca ödeme beklenirken gösterilir: ödeme
+            alındıktan sonra IBAN'ın sayfada durmasının bir işlevi yok.
+          */}
+          {order.paymentMethod === 'bank_transfer' && order.status === 'pending_payment' ? (
+            <BankTransferInstructions referenceNumber={order.referenceNumber} />
+          ) : null}
 
           <Section title="Sipariş Geçmişi" icon={Package}>
             <Timeline

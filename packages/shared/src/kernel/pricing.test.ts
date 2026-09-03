@@ -56,28 +56,24 @@ describe('teslimat ücreti', () => {
 });
 
 describe('sipariş toplamı', () => {
-  it('kalem toplamlarını ve teslimat ücretini birleştirir', () => {
-    const totals = calculateOrderTotals(
-      [
-        { unitPrice: fromLira(2_500), quantity: 1 },
-        { unitPrice: fromLira(1_200), quantity: 2 },
-      ],
-      { method: 'home_delivery', district: 'Bornova' },
-    );
+  it('kalem fiyatlarını ve teslimat ücretini birleştirir', () => {
+    const totals = calculateOrderTotals([fromLira(2_500), fromLira(2_400)], {
+      method: 'home_delivery',
+      district: 'Bornova',
+    });
 
     expect(totals.subtotal).toBe(fromLira(4_900));
     expect(totals.deliveryFee).toBe(DELIVERY_FEE_OTHER_DISTRICT);
     expect(totals.total).toBe(fromLira(4_900 + 500));
   });
 
-  it('adedi hesaba katar', () => {
-    // Eski kodda toplam `sum + item.price` ile hesaplanıyor, adet yok sayılıyordu.
-    const totals = calculateOrderTotals([{ unitPrice: fromLira(100), quantity: 3 }], {
+  it('aynı fiyatlı iki kalemi iki kez sayar', () => {
+    const totals = calculateOrderTotals([fromLira(100), fromLira(100)], {
       method: 'store_pickup',
       district: 'Buca',
     });
 
-    expect(totals.subtotal).toBe(fromLira(300));
+    expect(totals.subtotal).toBe(fromLira(200));
   });
 
   it('boş sepette sıfır döner', () => {
@@ -87,7 +83,7 @@ describe('sipariş toplamı', () => {
   });
 
   it('ücretsiz teslimat eşiğini ara toplama göre değerlendirir', () => {
-    const totals = calculateOrderTotals([{ unitPrice: fromLira(20_000), quantity: 1 }], {
+    const totals = calculateOrderTotals([fromLira(20_000)], {
       method: 'home_delivery',
       district: 'Çeşme',
     });

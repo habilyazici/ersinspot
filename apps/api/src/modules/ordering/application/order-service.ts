@@ -12,13 +12,12 @@
  *     const deliveryFee = delivery.fee || 0;
  *     const total = subtotal + deliveryFee;
  *
- * Bu, herhangi bir ürünün 1 TL'ye sipariş edilmesine izin veriyordu. Ayrıca
- * `quantity` hesaba katılmıyordu: üç adet ürün bir adet fiyatına gidiyordu.
+ * Bu, herhangi bir ürünün 1 TL'ye sipariş edilmesine izin veriyordu.
  *
  * Yeni tasarımda bu hatayı tekrar yazmak yapısal olarak zordur:
  *
  *  1. `createOrderSchema` hiçbir fiyat alanı içermez — istemci yalnızca hangi
- *     ürünü ve kaç adet istediğini bildirir.
+ *     ürünü istediğini bildirir.
  *  2. Bu modül `products` tablosuna erişemez (ESLint sınır kuralı); fiyatı
  *     `catalog` modülünün sözleşmesinden ister.
  *  3. Tutar `@ersinspot/shared` içindeki saf fonksiyonla hesaplanır.
@@ -61,7 +60,6 @@ import {
   completesSale,
   initialOrderStatus,
   releasesReservation,
-  requiresUpfrontPayment,
 } from '../domain/order-rules.ts';
 import * as cartRepository from '../infrastructure/cart-repository.ts';
 import * as repository from '../infrastructure/order-repository.ts';
@@ -120,15 +118,12 @@ export async function createOrder(
     }
 
     // 4) Tutarı SUNUCUDA, veritabanından okunan fiyatlarla hesapla.
-    const lines = cartRows.map((row) => {
+    const prices = cartRows.map((row) => {
       const product = productsById.get(row.productId);
       if (product === undefined) {
         throw new Error('Ürün eşleşmesi kayboldu.');
       }
-      return {
-        unitPrice: money.fromKurus(product.unitPrice),
-        quantity: row.quantity,
-      };
+      return money.fromKurus(product.price);
     });
 
     /*
@@ -156,7 +151,7 @@ export async function createOrder(
             timeSlot: input.delivery.pickupTimeSlot,
           };
 
-    const totals = calculateOrderTotals(lines, {
+    const totals = calculateOrderTotals(prices, {
       method: delivery.method,
       district: delivery.district,
     });
@@ -213,9 +208,7 @@ export async function createOrder(
           titleSnapshot: product.title,
           imageStorageKeySnapshot: product.coverStorageKey,
           conditionSnapshot: product.condition,
-          unitPriceKurus: product.unitPrice,
-          quantity: row.quantity,
-          lineTotalKurus: product.unitPrice * row.quantity,
+          priceKurus: product.price,
         };
       }),
       tx,
@@ -241,26 +234,10 @@ export async function createOrder(
     // 9) Zaman çizelgesinin ilk kaydı.
     await repository.insertEvent(orderId, status, 'customer', { actorUserId: userId }, tx);
 
-    // 10) Havale bekleniyorsa ödeme kaydını açık olarak oluştur.
-    if (requiresUpfrontPayment(input.paymentMethod)) {
-      await repository.insertPayment(
-        {
-          orderId,
-          method: input.paymentMethod,
-          amountKurus: totals.total,
-          status: 'pending',
-          confirmedAt: null,
-          recordedByUserId: null,
-          reference: null,
-        },
-        tx,
-      );
-    }
-
-    // 11) Ürünleri rezerve et.
+    // 10) Ürünleri rezerve et.
     await catalog.reserveProducts(products, tx);
 
-    // 12) Sepeti boşalt.
+    // 11) Sepeti boşalt.
     await cartRepository.clear(userId, tx);
 
     logger.info('Sipariş oluşturuldu', {
@@ -286,9 +263,7 @@ function toOrderItem(row: OrderItemRow) {
     imageUrlSnapshot:
       row.imageStorageKeySnapshot === null ? null : resolveStorageUrl(row.imageStorageKeySnapshot),
     conditionSnapshot: row.conditionSnapshot,
-    unitPrice: row.unitPriceKurus,
-    quantity: row.quantity,
-    lineTotal: row.lineTotalKurus,
+    price: row.priceKurus,
   };
 }
 
@@ -402,18 +377,28 @@ export async function getOrder(
 }
 
 /**
- * Takip numarasıyla sipariş durumu.
+ * Takip numarası ve iletişim numarasıyla sipariş durumu.
  *
- * Oturum gerektirmez: müşteri sipariş takip formuna numarasını girerek durumunu
- * görebilir. Bu yüzden dönen bilgi bilinçli olarak dardır — adres, telefon ve
- * kalem fiyatları yer almaz. Takip numarası tahmin edilemez olsa da, kişisel
- * veriyi oturumsuz bir uçta açmak doğru değildir.
+ * Oturum gerektirmez: müşteri, siparişini hesabına girmeden sorgulayabilmelidir.
+ *
+ * TAKİP NUMARASI TEK BAŞINA YETMEZ. Numaralar veritabanı dizisinden sırayla
+ * üretilir ("SIP-2026-000123"); yalnızca numaraya bakan bir uçta sayacı
+ * artırarak mağazanın bütün siparişlerinin durumu, tarihi ve zaman çizelgesi
+ * dışarıdan taranabilirdi. Bu yüzden siparişin iletişim numarası da istenir.
+ *
+ * Numara uyuşmadığında yanıt, sipariş hiç yokmuş gibidir: "bu numara yanlış"
+ * demek, takip numarasının var olduğunu doğrulardı.
+ *
+ * Dönen bilgi ayrıca dardır — adres, telefon ve kalem fiyatları yer almaz.
  */
-export async function getPublicOrderStatus(reference: string): Promise<PublicOrderStatus> {
+export async function getPublicOrderStatus(
+  reference: string,
+  contactPhone: string,
+): Promise<PublicOrderStatus> {
   const row = await repository.findByReferenceNumber(reference);
 
-  if (row === null) {
-    throw notFound('Bu takip numarasıyla bir sipariş');
+  if (row?.contactPhone !== contactPhone) {
+    throw notFound('Bu bilgilerle bir sipariş');
   }
 
   const [items, events] = await Promise.all([
@@ -643,13 +628,17 @@ export async function cancelExpiredUnpaidOrders(): Promise<number> {
   return cancelled;
 }
 
-/** Yönetim panelinden personel notu ekler. Müşteri yanıtlarında görünmez. */
+/**
+ * Yönetim panelinden personel notu yazar. Müşteri yanıtlarında görünmez.
+ *
+ * Varlık denetimi güncellemenin KENDİSİNDEN gelir: önce okuyup sonra yazmak
+ * hem fazladan bir gidiş-dönüş hem de iki sorgu arasında siparişin silinmesine
+ * açık bir aralıktı.
+ */
 export async function setStaffNote(orderId: string, note: string): Promise<void> {
-  const row = await repository.findById(orderId);
+  const updated = await repository.updateStaffNote(orderId, note);
 
-  if (row === null) {
+  if (!updated) {
     throw notFound('Sipariş');
   }
-
-  await repository.updateStaffNote(orderId, note);
 }

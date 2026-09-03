@@ -19,7 +19,6 @@ type Executor = Transaction | typeof db;
 export interface CartItemRow {
   id: string;
   productId: string;
-  quantity: number;
   createdAt: Date;
 }
 
@@ -29,7 +28,6 @@ export async function findByUser(userId: string, executor: Executor = db): Promi
     .select({
       id: cartItems.id,
       productId: cartItems.productId,
-      quantity: cartItems.quantity,
       createdAt: cartItems.createdAt,
     })
     .from(cartItems)
@@ -47,18 +45,18 @@ export async function countByUser(userId: string): Promise<number> {
 }
 
 /**
- * Ürünü sepete ekler; zaten varsa adedi günceller.
+ * Ürünü sepete ekler. Zaten sepetteyse hiçbir şey değişmez.
  *
- * Benzersizlik indeksi (`cart_items_user_product_unique`) aynı ürünün iki satır
- * olmasını engeller; çakışma durumunda güncelleme yapılır.
+ * İkinci el ürünün stok adedi 1'dir; "bir tane daha ekle" diye bir işlem
+ * yoktur. Benzersizlik indeksi (`cart_items_user_product_unique`) aynı ürünün
+ * iki satır olmasını engeller, çakışan ekleme sessizce atlanır.
  */
-export async function upsert(userId: string, productId: string, quantity: number): Promise<void> {
+export async function add(userId: string, productId: string): Promise<void> {
   await db
     .insert(cartItems)
-    .values({ userId, productId, quantity })
-    .onConflictDoUpdate({
+    .values({ userId, productId })
+    .onConflictDoNothing({
       target: [cartItems.userId, cartItems.productId],
-      set: { quantity, updatedAt: new Date() },
     });
 }
 

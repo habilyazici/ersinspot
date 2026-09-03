@@ -3,7 +3,7 @@
  *
  * Sahip olduğu tablolar:
  *   cart_items, favorites, orders, order_addresses, order_items,
- *   order_events, payments
+ *   order_events
  *
  * Bağımlılıkları: catalog (ürün fiyatı ve rezervasyon), identity (kullanıcı)
  *

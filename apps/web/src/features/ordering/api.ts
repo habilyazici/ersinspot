@@ -33,7 +33,8 @@ export const orderingKeys = {
   cartCount: ['ordering', 'cart', 'count'] as const,
   orders: (filters: Partial<OrderListQuery>) => ['ordering', 'orders', filters] as const,
   order: (id: string) => ['ordering', 'order', id] as const,
-  tracking: (reference: string) => ['ordering', 'tracking', reference] as const,
+  tracking: (reference: string, phone: string) =>
+    ['ordering', 'tracking', reference, phone] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -91,11 +92,8 @@ export function useAddToCart() {
   const syncCart = useCartInvalidation();
 
   return useMutation({
-    mutationFn: (input: { productId: string; quantity?: number }) =>
-      apiRequest<{ cart: Cart }>('/api/cart', {
-        method: 'POST',
-        body: { productId: input.productId, quantity: input.quantity ?? 1 },
-      }),
+    mutationFn: (productId: string) =>
+      apiRequest<{ cart: Cart }>('/api/cart', { method: 'POST', body: { productId } }),
     onSuccess: (data) => syncCart(data.cart),
   });
 }
@@ -246,20 +244,22 @@ export function useCancelOrder() {
 }
 
 /**
- * Takip numarasıyla sipariş durumu — oturum gerektirmez.
+ * Takip ve iletişim numarasıyla sipariş durumu — oturum gerektirmez.
  *
- * Eski sitede bu özellik tamamen sahte veriyle çalışıyordu.
+ * İki bilgi birlikte istenir: takip numaraları sırayla üretildiği için tek
+ * başına kimlik sayılmaz. Eski sitede bu özellik tamamen sahte veriyle
+ * çalışıyordu.
  */
-export function useOrderTracking(reference: string, enabled: boolean) {
+export function useOrderTracking(reference: string, phone: string, enabled: boolean) {
   return useQuery({
-    queryKey: orderingKeys.tracking(reference),
+    queryKey: orderingKeys.tracking(reference, phone),
     queryFn: async () => {
-      const response = await apiRequest<{ order: PublicOrderStatus }>(
-        `/api/order-tracking/${reference}`,
-      );
+      const response = await apiRequest<{ order: PublicOrderStatus }>('/api/order-tracking', {
+        query: { reference, phone },
+      });
       return response.order;
     },
-    enabled: enabled && reference !== '',
+    enabled: enabled && reference !== '' && phone !== '',
     retry: false,
   });
 }

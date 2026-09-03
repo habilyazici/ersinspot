@@ -19,7 +19,6 @@ import {
   bigint,
   date,
   index,
-  integer,
   pgTable,
   text,
   time,
@@ -35,7 +34,6 @@ import {
   deliveryMethodEnum,
   orderStatusEnum,
   paymentMethodEnum,
-  paymentStatusEnum,
   productConditionEnum,
 } from '../../../platform/db/enums.ts';
 
@@ -56,13 +54,11 @@ export const cartItems = pgTable(
       .notNull()
       .references(() => products.id, { onDelete: 'cascade' }),
 
-    quantity: integer().notNull().default(1),
-
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    // Aynı ürün sepette iki satır olarak duramaz; adet artırılır.
+    // Aynı ürün sepette iki kez bulunamaz: ikinci el ürünün stok adedi 1'dir.
     uniqueIndex('cart_items_user_product_unique').on(table.userId, table.productId),
     index('cart_items_user_id_idx').on(table.userId),
   ],
@@ -174,10 +170,14 @@ export const orderItems = pgTable(
     imageStorageKeySnapshot: text(),
     conditionSnapshot: productConditionEnum().notNull(),
 
-    /** Sipariş anındaki birim fiyat. Ürün fiyatı sonradan değişse bile sabit kalır. */
-    unitPriceKurus: bigint({ mode: 'number' }).notNull(),
-    quantity: integer().notNull(),
-    lineTotalKurus: bigint({ mode: 'number' }).notNull(),
+    /**
+     * Sipariş anındaki fiyat. Ürün fiyatı sonradan değişse bile sabit kalır.
+     *
+     * Kalem başına tek bir tutar vardır: ikinci el ürünler tekildir, adet
+     * kavramı yoktur. Önceden `quantity` ve `line_total_kurus` sütunları da
+     * duruyordu; ikincisi daima birincinin katıydı ve adet daima 1'di.
+     */
+    priceKurus: bigint({ mode: 'number' }).notNull(),
   },
   (table) => [
     index('order_items_order_id_idx').on(table.orderId),
@@ -248,58 +248,5 @@ export const orderAddresses = pgTable(
   (table) => [
     // Bölge bazlı raporlama ve teslimat planlaması için.
     index('order_addresses_district_idx').on(table.district),
-  ],
-);
-
-/**
- * Ödeme kayıtları.
- *
- * `orders.payment_method` ödemenin NASIL yapılacağını söyler; bu tablo
- * ödemenin GERÇEKLEŞTİĞİNİ kaydeder. İkisi farklı sorulardır ve eski tasarımda
- * ikincisinin cevabı hiçbir yerde tutulmuyordu.
- *
- * Havale/EFT'de personel, bankaya gelen parayı siparişle elle eşleştirir;
- * `reference` alanı havale açıklamasını taşır ve eşleştirmenin izini bırakır.
- * Kapıda ödemede tahsilat teslimatta yapılır ve teslim eden kişi kaydeder.
- *
- * Bir siparişin birden çok ödeme kaydı olabilir: kısmi ödeme, iade veya
- * başarısız denemenin ardından ikinci deneme.
- */
-export const payments = pgTable(
-  'payments',
-  {
-    id: uuid().primaryKey().defaultRandom(),
-
-    orderId: uuid()
-      .notNull()
-      .references(() => orders.id, { onDelete: 'cascade' }),
-
-    method: paymentMethodEnum().notNull(),
-    status: paymentStatusEnum().notNull().default('pending'),
-
-    /** Kuruş cinsinden. İade kayıtlarında negatif olabilir. */
-    amountKurus: bigint({ mode: 'number' }).notNull(),
-
-    /**
-     * Havale açıklaması veya dekont numarası. Personelin gelen parayı
-     * siparişle eşleştirirken girdiği referans.
-     */
-    reference: text(),
-
-    /** Ödemenin onaylandığı an. Onaylanmamış kayıtlarda null. */
-    confirmedAt: timestamp({ withTimezone: true }),
-
-    /** Ödemeyi kaydeden personel. Denetim izi. */
-    recordedByUserId: uuid().references(() => users.id, { onDelete: 'set null' }),
-
-    note: text(),
-
-    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    index('payments_order_idx').on(table.orderId),
-    // Muhasebe ekranı: belirli bir tarihteki onaylanmış tahsilatlar.
-    index('payments_status_confirmed_idx').on(table.status, table.confirmedAt),
   ],
 );

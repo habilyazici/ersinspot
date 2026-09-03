@@ -66,14 +66,42 @@ export function requiredText(field: string, min = 1, max = 500) {
     );
 }
 
+/**
+ * İsteğe bağlı serbest metin.
+ *
+ * Temizlikten sonra boş kalan değer `undefined` olur — boş dizge DEĞİL. Form
+ * dokunulmamış bir alanı `''` olarak gönderir; bunu olduğu gibi kaydetmek
+ * "not yok" ile "not boş bırakıldı" ayrımını veritabanında kaybettirir ve
+ * çağıranın her yerde `?? null` yanında bir de `=== ''` kontrolü yazmasını
+ * gerektirir.
+ *
+ * Boşaltma bir DÖNÜŞÜMDÜR, birleşim kolu değil. Önceki hâli
+ * `.optional().or(z.literal('').transform(() => undefined))` biçimindeydi ve
+ * ikinci kola hiç ulaşılmıyordu: ilk kol `''` değerini zaten geçerli sayıp
+ * döndürüyor, birleşim ilk başarılı kolda duruyordu. Sonuç, `undefined`
+ * beklenen her yerde sessizce boş dizgeydi.
+ */
 export function optionalText(max = 500) {
   return z
     .string()
     .transform(cleanText)
     .pipe(z.string().max(max, { message: `En fazla ${max} karakter girebilirsiniz.` }))
-    .optional()
-    .or(z.literal('').transform(() => undefined));
+    .transform((value) => (value === '' ? undefined : value))
+    .optional();
 }
+
+/**
+ * Sorgu dizesinden gelen mantıksal değer.
+ *
+ * `z.coerce.boolean()` KULLANILAMAZ: `Boolean('false')` değeri `true`'dur, yani
+ * `?okundu=false` süzgeci "okunmuşları getir" anlamına gelirdi. Sorgu
+ * parametreleri daima metindir; dönüşüm açıkça yazılır.
+ */
+export const booleanQuerySchema = z
+  .enum(['true', 'false', '1', '0'], {
+    errorMap: () => ({ message: 'Değer true veya false olmalıdır.' }),
+  })
+  .transform((value) => value === 'true' || value === '1');
 
 // ---------------------------------------------------------------------------
 // Kişisel bilgiler
@@ -293,18 +321,77 @@ export function today(): string {
 }
 
 /**
- * Bugünden N gün sonrasını `YYYY-AA-GG` biçiminde döndürür.
+ * Bir takvim gününe N gün ekler: `addCalendarDays('2026-03-15', 2)` → "2026-03-17".
  *
- * Tarih alanlarının `min` değeri ve varsayılanı bununla üretilir. Gün sayımı
- * takvim günü üzerinden yapılır; yaz saati geçişleri gün sınırını kaydırmasın
- * diye öğle vaktinden başlanır.
+ * Sayım takvim günü üzerinden yapılır; yaz saati geçişleri gün sınırını
+ * kaydırmasın diye öğle vaktinden başlanır.
  */
-export function dateAfterDays(days: number): string {
-  const [year = 0, month = 1, day = 1] = today().split('-').map(Number);
+function addCalendarDays(isoDate: string, days: number): string {
+  const [year = 0, month = 1, day = 1] = isoDate.split('-').map(Number);
   const date = new Date(Date.UTC(year, month - 1, day, 12));
   date.setUTCDate(date.getUTCDate() + days);
 
   return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Bugünden N gün sonrasını `YYYY-AA-GG` biçiminde döndürür.
+ *
+ * Tarih alanlarının `min` değeri ve varsayılanı bununla üretilir.
+ */
+export function dateAfterDays(days: number): string {
+  return addCalendarDays(today(), days);
+}
+
+/**
+ * Verilen andaki işletme saat dilimi farkı, dakika cinsinden.
+ *
+ * `longOffset` biçimi "GMT+03:00" verir. Türkiye 2016'dan beri sabit UTC+3
+ * kullanıyor, ama farkı sabit yazmak yerine ortamdan okumak kuralın ileride
+ * değişmesi hâlinde kodun sessizce yanlışlanmasını engeller.
+ */
+const businessOffsetFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: BUSINESS_TIME_ZONE,
+  timeZoneName: 'longOffset',
+});
+
+function businessOffsetMinutes(instant: Date): number {
+  const name = businessOffsetFormatter
+    .formatToParts(instant)
+    .find((part) => part.type === 'timeZoneName')?.value;
+
+  const match = name === undefined ? null : /^GMT([+-])(\d{2}):(\d{2})$/.exec(name);
+
+  // Farkın sıfır olduğu dilimlerde biçim yalnızca "GMT" olur; eşleşme yoksa 0.
+  if (match === null) return 0;
+
+  const [, sign, hours = '0', minutes = '0'] = match;
+  const total = Number(hours) * 60 + Number(minutes);
+
+  return sign === '-' ? -total : total;
+}
+
+/**
+ * Bir takvim gününün İŞLETME SAAT DİLİMİNDE başladığı an.
+ *
+ * Yönetim panelindeki tarih süzgeçleri bunu kullanır. Sınırlar UTC gece
+ * yarısından alındığında "bugün" süzgeci Türkiye'de 03:00'te başlıyor ve
+ * ertesi günün ilk üç saatini içeriyordu: gece verilen siparişler o günün
+ * listesinde görünmüyor, bir sonrakinde iki kez sayılıyordu.
+ */
+export function businessDayStart(isoDate: string): Date {
+  const utcMidnight = Date.parse(`${isoDate}T00:00:00Z`);
+  return new Date(utcMidnight - businessOffsetMinutes(new Date(utcMidnight)) * 60_000);
+}
+
+/**
+ * Bir takvim gününün BİTTİĞİ an — yani ertesi günün başlangıcı.
+ *
+ * Aralık yarı açıktır: `[başlangıç, bitiş)`. Üst sınırı "23:59:59" olarak
+ * yazmak, o saniyenin kesirli kısmına düşen kayıtları dışarıda bırakırdı.
+ */
+export function businessDayEnd(isoDate: string): Date {
+  return businessDayStart(addCalendarDays(isoDate, 1));
 }
 
 /** Saat aralığını kullanıcıya gösterilecek metne çevirir: "09:00 - 11:00". */

@@ -9,6 +9,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
+import { today } from '@ersinspot/shared';
 import { db } from '../../../platform/db/client.ts';
 import { createTestUser, loginAs, request, resetDatabase } from '../../../test/helpers.ts';
 import {
@@ -62,7 +63,7 @@ async function addToCart(cookie: string, id: string): Promise<Response> {
   return request('/api/cart', {
     method: 'POST',
     cookie,
-    body: JSON.stringify({ productId: id, quantity: 1 }),
+    body: JSON.stringify({ productId: id }),
   });
 }
 
@@ -128,7 +129,7 @@ describe('fiyat manipülasyonu', () => {
       cookie: customerCookie,
       body: JSON.stringify(
         orderPayload({
-          items: [{ productId, price: 100, quantity: 1 }],
+          items: [{ productId, price: 100 }],
           subtotal: 100,
           total: 100,
         }),
@@ -146,7 +147,7 @@ describe('fiyat manipülasyonu', () => {
     expect(order?.total).toBe(PRICE + DELIVERY_FEE);
   });
 
-  it('kalem birim fiyatını veritabanından yazar', async () => {
+  it('kalem fiyatını veritabanından yazar', async () => {
     await addToCart(customerCookie, productId);
     await request('/api/orders', {
       method: 'POST',
@@ -154,12 +155,9 @@ describe('fiyat manipülasyonu', () => {
       body: JSON.stringify(orderPayload()),
     });
 
-    const [item] = await db
-      .select({ unitPrice: orderItems.unitPriceKurus, lineTotal: orderItems.lineTotalKurus })
-      .from(orderItems);
+    const [item] = await db.select({ price: orderItems.priceKurus }).from(orderItems);
 
-    expect(item?.unitPrice).toBe(PRICE);
-    expect(item?.lineTotal).toBe(PRICE);
+    expect(item?.price).toBe(PRICE);
   });
 
   it('istemcinin beklediği tutar uyuşmazsa siparişi reddeder', async () => {
@@ -207,7 +205,7 @@ describe('sepet', () => {
       (
         await request('/api/cart', {
           method: 'POST',
-          body: JSON.stringify({ productId, quantity: 1 }),
+          body: JSON.stringify({ productId }),
         })
       ).status,
     ).toBe(401);
@@ -218,11 +216,11 @@ describe('sepet', () => {
     expect(response.status).toBe(201);
 
     const payload = (await response.json()) as {
-      cart: { items: { unitPrice: number; isAvailable: boolean }[]; subtotal: number };
+      cart: { items: { price: number; isAvailable: boolean }[]; subtotal: number };
     };
 
     expect(payload.cart.items).toHaveLength(1);
-    expect(payload.cart.items[0]?.unitPrice).toBe(PRICE);
+    expect(payload.cart.items[0]?.price).toBe(PRICE);
     expect(payload.cart.subtotal).toBe(PRICE);
   });
 
@@ -529,9 +527,9 @@ describe('sipariş erişimi', () => {
 // ---------------------------------------------------------------------------
 
 describe('takip numarasıyla sorgulama', () => {
-  it('gerçek siparişin durumunu döner', async () => {
-    // Eski sitede bu özellik tamamen sahte veriyle çalışıyordu; gerçek bir
-    // müşteri kendi numarasını girdiğinde "bulunamadı" alıyordu.
+  const CONTACT_PHONE = '0507 194 05 50';
+
+  async function createOrderAndGetReference(): Promise<string> {
     await addToCart(customerCookie, productId);
     const created = await request('/api/orders', {
       method: 'POST',
@@ -539,8 +537,20 @@ describe('takip numarasıyla sorgulama', () => {
       body: JSON.stringify(orderPayload()),
     });
     const { order } = (await created.json()) as { order: { referenceNumber: string } };
+    return order.referenceNumber;
+  }
 
-    const response = await request(`/api/order-tracking/${order.referenceNumber}`);
+  function trackingUrl(reference: string, phone = CONTACT_PHONE): string {
+    const query = new URLSearchParams({ reference, phone });
+    return `/api/order-tracking?${query.toString()}`;
+  }
+
+  it('gerçek siparişin durumunu döner', async () => {
+    // Eski sitede bu özellik tamamen sahte veriyle çalışıyordu; gerçek bir
+    // müşteri kendi numarasını girdiğinde "bulunamadı" alıyordu.
+    const reference = await createOrderAndGetReference();
+
+    const response = await request(trackingUrl(reference));
     expect(response.status).toBe(200);
 
     const payload = (await response.json()) as {
@@ -553,15 +563,9 @@ describe('takip numarasıyla sorgulama', () => {
   });
 
   it('kişisel veri döndürmez', async () => {
-    await addToCart(customerCookie, productId);
-    const created = await request('/api/orders', {
-      method: 'POST',
-      cookie: customerCookie,
-      body: JSON.stringify(orderPayload()),
-    });
-    const { order } = (await created.json()) as { order: { referenceNumber: string } };
+    const reference = await createOrderAndGetReference();
 
-    const response = await request(`/api/order-tracking/${order.referenceNumber}`);
+    const response = await request(trackingUrl(reference));
     const text = await response.text();
 
     // Oturumsuz uçta ad, telefon ve adres yer almamalı.
@@ -570,13 +574,37 @@ describe('takip numarasıyla sorgulama', () => {
     expect(text).not.toContain('Kazımdirik');
   });
 
+  /*
+    Takip numaraları sırayla üretilir. Yalnızca numaraya bakan bir uç, sayacı
+    artırarak tüm siparişlerin durumunun taranmasına izin verirdi; ikinci bilgi
+    olarak siparişin iletişim numarası istenir.
+  */
+  it('iletişim numarası tutmuyorsa siparişi açmaz', async () => {
+    const reference = await createOrderAndGetReference();
+
+    const response = await request(trackingUrl(reference, '0555 555 55 55'));
+
+    // Yanıt, sipariş hiç yokmuş gibidir: "numara yanlış" demek, takip
+    // numarasının var olduğunu doğrulardı.
+    expect(response.status).toBe(404);
+  });
+
+  it('iletişim numarası eksikse reddeder', async () => {
+    const reference = await createOrderAndGetReference();
+
+    const response = await request(
+      `/api/order-tracking?reference=${encodeURIComponent(reference)}`,
+    );
+    expect(response.status).toBe(400);
+  });
+
   it('geçersiz biçimdeki numarayı veritabanına gitmeden reddeder', async () => {
-    const response = await request('/api/order-tracking/RASTGELE');
+    const response = await request(trackingUrl('RASTGELE'));
     expect(response.status).toBe(400);
   });
 
   it('bulunamayan numara için 404 döner', async () => {
-    const response = await request('/api/order-tracking/SIP-2026-999999');
+    const response = await request(trackingUrl('SIP-2026-999999'));
     expect(response.status).toBe(404);
   });
 });
@@ -985,5 +1013,105 @@ describe('sipariş personel notu', () => {
       .where(eq(orders.id, orderId));
 
     expect(row?.staffNote).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Yönetim listesi süzgeçleri
+// ---------------------------------------------------------------------------
+
+describe('yönetim sipariş listesi süzgeçleri', () => {
+  let staffCookie: string;
+
+  beforeEach(async () => {
+    const staff = await createTestUser({ email: 'personel-liste@ersinspot.com', role: 'staff' });
+    staffCookie = await loginAs(staff.email, staff.password);
+  });
+
+  async function placeOrder(): Promise<string> {
+    await addToCart(customerCookie, productId);
+
+    const response = await request('/api/orders', {
+      method: 'POST',
+      cookie: customerCookie,
+      body: JSON.stringify(orderPayload()),
+    });
+
+    const payload = (await response.json()) as { order: { orderId: string } };
+    return payload.order.orderId;
+  }
+
+  async function listWith(queryString: string): Promise<Response> {
+    return request(`/api/admin/orders?${queryString}`, { cookie: staffCookie });
+  }
+
+  /*
+    Tarih süzgeci doğrulanmadan `new Date(...)` içine giriyordu; geçersiz bir
+    gün sorgu sürücüsünde `Invalid time value` ile 500'e dönüşüyordu. Bir
+    süzgeç parametresi hata sayfasına çıkmamalıdır.
+  */
+  it('biçimsiz tarih süzgeci 400 verir, sunucuyu düşürmez', async () => {
+    for (const bad of ['dun', '15.03.2026', '2026-13-01', '2026-02-30']) {
+      const response = await listWith(`fromDate=${encodeURIComponent(bad)}`);
+      expect(response.status).toBe(400);
+    }
+
+    const badTo = await listWith('toDate=yarin');
+    expect(badTo.status).toBe(400);
+  });
+
+  it('geçerli tarih aralığı kabul edilir', async () => {
+    await placeOrder();
+
+    const response = await listWith('fromDate=2026-01-01&toDate=2026-12-31');
+    expect(response.status).toBe(200);
+  });
+
+  /*
+    Bugün verilen sipariş, bugünün süzgecinde görünmelidir. Sınırlar UTC gece
+    yarısından alındığında Türkiye'de 00:00–03:00 arasında verilen siparişler
+    o günün listesinden düşüyordu.
+  */
+  it('bugün verilen sipariş bugünün süzgecinde görünür', async () => {
+    const orderId = await placeOrder();
+    const businessToday = today();
+
+    const response = await listWith(`fromDate=${businessToday}&toDate=${businessToday}`);
+    expect(response.status).toBe(200);
+
+    const payload = (await response.json()) as { items: { id: string }[] };
+    expect(payload.items.map((item) => item.id)).toContain(orderId);
+  });
+
+  /** Arama metnindeki joker karakterler düz metin olarak aranır. */
+  it('yüzde işareti tüm kayıtları getirmez', async () => {
+    await placeOrder();
+
+    const response = await listWith('search=%25');
+    expect(response.status).toBe(200);
+
+    const payload = (await response.json()) as { totalItems: number };
+    expect(payload.totalItems).toBe(0);
+  });
+
+  it('alt çizgi tek karakterlik joker gibi davranmaz', async () => {
+    await placeOrder();
+
+    // "SIP-2026-000001" kaydı var; "SIP_" joker olsaydı onu eşlerdi.
+    const response = await listWith('search=SIP_');
+    expect(response.status).toBe(200);
+
+    const payload = (await response.json()) as { totalItems: number };
+    expect(payload.totalItems).toBe(0);
+  });
+
+  it('takip numarasıyla arama çalışmayı sürdürür', async () => {
+    await placeOrder();
+
+    const response = await listWith('search=SIP-');
+    expect(response.status).toBe(200);
+
+    const payload = (await response.json()) as { totalItems: number };
+    expect(payload.totalItems).toBe(1);
   });
 });

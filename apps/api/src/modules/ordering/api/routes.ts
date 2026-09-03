@@ -19,6 +19,7 @@ import {
   cartItemInputSchema,
   createOrderSchema,
   orderListQuerySchema,
+  orderTrackingQuerySchema,
   toggleFavoriteSchema,
   updateOrderStatusSchema,
   uuidSchema,
@@ -43,11 +44,6 @@ type Variables = AuthVariables & ValidatedVariables;
 
 const idParamSchema = z.object({ id: uuidSchema });
 const productIdParamSchema = z.object({ productId: uuidSchema });
-const referenceParamSchema = z.object({
-  reference: z
-    .string()
-    .regex(/^(SIP|NAK|TSV|SAT)-\d{4}-\d{6}$/, { message: 'Geçersiz takip numarası.' }),
-});
 
 /**
  * Tek istekte sorulabilecek en fazla favori durumu.
@@ -73,7 +69,7 @@ orderingRoutes.get('/cart/count', requireAuth, async (c) => {
 
 orderingRoutes.post('/cart', requireAuth, validateBody(cartItemInputSchema), async (c) => {
   const input = body(c, cartItemInputSchema);
-  const cart = await cartService.addToCart(currentUser(c).id, input.productId, input.quantity);
+  const cart = await cartService.addToCart(currentUser(c).id, input.productId);
   return c.json({ cart }, 201);
 });
 
@@ -170,21 +166,26 @@ orderingRoutes.get('/orders/:id', requireAuth, validateParams(idParamSchema), as
 });
 
 /**
- * Takip numarasıyla sipariş durumu — oturum gerektirmez.
+ * Takip numarası ve iletişim numarasıyla sipariş durumu — oturum gerektirmez.
  *
  * Eski sitede bu özellik vardı ama tamamen sahte veriyle çalışıyordu; gerçek
  * bir müşteri kendi sipariş numarasını girdiğinde "bulunamadı" alıyordu.
  *
- * Dönen bilgi bilinçli olarak dardır: adres, telefon ve fiyat yer almaz.
- * Hız sınırı, takip numarası taraması yapılmasını zorlaştırır.
+ * Takip numarası sırayla üretildiği için tek başına kimlik sayılmaz; sipariş
+ * üzerindeki iletişim numarası da istenir. İkisi de sorgu dizesinde taşınır:
+ * numaralar yol parçası olarak yazıldığında vekil ve tarayıcı geçmişi
+ * kayıtlarına düşerdi.
+ *
+ * Dönen bilgi ayrıca dardır: adres, telefon ve fiyat yer almaz. Hız sınırı,
+ * numara denemesi yapılmasını zorlaştırır.
  */
 orderingRoutes.get(
-  '/order-tracking/:reference',
+  '/order-tracking',
   rateLimit(30, 15 * 60 * 1000, 'siparis-takip'),
-  validateParams(referenceParamSchema),
+  validateQuery(orderTrackingQuerySchema),
   async (c) => {
-    const { reference } = params(c, referenceParamSchema);
-    return c.json({ order: await orderService.getPublicOrderStatus(reference) });
+    const { reference, phone } = query(c, orderTrackingQuerySchema);
+    return c.json({ order: await orderService.getPublicOrderStatus(reference, phone) });
   },
 );
 

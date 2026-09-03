@@ -45,8 +45,8 @@ export interface PurchasableProduct {
   /** Ürün sayfasının bağlantı adı. Sepet kaleminden ürüne dönmek için. */
   readonly slug: string;
   readonly title: string;
-  /** Kuruş cinsinden güncel birim fiyat. Sipariş tutarı bu değerden hesaplanır. */
-  readonly unitPrice: number;
+  /** Kuruş cinsinden güncel fiyat. Sipariş tutarı bu değerden hesaplanır. */
+  readonly price: number;
   readonly condition: ProductCondition;
 
   /**
@@ -78,13 +78,32 @@ export async function getPurchasableProducts(
   productIds: readonly string[],
   tx: Transaction,
 ): Promise<PurchasableProduct[]> {
-  const rows = await repository.findPurchasableForUpdate(productIds, tx);
+  return toPurchasable(await repository.findPurchasableForUpdate(productIds, tx));
+}
 
+/**
+ * Aynı bilgiyi KİLİTSİZ döndürür: sepet gibi okuma yolları için.
+ *
+ * Sepeti görüntülemek ürün satırlarını kilitlememelidir. Kilit yalnızca sipariş
+ * oluşturulurken, aynı ürünün iki kez satılmasını engellemek için gerekir;
+ * okuma yolunda alındığında sepete bakan her ziyaretçi o sırada sipariş
+ * vermeye çalışan müşteriyi bekletir.
+ *
+ * Dönen durum ANLIK bir görüntüdür: ürün, sepete bakıldıktan sonra satılmış
+ * olabilir. Bağlayıcı denetim sipariş anında, kilitli okumayla yapılır.
+ */
+export async function getProductsForDisplay(
+  productIds: readonly string[],
+): Promise<PurchasableProduct[]> {
+  return toPurchasable(await repository.findPurchasable(productIds));
+}
+
+function toPurchasable(rows: readonly repository.PurchasableRow[]): PurchasableProduct[] {
   return rows.map((row) => ({
     id: row.id,
     slug: row.slug,
     title: row.title,
-    unitPrice: row.priceKurus,
+    price: row.priceKurus,
     condition: row.condition,
     coverStorageKey: row.coverStorageKey,
     status: row.status,
@@ -138,7 +157,7 @@ export async function releaseProducts(
   productIds: readonly string[],
   tx: Transaction,
 ): Promise<number> {
-  const rows = await repository.findPurchasableForUpdate(productIds, tx);
+  const rows = await repository.findStatusesForUpdate(productIds, tx);
 
   const releasable = rows
     .filter((row) => canTransitionProduct(row.status, 'for_sale'))
@@ -160,7 +179,7 @@ export async function markProductsAsSold(
   productIds: readonly string[],
   tx: Transaction,
 ): Promise<number> {
-  const rows = await repository.findPurchasableForUpdate(productIds, tx);
+  const rows = await repository.findStatusesForUpdate(productIds, tx);
 
   const sellable = rows
     .filter((row) => canTransitionProduct(row.status, 'sold'))

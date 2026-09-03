@@ -26,7 +26,7 @@ export async function resetDatabase(): Promise<void> {
   await sql`
     TRUNCATE TABLE
       login_attempts, sessions, password_reset_tokens, email_verification_tokens,
-      cart_items, favorites, payments, order_events, order_items,
+      cart_items, favorites, order_events, order_items,
       order_addresses, orders,
       request_events, request_appointments, request_quotes, request_photos,
       request_addresses,

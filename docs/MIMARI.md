@@ -133,7 +133,7 @@ listeye yazılmazsa test düşer.
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `identity`  | `users`, `sessions`, `password_reset_tokens`, `email_verification_tokens`, `login_attempts`                                                                                                                                  |
 | `catalog`   | `categories`, `brands`, `products`, `product_images`, `product_specs`                                                                                                                                                        |
-| `ordering`  | `cart_items`, `favorites`, `orders`, `order_items`, `order_addresses`, `order_events`, `payments`                                                                                                                            |
+| `ordering`  | `cart_items`, `favorites`, `orders`, `order_items`, `order_addresses`, `order_events`                                                                                                                                        |
 | `servicing` | `service_requests`, `request_addresses`, `moving_request_details`, `moving_request_items`, `technical_service_details`, `sell_request_details`, `request_photos`, `request_quotes`, `request_appointments`, `request_events` |
 | `content`   | `blog_posts`, `tags`, `blog_post_tags`, `faqs`, `contact_messages`, `site_settings`                                                                                                                                          |
 | `files`     | `uploaded_files`                                                                                                                                                                                                             |
@@ -188,9 +188,13 @@ hepsinin bulunup güncellenmesi gerekiyordu.
 
 ## Kural 4: Para ve tutarlar sunucuda hesaplanır
 
-İstemci **hangi ürünü** ve **kaç adet** istediğini bildirir. Fiyat, ara toplam,
-teslimat ücreti ve genel toplam sunucuda, veritabanından okunan fiyatlarla
-hesaplanır.
+İstemci **hangi ürünü** istediğini bildirir. Fiyat, ara toplam, teslimat ücreti
+ve genel toplam sunucuda, veritabanından okunan fiyatlarla hesaplanır.
+
+Adet diye bir alan yoktur: ikinci el ürün tekildir, stok adedi her zaman 1'dir.
+Sepet ve sipariş kalemlerinde bir `quantity` sütunu duruyordu ve tek etkisi,
+doğrudan API'ye istek atan birinin tek ürün için birden çok kez
+ücretlendirilmesiydi.
 
 Sipariş oluşturma şeması bilinçli olarak fiyat alanı içermez — aynı hatanın
 tekrar yazılması yapısal olarak engellenir.
@@ -282,12 +286,12 @@ veritabanı, `process`) **konulamaz**.
 Bazı iş kuralları bir istekle değil, zamanın geçmesiyle çalışır. Her biri sahibi
 olan modülün sözleşmesinden sunulur; `server.ts` yalnızca zamanlar.
 
-| Görev                                         | Sahip      | Aralık | Ne yapar                                                                |
-| --------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------- |
-| `sureli-oturumlari-temizle`                   | `identity` | 1 saat | Süresi dolmuş oturum satırlarını siler                                  |
-| `odemesi-gelmeyen-siparisleri-iptal-et`       | `ordering` | 15 dk  | Havale bildirimi gelmeyen siparişi iptal eder, ürünleri satışa döndürür |
-| `suresi-gecmis-rezervasyonlari-serbest-birak` | `catalog`  | 15 dk  | Emniyet ağı: siparişi kalmamış rezervasyonları çözer                    |
-| `yetim-dosyalari-temizle`                     | `files`    | 6 saat | Hiçbir kayda bağlanmamış eski yüklemeleri siler                         |
+| Görev                                         | Sahip      | Aralık | Ne yapar                                                                      |
+| --------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------- |
+| `suresi-gecmis-kimlik-kayitlarini-temizle`    | `identity` | 1 saat | Süresi dolmuş oturumları, tükenmiş jetonları ve eski giriş denemelerini siler |
+| `odemesi-gelmeyen-siparisleri-iptal-et`       | `ordering` | 15 dk  | Havale bildirimi gelmeyen siparişi iptal eder, ürünleri satışa döndürür       |
+| `suresi-gecmis-rezervasyonlari-serbest-birak` | `catalog`  | 15 dk  | Emniyet ağı: siparişi kalmamış rezervasyonları çözer                          |
+| `yetim-dosyalari-temizle`                     | `files`    | 6 saat | Hiçbir kayda bağlanmamış eski yüklemeleri siler                               |
 
 Sıra önemlidir: sipariş iptali ürünleri NORMAL yoldan serbest bırakır. Katalog
 görevi tek başına çalışırsa ürün satışa döner ama sipariş açık kalır ve aynı

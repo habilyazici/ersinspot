@@ -1,0 +1,32 @@
+-- Yalnızca yazılan, hiç okunmayan `payments` tablosu kaldırılıyor.
+--
+-- Tablo, havale/EFT ile verilen her siparişte bir satır açıyordu
+-- (`status = 'pending'`) ama o satırı okuyan, güncelleyen veya gösteren hiçbir
+-- şey yoktu: ne bir uç, ne bir ekran, ne bir rapor. `confirmed_at`,
+-- `recorded_by_user_id`, `reference` ve `note` sütunları hiç doldurulmadı;
+-- "muhasebe ekranı için" diye eklenen `payments_status_confirmed_idx` indeksi
+-- hiç taranmadı.
+--
+-- Kayıt kullanılmamaktan da kötüsü YANLIŞTI. Müşteri parayı gönderip personel
+-- siparişi "alındı" durumuna aldığında bile ödeme satırı `pending` olarak
+-- kalıyordu; teslim edilmiş ve tahsil edilmiş siparişlerin ödemesi
+-- veritabanında sonsuza kadar bekliyor görünüyordu. Bir gün birisi bu tabloya
+-- rapor yazsaydı, ödemelerin tamamını ödenmemiş sayardı.
+--
+-- Ödemenin durumu zaten sipariş durum makinesinde tutuluyor ve ORADA doğru:
+--
+--   bank_transfer     → sipariş `pending_payment` başlar, para gelince
+--                       personel `received` durumuna alır
+--   cash_on_delivery  → sipariş doğrudan `received` başlar, tahsilat
+--                       teslimatta yapılır
+--
+-- Kimin ne zaman değiştirdiği `order_events` içinde aktörüyle birlikte duruyor.
+-- Aynı olgunun ikinci bir kaydını tutmak, ikisinin ayrışması demekti — nitekim
+-- ayrışmıştı.
+--
+-- Kısmi ödeme, iade veya dekont eşleştirme gerçekten gerekirse tablo yeni bir
+-- migration ile geri gelir; o zaman onu okuyan ekranla birlikte.
+DROP TABLE "payments" CASCADE;--> statement-breakpoint
+
+-- Tabloyla birlikte yalnızca onun kullandığı numaralandırma da düşer.
+DROP TYPE "public"."payment_status";
