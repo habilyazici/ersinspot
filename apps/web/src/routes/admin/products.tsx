@@ -23,9 +23,10 @@ import { Button } from '@/components/ui/button.tsx';
 import { Card } from '@/components/ui/card.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
-import { SelectField, TextField } from '@/components/ui/form-field.tsx';
+import { SelectField } from '@/components/ui/form-field.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
 import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
+import { SearchField } from '@/components/ui/search-field.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { StatusBadge } from '@/components/ui/status-badge.tsx';
 import { formatPrice } from '@/lib/format.ts';
@@ -53,7 +54,10 @@ export default function AdminProductsPage() {
     else next.set(key, value);
 
     if (key !== 'sayfa') next.delete('sayfa');
-    setSearchParams(next);
+
+    // Süzgeç değişimi geçmişe kayıt eklemez; geri tuşu listede değil,
+    // sayfalar arasında gezinmelidir.
+    setSearchParams(next, { replace: true });
   }
 
   return (
@@ -72,13 +76,11 @@ export default function AdminProductsPage() {
       />
 
       <div className="mt-6 space-y-3">
-        <TextField
-          label="Ara"
-          type="search"
+        <SearchField
+          value={search}
           placeholder="Ürün adı"
-          defaultValue={search}
-          onChange={(event) => {
-            setFilter('ara', event.target.value);
+          onSearch={(next) => {
+            setFilter('ara', next);
           }}
           className="max-w-sm"
         />

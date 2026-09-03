@@ -19,9 +19,9 @@ import type { RequestStatus, ServiceKind } from '@ersinspot/shared';
 import { Card } from '@/components/ui/card.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
-import { TextField } from '@/components/ui/form-field.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
 import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
+import { SearchField } from '@/components/ui/search-field.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { StatusBadge } from '@/components/ui/status-badge.tsx';
 import { formatDate, formatPrice } from '@/lib/format.ts';
@@ -55,7 +55,10 @@ export default function AdminRequestsPage() {
     else next.set(key, value);
 
     if (key !== 'sayfa') next.delete('sayfa');
-    setSearchParams(next);
+
+    // Süzgeç değişimi geçmişe kayıt eklemez; geri tuşu listede değil,
+    // sayfalar arasında gezinmelidir.
+    setSearchParams(next, { replace: true });
   }
 
   return (
@@ -66,13 +69,11 @@ export default function AdminRequestsPage() {
       />
 
       <div className="mt-6 space-y-3">
-        <TextField
-          label="Ara"
-          type="search"
+        <SearchField
+          value={search}
           placeholder="Takip numarası veya müşteri adı"
-          defaultValue={search}
-          onChange={(event) => {
-            setFilter('ara', event.target.value);
+          onSearch={(next) => {
+            setFilter('ara', next);
           }}
           className="max-w-sm"
         />

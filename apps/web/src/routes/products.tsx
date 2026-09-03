@@ -8,7 +8,8 @@ import {
 } from '@ersinspot/shared';
 import type { ProductCondition, ProductSort } from '@ersinspot/shared';
 import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
-import { TextField, fieldControlClass } from '@/components/ui/form-field.tsx';
+import { fieldControlClass } from '@/components/ui/form-field.tsx';
+import { SearchField } from '@/components/ui/search-field.tsx';
 import { cn } from '@/lib/utils.ts';
 import { Pagination } from '@/components/ui/pagination.tsx';
 import { Button } from '@/components/ui/button.tsx';
@@ -56,7 +57,14 @@ export default function ProductsPage() {
     // Filtre değişince ilk sayfaya dön: üçüncü sayfada filtre daraltılırsa
     // boş sonuç görünürdü.
     next.delete('sayfa');
-    setSearchParams(next);
+
+    /*
+      Süzgeç değişimi geçmişe kayıt EKLEMEZ, mevcut kaydı değiştirir.
+
+      Aksi halde her süzgeç dokunuşu bir geçmiş adımı olur ve geri tuşu
+      kullanıcıyı sayfadan çıkarmak yerine süzgeçler arasında gezdirirdi.
+    */
+    setSearchParams(next, { replace: true });
   }
 
   return (
@@ -74,13 +82,11 @@ export default function ProductsPage() {
             Filtreler
           </h2>
 
-          <TextField
-            label="Ara"
-            type="search"
-            defaultValue={filters.search ?? ''}
+          <SearchField
+            value={filters.search ?? ''}
             placeholder="Ürün veya marka"
-            onChange={(event) => {
-              updateFilter('ara', event.target.value);
+            onSearch={(next) => {
+              updateFilter('ara', next);
             }}
           />
 
