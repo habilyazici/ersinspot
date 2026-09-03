@@ -322,7 +322,7 @@ export default function CheckoutPage() {
                 required
                 type="date"
                 min={dateAfterDays(LEAD_TIME_DAYS.delivery)}
-                hint="En erken iki gün sonrasına randevu verilebilir."
+                hint={`En erken ${String(LEAD_TIME_DAYS.delivery)} gün sonrasına randevu verilebilir.`}
                 error={findError(
                   errors,
                   isHomeDelivery ? 'delivery.deliveryDate' : 'delivery.pickupDate',

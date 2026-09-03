@@ -18,6 +18,7 @@ import {
   ApiError,
   CUSTOMER_CANCELLABLE_ORDER_STATUSES,
   DELIVERY_METHOD_LABELS,
+  PAYMENT_GRACE_DAYS,
   ORDER_STATUS_LABELS,
   PAYMENT_METHOD_LABELS,
   PRODUCT_CONDITION_LABELS,
@@ -50,7 +51,7 @@ function isCancellable(status: OrderStatus): boolean {
  *
  * Müşteri havaleyi seçtiğinde parayı NEREYE göndereceğini bilmek zorundadır.
  * Bu bilgi sitenin hiçbir yerinde yoktu: sipariş "ödeme bekleniyor" durumunda
- * açılıyor, üç gün içinde ödeme gelmediği için otomatik iptal ediliyordu —
+ * açılıyor, ödeme süresi dolduğunda otomatik iptal ediliyordu —
  * müşteriye hesap numarası hiç verilmeden. Değerler site ayarlarından gelir;
  * doldurulmamışsa kutu çizilmez ve müşteri telefonla yönlendirilir.
  *
@@ -87,7 +88,7 @@ function BankTransferInstructions({ referenceNumber }: { referenceNumber: string
 
       <p className="text-xs text-brand-navy-800">
         Havale açıklamasına takip numaranızı yazın; ödemeniz bu numarayla eşleştirilir. Ödeme
-        bildirimi ulaşmazsa siparişiniz üç gün sonra otomatik olarak iptal edilir.
+        bildirimi ulaşmazsa siparişiniz {PAYMENT_GRACE_DAYS} gün sonra otomatik olarak iptal edilir.
       </p>
     </Card>
   );

@@ -2,7 +2,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ApiError, registerSchema } from '@ersinspot/shared';
+import { ApiError, PASSWORD_HINT, registerSchema } from '@ersinspot/shared';
 import type { RegisterInput } from '@ersinspot/shared';
 
 type RegisterFormValues = RegisterInput;
@@ -17,7 +17,7 @@ const FIELDS = [
     label: 'Şifre',
     type: 'password',
     autoComplete: 'new-password',
-    hint: 'En az 10 karakter.',
+    hint: PASSWORD_HINT,
   },
   {
     name: 'passwordConfirm',

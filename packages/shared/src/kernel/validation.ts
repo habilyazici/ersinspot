@@ -148,6 +148,19 @@ export const phoneSchema = z
   });
 
 /**
+ * Şifrenin asgari uzunluğu.
+ *
+ * Sabit olarak dışa aktarılır çünkü arayüz de bu sayıyı SÖYLER: kayıt, şifre
+ * değiştirme ve şifre sıfırlama formlarının üçü de alanın altına "en az N
+ * karakter" yazar. Üç yerde elle yazıldığında sınır değiştiğinde formlar
+ * kullanıcıya yanlış kuralı anlatmaya devam ederdi.
+ */
+export const MIN_PASSWORD_LENGTH = 10;
+
+/** Şifre alanlarının altında gösterilen yardım metni. Kural tek yerden okunur. */
+export const PASSWORD_HINT = `En az ${String(MIN_PASSWORD_LENGTH)} karakter.`;
+
+/**
  * Şifre kuralları.
  *
  * Uzunluk, karmaşıklık kurallarından daha etkili olduğu için asgari uzunluk
@@ -157,7 +170,9 @@ export const phoneSchema = z
  */
 export const passwordSchema = z
   .string({ required_error: 'Şifre zorunludur.' })
-  .min(10, { message: 'Şifre en az 10 karakter olmalıdır.' })
+  .min(MIN_PASSWORD_LENGTH, {
+    message: `Şifre en az ${String(MIN_PASSWORD_LENGTH)} karakter olmalıdır.`,
+  })
   // bcrypt/argon2 girdisinin makul üst sınırı; hizmet reddi saldırısını da engeller
   .max(200, { message: 'Şifre en fazla 200 karakter olabilir.' })
   .refine((value) => value.trim().length > 0, { message: 'Şifre yalnızca boşluk olamaz.' });
@@ -290,6 +305,19 @@ export const LEAD_TIME_DAYS = {
 
 /** Tekliflerin varsayılan geçerlilik süresi (gün). */
 export const QUOTE_VALIDITY_DAYS = 7;
+
+/**
+ * Havale/EFT ile verilen siparişin ödeme süresi (gün).
+ *
+ * Bu sürenin sonunda ödeme bildirimi gelmemişse sipariş otomatik iptal edilir
+ * ve rezerve edilen ürünler satışa döner. Sunucudaki bakım görevi de,
+ * müşteriye sipariş detayında gösterilen uyarı da aynı sayıyı kullanır.
+ *
+ * PAYLAŞILAN PAKETTE DURUR çünkü iki taraf da onu söyler: sunucu uygular,
+ * arayüz anlatır. Sunucu tarafında sabit, arayüzde ise elle yazılmış bir metin
+ * ("üç gün") olduğunda süre değiştiğinde müşteriye yanlış söz verilirdi.
+ */
+export const PAYMENT_GRACE_DAYS = 3;
 
 /**
  * İşletmenin saat dilimi.

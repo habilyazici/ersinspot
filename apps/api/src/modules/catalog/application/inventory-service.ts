@@ -17,6 +17,7 @@
  */
 
 import type { ProductCondition, ProductStatus } from '@ersinspot/shared';
+import { PAYMENT_GRACE_DAYS } from '@ersinspot/shared';
 import type { Transaction } from '../../../platform/db/client.ts';
 import { productUnavailable } from '../../../platform/errors/index.ts';
 import { canTransitionProduct, isPurchasable } from '../domain/product-rules.ts';
@@ -35,10 +36,12 @@ import * as repository from '../infrastructure/product-repository.ts';
  * Değer `ordering` tarafından da okunur; iki yerde ayrı yazıldığında ürün
  * serbest kalırken siparişin açık kalması mümkün olurdu.
  *
- * Üç gün, havale bildiriminin makul bir sürede yapılmasını beklerken müşteriyi
- * de sıkıştırmayan bir aralıktır.
+ * Gün sayısı paylaşılan pakettedir (`PAYMENT_GRACE_DAYS`): müşteriye sipariş
+ * detayında "siparişiniz N gün sonra otomatik iptal edilir" diye SÖYLENEN
+ * süreyle sunucunun uyguladığı süre aynı sayıdan gelmelidir. Arayüzde metin
+ * elle yazıldığında süre değiştiğinde müşteriye yanlış söz verilirdi.
  */
-export const RESERVATION_DURATION_MS = 3 * 24 * 60 * 60 * 1000;
+export const RESERVATION_DURATION_MS = PAYMENT_GRACE_DAYS * 24 * 60 * 60 * 1000;
 
 export interface PurchasableProduct {
   readonly id: string;

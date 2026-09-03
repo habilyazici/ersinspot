@@ -14,7 +14,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useSearchParams } from 'react-router-dom';
 import { CircleCheck, CircleX } from 'lucide-react';
-import { ApiError, resetPasswordSchema } from '@ersinspot/shared';
+import { ApiError, PASSWORD_HINT, resetPasswordSchema } from '@ersinspot/shared';
 import type { ResetPasswordInput } from '@ersinspot/shared';
 import { Button } from '@/components/ui/button.tsx';
 import { TextField } from '@/components/ui/form-field.tsx';
@@ -117,7 +117,7 @@ export default function ResetPasswordPage() {
           required
           type="password"
           autoComplete="new-password"
-          hint="En az 10 karakter."
+          hint={PASSWORD_HINT}
           error={errors.password?.message}
           {...register('password')}
         />

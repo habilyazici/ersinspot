@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { KeyRound, MailWarning, Monitor, ShieldCheck, UserCog } from 'lucide-react';
 import {
   ApiError,
+  PASSWORD_HINT,
   USER_ROLE_LABELS,
   changePasswordSchema,
   phone as phoneUtils,
@@ -287,7 +288,7 @@ export default function AccountPage() {
                   required
                   type="password"
                   autoComplete="new-password"
-                  hint="En az 10 karakter."
+                  hint={PASSWORD_HINT}
                   error={passwordForm.formState.errors.newPassword?.message}
                   {...passwordForm.register('newPassword')}
                 />
