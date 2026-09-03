@@ -10,7 +10,7 @@
  * çıktıyla ayrışabilirdi.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Newspaper, Pencil, Plus, Trash2 } from 'lucide-react';
@@ -100,6 +100,7 @@ export default function AdminBlogPage() {
   function startCreate(): void {
     setEditingId(null);
     setEditingSlug('');
+    setLoadedSlug(null);
     setForm(EMPTY);
     setFormOpen(true);
   }
@@ -113,15 +114,20 @@ export default function AdminBlogPage() {
   /*
     Yazı yüklendiğinde formu doldur.
 
-    `useEffect` kullanılır; render sırasında `setState` çağırmak React'te
-    yeniden render döngüsü tetikler ve kuralca yasaktır. Bağımlılık yalnızca
-    yüklenen yazıdır: form her tuşta yeniden doldurulmamalıdır.
+    Doldurma RENDER SIRASINDA, hangi yazının yüklendiği karşılaştırılarak
+    yapılır — React'in "prop değişince state'i ayarla" için önerdiği kalıp.
+    `useEffect` içinde `setState` çağırmak zincirleme render üretir: React
+    önce eski formla boyar, sonra effect state'i değiştirir ve ikinci kez
+    boyar. Kullanıcı bir an boş formu görür.
+
+    `loadedSlug` hangi yazının forma yazıldığını tutar; aynı yazı ikinci kez
+    doldurulmaz, yoksa kullanıcının yazdıkları her render'da geri alınırdı.
   */
   const loadedPost = editingPost.data;
+  const [loadedSlug, setLoadedSlug] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (loadedPost === undefined) return;
-
+  if (loadedPost !== undefined && loadedPost.slug !== loadedSlug) {
+    setLoadedSlug(loadedPost.slug);
     setForm({
       slug: loadedPost.slug,
       title: loadedPost.title,
@@ -131,7 +137,7 @@ export default function AdminBlogPage() {
       tags: loadedPost.tags.join(', '),
       isPublished: loadedPost.isPublished,
     });
-  }, [loadedPost]);
+  }
 
   function reportError(failure: unknown, fallback: string): void {
     toast.error(failure instanceof ApiError ? failure.message : fallback);
