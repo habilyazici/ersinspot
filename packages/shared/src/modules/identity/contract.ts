@@ -14,6 +14,7 @@ import {
   phoneSchema,
 } from '../../kernel/validation.ts';
 import { USER_ROLES } from '../../kernel/status.ts';
+import { toAsciiLower } from '../../kernel/slug.ts';
 
 // ---------------------------------------------------------------------------
 // Kayıt
@@ -42,15 +43,45 @@ export const registerSchema = z
     message: 'Şifreler eşleşmiyor.',
     path: ['passwordConfirm'],
   })
-  // Şifrenin e-posta veya ad içermesi, sızdırılmış veri listelerinde tahmin edilmesini kolaylaştırır.
-  .refine(
-    (data) => {
-      const password = data.password.toLowerCase();
-      const emailLocal = data.email.split('@')[0]?.toLowerCase() ?? '';
-      return emailLocal.length < 4 || !password.includes(emailLocal);
-    },
-    { message: 'Şifreniz e-posta adresinizi içeremez.', path: ['password'] },
-  );
+  /*
+    Şifre, kullanıcının kendi bilgisini içeremez.
+
+    Bağlama özgü kelimeler (e-posta, ad) saldırganın ilk denediği şeylerdir ve
+    NIST SP 800-63B bunları reddetmeyi önerir. Uzunluk eşiği, kısa hecelerin
+    ("ali", "ece") makul şifreleri gereksizce reddetmesini önler.
+  */
+  .refine((data) => !containsPersonalWord(data.password, [data.email.split('@')[0] ?? '']), {
+    message: 'Şifreniz e-posta adresinizi içeremez.',
+    path: ['password'],
+  })
+  .refine((data) => !containsPersonalWord(data.password, data.fullName.split(/\s+/)), {
+    message: 'Şifreniz adınızı içeremez.',
+    path: ['password'],
+  });
+
+/**
+ * Şifre, verilen kelimelerden yeterince uzun olan birini içeriyor mu?
+ *
+ * Karşılaştırma ASCII'ye indirgenerek yapılır. Düz `toLowerCase()`
+ * kullanıldığında "Yılmaz" → "yılmaz" oluyor ve kullanıcının şifresine yazdığı
+ * "yilmaz" eşleşmiyordu; Türkçe yazımın iki biçimi aynı kelimedir.
+ */
+function containsPersonalWord(password: string, words: readonly string[]): boolean {
+  const normalized = toAsciiLower(password);
+
+  return words.some((word) => {
+    const candidate = toAsciiLower(word);
+    return candidate.length >= MIN_PERSONAL_WORD_LENGTH && normalized.includes(candidate);
+  });
+}
+
+/**
+ * Şifrede aranan kişisel kelimenin asgari uzunluğu.
+ *
+ * Daha kısa parçalar ("ali", "ece", "can") rastgele bir şifrenin içinde de
+ * kolayca bulunur; eşik olmadan geçerli şifreler reddedilirdi.
+ */
+const MIN_PERSONAL_WORD_LENGTH = 4;
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 

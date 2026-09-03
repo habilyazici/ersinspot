@@ -47,17 +47,29 @@ export const MAX_SLUG_LENGTH = 80;
  * edici bir ek koyar. Boş veya yalnızca noktalama içeren bir girdide boş dize
  * döner — çağıran bunu bir hata olarak ele almalıdır.
  */
-export function slugify(text: string): string {
-  const transliterated = [...text]
-    .map((character) => TURKISH_TO_ASCII[character] ?? character)
-    .join('');
-
+/**
+ * Metni ASCII küçük harfe indirger: "Yılmaz" → "yilmaz", "Café" → "cafe".
+ *
+ * Bağlantı adı üretiminin ilk adımıdır ama tek başına da işe yarar: iki metnin
+ * "aynı kelime" olup olmadığını karşılaştırırken Türkçe yazımın iki biçimi
+ * (kullanıcının adını "Yılmaz" yazması, şifresine "yilmaz" yazması) aynı
+ * dizeye inmelidir.
+ */
+export function toAsciiLower(text: string): string {
   return (
-    transliterated
+    [...text]
+      .map((character) => TURKISH_TO_ASCII[character] ?? character)
+      .join('')
       .toLowerCase()
       .normalize('NFD')
       // Latin harflerdeki aksanları kaldır (é → e).
       .replace(/[̀-ͯ]/g, '')
+  );
+}
+
+export function slugify(text: string): string {
+  return (
+    toAsciiLower(text)
       // Harf ve rakam dışındaki her şey ayırıcı olur.
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')

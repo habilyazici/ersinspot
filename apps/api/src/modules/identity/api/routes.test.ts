@@ -158,6 +158,54 @@ describe('POST /api/auth/register', () => {
     expect(rows).toHaveLength(1);
   });
 
+  it('şifre e-posta adresini içeremez', async () => {
+    const response = await request('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validPayload,
+        password: 'ayse-cok-guvenli-parola',
+        passwordConfirm: 'ayse-cok-guvenli-parola',
+      }),
+    });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('şifre adı içeremez', async () => {
+    /*
+      Bağlama özgü kelimeler saldırganın ilk denediği şeylerdir; NIST SP
+      800-63B bunları reddetmeyi önerir. E-posta kontrolü baştan vardı, ad
+      kontrolü yorumda yazıyor ama uygulanmıyordu.
+    */
+    const response = await request('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validPayload,
+        email: 'farkli@example.com',
+        password: 'yilmaz-parolasi-uzun',
+        passwordConfirm: 'yilmaz-parolasi-uzun',
+      }),
+    });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('kısa ad parçası makul şifreyi reddetmez', async () => {
+    // "Ayşe" dört harf; eşik altı parçalar rastgele şifrelerde de bulunur.
+    const response = await request('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validPayload,
+        fullName: 'Ece Can',
+        email: 'ece@example.com',
+        password: 'kasimpasa-tren-defter',
+        passwordConfirm: 'kasimpasa-tren-defter',
+      }),
+    });
+
+    expect(response.status).toBe(201);
+  });
+
   it('şifreler eşleşmezse reddeder', async () => {
     const response = await request('/api/auth/register', {
       method: 'POST',

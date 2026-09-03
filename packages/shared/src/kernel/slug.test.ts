@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { MAX_SLUG_LENGTH, slugify } from './slug.ts';
+import { MAX_SLUG_LENGTH, slugify, toAsciiLower } from './slug.ts';
 
 describe('slugify', () => {
   it('Türkçe harfleri ASCII karşılığına çevirir', () => {
@@ -54,5 +54,25 @@ describe('slugify', () => {
     const input = 'Bosch Bulaşık Makinesi 6 Programlı';
 
     expect(slugify(input)).toBe(slugify(input));
+  });
+});
+
+describe('toAsciiLower', () => {
+  it('Türkçe harfleri ASCII karşılığına indirger', () => {
+    expect(toAsciiLower('Yılmaz')).toBe('yilmaz');
+    expect(toAsciiLower('IŞIK')).toBe('isik');
+    expect(toAsciiLower('İstanbul')).toBe('istanbul');
+    expect(toAsciiLower('Çağrı Öz')).toBe('cagri oz');
+  });
+
+  it('Latin aksanlarını kaldırır', () => {
+    expect(toAsciiLower('Café')).toBe('cafe');
+  });
+
+  it('slugify gibi kısaltmaz ve ayırıcı koymaz', () => {
+    // Şifre karşılaştırmasında kullanılır; noktalama ve uzunluk korunmalıdır.
+    const long = 'a'.repeat(200);
+    expect(toAsciiLower(long)).toHaveLength(200);
+    expect(toAsciiLower('bir iki-üç')).toBe('bir iki-uc');
   });
 });
