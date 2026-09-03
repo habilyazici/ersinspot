@@ -289,6 +289,53 @@ describe('sipariş oluşturma', () => {
     expect(response.status).toBe(400);
   });
 
+  /**
+   * Sipariş kalemleri her okumada AYNI sırayla döner.
+   *
+   * `order_items` sorgusunda sıralama yoktu; satırların dönüş sırasını tarama
+   * planı belirliyordu. Sipariş listesindeki önizleme ilk kalemden üretildiği
+   * için (`previewTitle`, `previewImageUrl`) müşterinin listede gördüğü ürün
+   * adı ve fotoğrafı sayfa yenilendikçe değişebiliyordu.
+   *
+   * Sıra `id` üzerinedir: keyfi ama kararlı. Denetim, dönen kalemlerin gerçekten
+   * bu sırada olmasına bakar — iki okumayı karşılaştırmak, sırasız bir sorguda
+   * da rastlantıyla geçebilirdi.
+   */
+  it('sipariş kalemleri kararlı bir sırayla döner', async () => {
+    const [second] = await db
+      .insert(products)
+      .values({
+        title: 'Bosch Bulaşık Makinesi',
+        slug: 'bosch-bulasik-makinesi',
+        description: 'Temiz ve bakımlı, altı programlı bulaşık makinesi.',
+        priceKurus: PRICE,
+        condition: 'good',
+        status: 'for_sale',
+        categoryId,
+      })
+      .returning({ id: products.id });
+    if (second === undefined) throw new Error('İkinci ürün oluşturulamadı.');
+
+    await addToCart(customerCookie, productId);
+    await addToCart(customerCookie, second.id);
+
+    const created = await request('/api/orders', {
+      method: 'POST',
+      cookie: customerCookie,
+      // İki ürün ücretsiz teslimat eşiğini aşar; toplam yalnızca ürünlerdir.
+      body: JSON.stringify(orderPayload({ expectedTotal: PRICE * 2 })),
+    });
+    const { order } = (await created.json()) as { order: { orderId: string } };
+
+    const detail = await request(`/api/orders/${order.orderId}`, { cookie: customerCookie });
+    const payload = (await detail.json()) as { order: { items: { id: string }[] } };
+
+    const ids = payload.order.items.map((item) => item.id);
+
+    expect(ids).toHaveLength(2);
+    expect(ids).toEqual([...ids].sort());
+  });
+
   it('sipariş sonrası sepeti boşaltır', async () => {
     await addToCart(customerCookie, productId);
     await request('/api/orders', {

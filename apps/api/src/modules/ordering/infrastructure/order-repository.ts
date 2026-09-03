@@ -192,6 +192,19 @@ export async function findByReferenceNumber(reference: string): Promise<OrderRow
   return rows[0] ?? null;
 }
 
+/**
+ * Siparişin kalemleri, SABİT bir sırayla.
+ *
+ * Sıralama olmadan satırların dönüş sırasını tarama planı belirler ve aynı
+ * sipariş iki kez açıldığında kalemler farklı sırada görünebilir. Daha
+ * kötüsü, sipariş listesindeki önizleme ilk kalemden üretilir
+ * (`previewTitle`, `previewImageUrl`): sırasız okumada müşterinin listede
+ * gördüğü ürün adı ve fotoğrafı sayfa yenilendikçe değişiyordu.
+ *
+ * `id` üzerinden sıralamak keyfi ama KARARLI bir sıra verir. Sepetteki ekleme
+ * sırasını korumak için ayrı bir sütun gerekirdi; sözleşme böyle bir söz
+ * vermiyor, tutarlılık ise gerekiyor.
+ */
 export async function findItems(orderId: string, executor: Executor = db): Promise<OrderItemRow[]> {
   return executor
     .select({
@@ -204,7 +217,8 @@ export async function findItems(orderId: string, executor: Executor = db): Promi
       priceKurus: orderItems.priceKurus,
     })
     .from(orderItems)
-    .where(eq(orderItems.orderId, orderId));
+    .where(eq(orderItems.orderId, orderId))
+    .orderBy(asc(orderItems.id));
 }
 
 /**
@@ -229,7 +243,10 @@ export async function findItemsForOrders(
       priceKurus: orderItems.priceKurus,
     })
     .from(orderItems)
-    .where(inArray(orderItems.orderId, [...orderIds]));
+    .where(inArray(orderItems.orderId, [...orderIds]))
+    // Tekil okumayla aynı sıra: liste önizlemesi ile detay sayfası aynı
+    // kalemi göstermelidir.
+    .orderBy(asc(orderItems.orderId), asc(orderItems.id));
 
   const grouped = new Map<string, OrderItemRow[]>();
 
@@ -263,16 +280,20 @@ export async function findAddress(orderId: string): Promise<OrderAddressRow | nu
 }
 
 export async function findEvents(orderId: string): Promise<OrderEventRow[]> {
-  return db
-    .select({
-      status: orderEvents.status,
-      note: orderEvents.note,
-      actor: orderEvents.actor,
-      createdAt: orderEvents.createdAt,
-    })
-    .from(orderEvents)
-    .where(eq(orderEvents.orderId, orderId))
-    .orderBy(orderEvents.createdAt);
+  return (
+    db
+      .select({
+        status: orderEvents.status,
+        note: orderEvents.note,
+        actor: orderEvents.actor,
+        createdAt: orderEvents.createdAt,
+      })
+      .from(orderEvents)
+      .where(eq(orderEvents.orderId, orderId))
+      // `id` ikincil anahtar: `now()` döneminden kalan eşit damgalı kayıtların
+      // sırası da sabit kalsın. Ayrıntı için migration 0008.
+      .orderBy(orderEvents.createdAt, orderEvents.id)
+  );
 }
 
 // ---------------------------------------------------------------------------

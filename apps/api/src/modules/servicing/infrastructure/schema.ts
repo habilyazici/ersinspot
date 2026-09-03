@@ -22,6 +22,7 @@
  * alınır (bkz. `0001_integrity.sql`).
  */
 
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
@@ -339,7 +340,18 @@ export const requestEvents = pgTable(
     actor: actorEnum().notNull(),
     actorUserId: uuid().references(() => users.id, { onDelete: 'set null' }),
 
-    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    /**
+     * Olayın gerçekleştiği an — `now()` DEĞİL, `clock_timestamp()`.
+     *
+     * `now()` işlemin başladığı anı verir ve işlem boyunca sabittir. Teklif
+     * verilirken aynı işlemde iki olay yazılır ("incelemeye alındı" ve "teklif
+     * verildi"); ikisi de aynı damgayı aldığında müşteri zaman çizelgesinde
+     * teklifi incelemeden ÖNCE görebiliyordu. `clock_timestamp()` gerçek anı
+     * verir.
+     */
+    createdAt: timestamp({ withTimezone: true })
+      .notNull()
+      .default(sql`clock_timestamp()`),
   },
   (table) => [index('request_events_request_created_idx').on(table.requestId, table.createdAt)],
 );

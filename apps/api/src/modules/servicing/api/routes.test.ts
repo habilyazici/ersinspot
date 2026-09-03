@@ -552,6 +552,40 @@ describe('teklif ve randevu akışı', () => {
     expect(row?.status).toBe('quoted');
   });
 
+  /**
+   * Zaman çizelgesi olayları yazıldıkları sırayla görünür.
+   *
+   * `createQuote`, incelemeye alınmamış bir talepte TEK işlemde iki olay yazar:
+   * önce "incelemeye alındı", sonra "teklif verildi". Damga `now()` ile
+   * üretildiğinde ikisi de işlemin başlangıç anını alıyordu ve `created_at`
+   * ile sıralanan çizelgede sıra veritabanının insafına kalıyordu — müşteri
+   * teklifin incelemeden önce verildiğini görebiliyordu.
+   */
+  it('aynı işlemde yazılan olaylar sırasını korur', async () => {
+    const requestId = await createMoving();
+    await quote(requestId);
+
+    const response = await request(`/api/requests/${requestId}`, { cookie: customerCookie });
+    const payload = (await response.json()) as {
+      request: { timeline: { status: string; occurredAt: string }[] };
+    };
+
+    const statuses = payload.request.timeline.map((event) => event.status);
+    expect(statuses).toEqual(['pending', 'reviewing', 'quoted']);
+
+    /*
+      Damgalar da AYRI olmalıdır.
+
+      Sıra denetimi tek başına yeterli değil: damgalar eşit olduğunda sıralama
+      ikincil anahtara düşer ve o anahtar rastgele bir kimlik olduğu için test
+      şansa bağlı olarak geçerdi. Asıl kural, aynı işlemde yazılan iki olayın
+      farklı anlar taşımasıdır — `clock_timestamp()` bunu sağlar, `now()`
+      sağlamıyordu.
+    */
+    const [, reviewing, quoted] = payload.request.timeline;
+    expect(reviewing?.occurredAt).not.toBe(quoted?.occurredAt);
+  });
+
   /*
     Durum makinesi geçişin SIRASINI belirler, ön koşulunu değil.
 

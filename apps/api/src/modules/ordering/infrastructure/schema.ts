@@ -15,6 +15,7 @@
  *    defterindeki kaydı sonradan değiştirse bile sipariş etkilenmez.
  */
 
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   date,
@@ -215,7 +216,19 @@ export const orderEvents = pgTable(
     /** İşlemi yapan personel. Sistem olaylarında ve müşteri işlemlerinde null. */
     actorUserId: uuid().references(() => users.id, { onDelete: 'set null' }),
 
-    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    /**
+     * Olayın gerçekleştiği an — `now()` DEĞİL, `clock_timestamp()`.
+     *
+     * PostgreSQL'de `now()` işlemin BAŞLADIĞI anı döndürür ve işlem boyunca
+     * sabittir. Aynı işlemde iki olay yazıldığında ikisi de aynı damgayı alır;
+     * zaman çizelgesi `created_at` ile sıralandığı için sıra veritabanının
+     * satırları döndürme sırasına kalır ve okuma başına değişebilir.
+     * `clock_timestamp()` gerçek anı verir ve olaylar yazıldıkları sırayla
+     * sıralanır.
+     */
+    createdAt: timestamp({ withTimezone: true })
+      .notNull()
+      .default(sql`clock_timestamp()`),
   },
   (table) => [index('order_events_order_created_idx').on(table.orderId, table.createdAt)],
 );

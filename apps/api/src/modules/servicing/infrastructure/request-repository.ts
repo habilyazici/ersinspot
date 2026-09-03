@@ -307,6 +307,15 @@ export async function findCurrentAppointment(
   return rows[0] ?? null;
 }
 
+/**
+ * Talebin zaman çizelgesi, eskiden yeniye.
+ *
+ * `id` ikincil sıralama anahtarıdır. Damga artık `clock_timestamp()` ile
+ * yazıldığı için yeni kayıtlarda eşitlik pratikte oluşmaz; ama `now()`
+ * döneminden kalan satırlar aynı damgayı taşır ve tek anahtarla sıralandığında
+ * sıraları her okumada değişebilirdi. İkinci anahtar o kayıtların sırasını da
+ * en azından SABİT tutar.
+ */
 export async function findEvents(requestId: string): Promise<EventRow[]> {
   return db
     .select({
@@ -317,7 +326,7 @@ export async function findEvents(requestId: string): Promise<EventRow[]> {
     })
     .from(requestEvents)
     .where(eq(requestEvents.requestId, requestId))
-    .orderBy(requestEvents.createdAt);
+    .orderBy(requestEvents.createdAt, requestEvents.id);
 }
 
 /** Birden çok talebin geçerli tekliflerini tek sorguda çeker (N+1 önlenir). */
