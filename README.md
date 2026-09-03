@@ -108,4 +108,3 @@ her örnek aynı görevi çalıştırır; ayrıntı için [docs/MIMARI.md](docs/
 ## Belgeler
 
 - [Mimari ve modül kuralları](docs/MIMARI.md)
-- [Eski kod tabanının denetim raporu](https://claude.ai/code/artifact/58cec0c2-580a-4785-a6e6-de6f54d2e754)
