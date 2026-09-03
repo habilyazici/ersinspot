@@ -56,17 +56,31 @@ async function runSafely(task: MaintenanceTask): Promise<void> {
 }
 
 /**
+ * Açılıştaki ilk turu SIRAYLA çalıştırır.
+ *
+ * Sunucu uzun süre kapalı kaldıysa birikmiş işler ilk aralığı beklemeden
+ * temizlenir. Sıra önemlidir ve bildirim sırasıdır: sipariş iptali ürünleri
+ * normal yoldan serbest bırakır, kataloğun rezervasyon temizliği ise yalnızca
+ * emniyet ağıdır. Önceki hâlinde tüm görevler aynı anda başlatılıyordu;
+ * emniyet ağı önce koştuğunda ürün satışa dönerken sipariş açık kalıyor ve
+ * aynı ürün ikinci kez satılabiliyordu.
+ */
+async function runInitialPass(tasks: readonly MaintenanceTask[]): Promise<void> {
+  for (const task of tasks) {
+    await runSafely(task);
+  }
+}
+
+/**
  * Görevleri zamanlar.
  *
  * Zamanlayıcılar `unref` edilir: süreç kapanırken bekleyen bir zamanlayıcı
  * yüzünden asılı kalmaz.
  */
 export function startMaintenance(tasks: readonly MaintenanceTask[]): void {
-  for (const task of tasks) {
-    // Açılışta bir kez çalıştır: sunucu uzun süre kapalı kaldıysa birikmiş
-    // işler ilk aralığı beklemeden temizlensin.
-    void runSafely(task);
+  void runInitialPass(tasks);
 
+  for (const task of tasks) {
     const timer = setInterval(() => void runSafely(task), task.intervalMs);
     timer.unref();
     timers.push(timer);

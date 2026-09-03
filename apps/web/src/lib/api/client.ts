@@ -161,11 +161,33 @@ export async function apiUpload<T>(
     form.append(key, value);
   }
 
-  const response = await fetch(buildUrl(path), {
-    method: 'POST',
-    credentials: 'include',
-    body: form,
-  });
+  let response: Response;
+
+  /*
+    Ağ hatası burada da `ApiError`'a çevrilir.
+
+    Arayüz hataları `ApiError` olarak ele alır (`code` alanına bakar); ham
+    `TypeError` sızdığında yükleme bileşeni anlaşılır mesaj yerine genel bir
+    hata gösteriyordu. İstek yolu ile yükleme yolunun aynı sözleşmeyi
+    döndürmesi gerekir.
+  */
+  try {
+    response = await fetch(buildUrl(path), {
+      method: 'POST',
+      credentials: 'include',
+      body: form,
+    });
+  } catch {
+    throw new ApiError(
+      {
+        error: {
+          code: 'internal_error',
+          message: 'Sunucuya ulaşılamıyor. İnternet bağlantınızı kontrol edin.',
+        },
+      },
+      0,
+    );
+  }
 
   const payload: unknown = await response.json().catch(() => null);
 

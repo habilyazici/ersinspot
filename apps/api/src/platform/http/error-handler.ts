@@ -74,17 +74,30 @@ export const errorHandler: ErrorHandler = (error: unknown, c: Context) => {
 
   // 1) Uygulama hataları: beklenen durumlar.
   if (isAppError(error)) {
+    /*
+      İzleme kodu LOG SATIRINDAN ÖNCE üretilir ve satırın içine konur.
+
+      Önceki sırada kod yanıt kurulurken üretiliyor, log ise ondan önce
+      yazılıyordu: kullanıcıya "destek talebinde bu kodu paylaşın" denen
+      değer hiçbir log kaydında geçmiyordu. Kodun tek işlevi log ile yanıtı
+      eşleştirmek olduğu için, eşleşmediğinde hiçbir işe yaramıyordu.
+    */
+    const traceId = error.status >= 500 ? generateTraceId() : undefined;
+
     // İstemci hataları gürültü yaratmasın diye yalnızca debug seviyesinde loglanır;
     // sunucu hataları ve yetki ihlalleri uyarı seviyesinde.
     if (error.status >= 500) {
-      logger.error(error.message, { ...requestInfo, code: error.code, context: error.context });
+      logger.error(error.message, {
+        ...requestInfo,
+        traceId,
+        code: error.code,
+        context: error.context,
+      });
     } else if (error.status === 401 || error.status === 403 || error.status === 429) {
       logger.warn(error.message, { ...requestInfo, code: error.code, context: error.context });
     } else {
       logger.debug(error.message, { ...requestInfo, code: error.code });
     }
-
-    const traceId = error.status >= 500 ? generateTraceId() : undefined;
 
     if (error.retryAfterSeconds !== undefined) {
       c.header('Retry-After', String(error.retryAfterSeconds));

@@ -12,7 +12,7 @@
 
 import { createTransport } from 'nodemailer';
 import type { Transporter } from 'nodemailer';
-import { env, isTest } from './config/env.ts';
+import { env, isProduction, isTest } from './config/env.ts';
 import { logger } from './observability/logger.ts';
 
 export interface EmailMessage {
@@ -25,14 +25,18 @@ export interface EmailMessage {
 /** Testlerde gönderilen e-postaları incelemek için bellek içi kayıt. */
 const sentInTest: EmailMessage[] = [];
 
-/** SMTP yapılandırılmış mı? */
+/**
+ * SMTP yapılandırılmış mı?
+ *
+ * `.env` dosyasında doldurulmamış bir anahtar `undefined` değil BOŞ DİZE
+ * olarak gelir (`SMTP_USER=` satırı gibi). Yalnızca `undefined` denetlendiğinde
+ * yarım yapılandırma "hazır" sayılıyor ve her e-posta, boş kullanıcı adıyla
+ * kimlik doğrulamaya çalışıp başarısız oluyordu — üstelik sessizce, çünkü
+ * gönderim hatası akışı kesmez.
+ */
 function isSmtpConfigured(): boolean {
-  return (
-    env.SMTP_HOST !== undefined &&
-    env.SMTP_HOST !== '' &&
-    env.SMTP_USER !== undefined &&
-    env.SMTP_PASSWORD !== undefined
-  );
+  const required = [env.SMTP_HOST, env.SMTP_USER, env.SMTP_PASSWORD];
+  return required.every((value) => value !== undefined && value !== '');
 }
 
 /**
@@ -48,7 +52,24 @@ export async function sendEmail(message: EmailMessage): Promise<void> {
   }
 
   if (!isSmtpConfigured()) {
-    // Geliştirme kolaylığı: bağlantıyı log'dan kopyalayıp tarayıcıda açabilirsiniz.
+    /*
+      Gövde YALNIZCA geliştirmede loglanır.
+
+      Geliştirmede kolaylık: şifre sıfırlama ve e-posta doğrulama bağlantısını
+      log'dan kopyalayıp tarayıcıda açabilirsiniz. Üretimde aynı satır, tek
+      kullanımlık jetonları düz metin olarak log toplayıcıya yazardı — postayı
+      hiç görmeyen biri hesabı ele geçirebilirdi. Üretimde SMTP'nin
+      yapılandırılmamış olması ayrıca bir arıza belirtisidir; bu yüzden uyarı
+      seviyesinde ve gövdesiz yazılır.
+    */
+    if (isProduction) {
+      logger.warn('E-posta gönderilemedi: SMTP yapılandırılmamış', {
+        to: message.to,
+        subject: message.subject,
+      });
+      return;
+    }
+
     logger.info('E-posta gönderilmedi (SMTP yapılandırılmamış)', {
       to: message.to,
       subject: message.subject,

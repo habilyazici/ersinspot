@@ -11,6 +11,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { queryClient, setUnauthenticatedHandler } from '@/lib/api';
+import { AdminLayout } from '@/components/layout/admin-layout.tsx';
 import { AppErrorBoundary } from '@/components/layout/error-boundary.tsx';
 import { ScrollToTop } from '@/components/layout/scroll-to-top.tsx';
 import { SiteLayout } from '@/components/layout/site-layout.tsx';
@@ -28,9 +29,7 @@ const NotFoundPage = lazy(() => import('./routes/not-found.tsx'));
 const LoginPage = lazy(() => import('./routes/login.tsx'));
 const RegisterPage = lazy(() => import('./routes/register.tsx'));
 
-// Hesap
-import { AdminLayout } from '@/components/layout/admin-layout.tsx';
-
+// Hesap ve yönetim paneli
 const AccountPage = lazy(() => import('./routes/account.tsx'));
 const AdminDashboardPage = lazy(() => import('./routes/admin/dashboard.tsx'));
 const AdminOrdersPage = lazy(() => import('./routes/admin/orders.tsx'));
