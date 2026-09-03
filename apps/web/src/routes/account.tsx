@@ -19,6 +19,7 @@ import {
   ApiError,
   USER_ROLE_LABELS,
   changePasswordSchema,
+  phone as phoneUtils,
   updateProfileSchema,
 } from '@ersinspot/shared';
 import type { ChangePasswordInput, UpdateProfileInput } from '@ersinspot/shared';
@@ -29,7 +30,6 @@ import { TextField } from '@/components/ui/form-field.tsx';
 import { PageContainer, PageHeader, Section } from '@/components/ui/page.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { formatDate, formatDateTime, formatRelativeTime } from '@/lib/format.ts';
-import { phone as phoneUtils } from '@ersinspot/shared';
 import { useSiteSettings } from '@/features/content';
 import {
   useAuth,

@@ -22,11 +22,18 @@ import { PageHeader, Section } from '@/components/ui/page.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { useAdminSettings, useUpdateSetting } from '@/features/content';
 
-/** Ayar anahtarının ön ekine göre gruplama başlığı. */
+/**
+ * Ayar anahtarının ön ekine göre gruplama başlığı.
+ *
+ * Karşılığı olmayan ön ek "Diğer" başlığına düşer. Yeni bir ayar grubu
+ * eklendiğinde buraya da yazılmalıdır: havale bilgileri bir süre "Diğer"
+ * altında durdu ve sayfanın en çok aranan bölümü en anlamsız başlığı taşıdı.
+ */
 const GROUP_LABELS: Readonly<Record<string, string>> = {
   contact: 'İletişim Bilgileri',
   hours: 'Çalışma Saatleri',
   banner: 'Duyuru',
+  payment: 'Havale / EFT Bilgileri',
 };
 
 function groupOf(key: string): string {
@@ -71,7 +78,7 @@ export default function AdminSettingsPage() {
     <>
       <PageHeader
         title="Site Ayarları"
-        description="İletişim bilgileri ve çalışma saatleri. Bu değerler sitenin her sayfasında görünür."
+        description="İletişim bilgileri, çalışma saatleri, duyuru ve havale bilgileri. Bu değerler müşteriye doğrudan görünür."
       />
 
       <div className="mt-8 space-y-8">
@@ -96,8 +103,16 @@ export default function AdminSettingsPage() {
                             setDrafts({ ...drafts, [setting.key]: event.target.value });
                           }}
                         >
-                          <option value="true">Açık</option>
-                          <option value="false">Kapalı</option>
+                          {/*
+                            Seçenekler EVET/HAYIR. Açıklamalar bir soru
+                            biçiminde yazılır ("Pazar günü kapalı mı?") ve
+                            "Açık/Kapalı" orada iki farklı şey anlatıyordu:
+                            ayarın açık olması ile mağazanın açık olması.
+                            Pazar günü çalışmak isteyen yönetici "Açık"
+                            seçtiğinde tam tersini elde ediyordu.
+                          */}
+                          <option value="true">Evet</option>
+                          <option value="false">Hayır</option>
                         </SelectField>
                       ) : (
                         <TextField

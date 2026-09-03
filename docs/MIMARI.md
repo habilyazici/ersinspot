@@ -297,6 +297,12 @@ Sıra önemlidir: sipariş iptali ürünleri NORMAL yoldan serbest bırakır. Ka
 görevi tek başına çalışırsa ürün satışa döner ama sipariş açık kalır ve aynı
 ürün ikinci kez satılabilir — denetimde bulunan durum tam olarak buydu.
 
+Bu yüzden açılıştaki ilk tur yukarıdaki listenin SIRASIYLA ve birer birer
+çalıştırılır (`startMaintenance`). Aralıkla tekrarlanan turlarda her görev kendi
+zamanlayıcısındadır ve katalog görevi bilinçli olarak bir emniyet ağıdır:
+sipariş iptali onu zaten gereksiz kılar, ağ yalnızca o yoldan kaçmış — siparişi
+silinmiş ya da elle değiştirilmiş — rezervasyonları toplar.
+
 **Ölçekleme notu:** görevler sunucu sürecinin içinde çalışır. Birden çok örneğe
 geçildiğinde her örnek aynı görevi çalıştırır; o noktada bir danışma kilidi
 (advisory lock) eklenmeli ya da görevler ayrı bir zamanlayıcıya taşınmalıdır.
