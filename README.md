@@ -100,7 +100,7 @@ dosya bağlıyorsanız `attachFiles` çağrısını atlamayın — Kural 5.
 | `TRUST_PROXY`    | Uygulama nginx/Cloudflare gibi bir ters vekilin arkasındaysa `true`. Doğrudan internete açıksa `false` bırakın: `X-Forwarded-For` başlığını istemci de gönderebilir ve ona güvenmek giriş denemesi sınırını atlatır. |
 | `SESSION_SECRET` | Üretimde rastgele üretin (`openssl rand -base64 48`). Geliştirme anahtarı üretimde reddedilir.                                                                                                                       |
 | `SMTP_*`         | Boş bırakılırsa e-postalar gönderilmez, log'a yazılır. Şifre sıfırlama ve e-posta doğrulama bu ayarlar olmadan çalışmaz.                                                                                             |
-| `STORAGE_DRIVER` | Şimdilik yalnızca `local` uygulanmıştır; `s3` seçilirse süreç ilk dosya işleminde hata verir.                                                                                                                        |
+| `STORAGE_DRIVER` | Şimdilik yalnızca `local` uygulanmıştır. `s3` seçilirse süreç açılışta anlaşılır bir mesajla durur.                                                                                                                  |
 
 Bakım görevleri sunucu sürecinin içinde çalışır. Birden çok örneğe geçildiğinde
 her örnek aynı görevi çalıştırır; ayrıntı için [docs/MIMARI.md](docs/MIMARI.md).

@@ -45,13 +45,12 @@ import { uploadedFiles } from '../infrastructure/schema.ts';
  * Hangi amaçla yükleme yapmak için hangi yetki gerekir.
  *
  * Ürün görseli ve blog kapağı yalnızca personel tarafından yüklenir; talep
- * fotoğrafı ve profil resmi müşteri tarafından.
+ * fotoğrafı müşteri tarafından.
  */
 const REQUIRED_ROLE: Readonly<Record<UploadPurpose, UserRole>> = {
   product_image: 'staff',
   blog_cover: 'staff',
   request_photo: 'customer',
-  avatar: 'customer',
 };
 
 /**

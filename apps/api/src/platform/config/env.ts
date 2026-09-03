@@ -50,6 +50,16 @@ const envSchema = z
       .default('false')
       .transform((value) => value === 'true'),
 
+    /*
+      Depolama sürücüsü.
+
+      `s3` YAPILANDIRMASI KABUL EDİLİR AMA HENÜZ UYGULANMADI; seçildiğinde
+      süreç aşağıdaki denetimle açılışta durur. Önceden yalnızca ilk dosya
+      işleminde hata veriyordu: sunucu ayağa kalkıyor, sağlık kontrolü geçiyor
+      ve sorun ancak biri fotoğraf yüklemeye çalıştığında ortaya çıkıyordu.
+      Yanlış yapılandırmayı ilk istekte değil açılışta yakalamak, bu dosyanın
+      baştaki kuralıdır.
+    */
     STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
     STORAGE_LOCAL_DIR: z.string().default('./.storage'),
     STORAGE_PUBLIC_URL: z.string().url('STORAGE_PUBLIC_URL geçerli bir adres olmalıdır.'),
@@ -68,12 +78,30 @@ const envSchema = z
   })
   .superRefine((env, ctx) => {
     if (env.STORAGE_DRIVER === 's3') {
+      /*
+        Sürücü henüz uygulanmadı; süreç burada durur.
+
+        Önceden yalnızca ilk dosya işleminde hata veriyordu: sunucu ayağa
+        kalkıyor, sağlık kontrolü geçiyor ve sorun ancak biri fotoğraf
+        yüklemeye çalıştığında ortaya çıkıyordu.
+      */
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['STORAGE_DRIVER'],
+        message:
+          'S3 sürücüsü henüz uygulanmadı. Şimdilik STORAGE_DRIVER=local kullanın; ' +
+          'S3 desteklendiğinde bu denetim kaldırılacak.',
+      });
+
+      // Eksik anahtarlar da aynı anda bildirilir: sürücü eklendiğinde
+      // yapılandırmayı iki kez düzeltmek gerekmesin.
       const required = [
         'S3_ENDPOINT',
         'S3_BUCKET',
         'S3_ACCESS_KEY_ID',
         'S3_SECRET_ACCESS_KEY',
       ] as const;
+
       for (const key of required) {
         if (env[key] === undefined || env[key] === '') {
           ctx.addIssue({

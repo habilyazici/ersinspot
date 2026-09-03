@@ -36,6 +36,13 @@
       "when": 1788360289996,
       "tag": "0004_arama_indeksleri",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788415231334,
+      "tag": "0005_avatar_amacini_kaldir",
+      "breakpoints": true
     }
   ]
 }

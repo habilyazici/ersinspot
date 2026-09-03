@@ -276,8 +276,15 @@ export const uploadedFileSchema = z.object({
 
 export type UploadedFile = z.infer<typeof uploadedFileSchema>;
 
-/** Yükleme amacı: depolama yolunu ve boyut sınırını belirler. */
-export const UPLOAD_PURPOSES = ['product_image', 'request_photo', 'blog_cover', 'avatar'] as const;
+/**
+ * Yükleme amacı: depolama yolunu, yetkiyi ve sunum kurallarını belirler.
+ *
+ * Liste, karşılığı olan akış kadardır. `avatar` bir süre burada durdu ama
+ * profil resmi diye bir özellik hiç yazılmadı: uç, hiçbir kayda bağlanmayacak
+ * dosyayı kabul ediyor, yetim temizliği de 24 saat sonra siliyordu. Özellik
+ * yazıldığında değer migration ile geri gelir.
+ */
+export const UPLOAD_PURPOSES = ['product_image', 'request_photo', 'blog_cover'] as const;
 
 export type UploadPurpose = (typeof UPLOAD_PURPOSES)[number];
 
@@ -290,8 +297,7 @@ export const uploadRequestSchema = z.object({
  *
  * Ürün görselleri ve blog kapakları vitrinin parçasıdır; oturumsuz ziyaretçi
  * de görmelidir. Diğer amaçlar KİŞİSEL VERİDİR: talep fotoğrafları müşterinin
- * evinin içini, profil resmi kişinin kendisini gösterir. Bunlar yalnızca
- * sahibine ve personele açılır.
+ * evinin içini gösterir. Bunlar yalnızca sahibine ve personele açılır.
  *
  * Ayrım burada tanımlıdır çünkü hem sunucu (dosya sunumu yetkilendirmesi) hem
  * arayüz (önbellek davranışı) aynı listeye bakar.
