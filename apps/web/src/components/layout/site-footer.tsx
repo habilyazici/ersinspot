@@ -17,6 +17,9 @@ export function SiteFooter() {
   const contactEmail = settings?.['contact.email'] ?? '';
   const address = settings?.['contact.address'] ?? '';
 
+  // Ayar metin olarak saklanır; tipi `boolean` olduğu için değeri 'true'/'false'.
+  const isSundayClosed = (settings?.['hours.sunday.closed'] ?? 'true') === 'true';
+
   return (
     <footer className="mt-16 border-t border-slate-200 bg-white">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-3 lg:px-8">
@@ -80,7 +83,10 @@ export function SiteFooter() {
                   className="mt-0.5 size-4 shrink-0 text-brand-orange-500"
                   aria-hidden="true"
                 />
-                <a href={`tel:${contactPhone}`} className="hover:text-brand-orange-600">
+                <a
+                  href={phoneUtils.toTelHref(contactPhone)}
+                  className="hover:text-brand-orange-600"
+                >
                   {phoneUtils.format(contactPhone)}
                 </a>
               </li>
@@ -113,6 +119,17 @@ export function SiteFooter() {
                 <br />
                 Cumartesi {settings?.['hours.saturday.open'] ?? '09:00'} –{' '}
                 {settings?.['hours.saturday.close'] ?? '17:00'}
+                <br />
+                {/*
+                  Pazar günü ayrıca yazılır. `hours.sunday.closed` ayarı vardı
+                  ama hiçbir yerde okunmuyordu: yönetici "pazar açığız" diye
+                  işaretlese bile site kapalı gibi görünmeye devam ediyordu.
+                */}
+                {isSundayClosed
+                  ? 'Pazar kapalı'
+                  : `Pazar ${settings?.['hours.sunday.open'] ?? '10:00'} – ${
+                      settings?.['hours.sunday.close'] ?? '16:00'
+                    }`}
               </span>
             </li>
           </ul>

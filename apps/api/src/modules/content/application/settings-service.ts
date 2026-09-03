@@ -10,7 +10,6 @@
  * yer kendi ayrıştırmasını yazar.
  */
 
-import { eq } from 'drizzle-orm';
 import { db } from '../../../platform/db/client.ts';
 import { businessRule } from '../../../platform/errors/index.ts';
 import { logger } from '../../../platform/observability/logger.ts';
@@ -56,12 +55,41 @@ export const DEFAULT_SETTINGS: Readonly<
   'hours.sunday.closed': {
     value: 'true',
     valueType: 'boolean',
-    description: 'Pazar günü kapalı mı?',
+    description: 'Pazar günü kapalı mı? Kapalıysa alt bilgide "Pazar kapalı" yazar.',
   },
+  'hours.sunday.open': { value: '10:00', valueType: 'time', description: 'Pazar açılış.' },
+  'hours.sunday.close': { value: '16:00', valueType: 'time', description: 'Pazar kapanış.' },
   'banner.text': {
     value: '',
     valueType: 'string',
     description: 'Sitenin üstünde gösterilen duyuru. Boşsa gösterilmez.',
+  },
+
+  /*
+    Havale/EFT bilgileri.
+
+    Müşteri ödeme yöntemi olarak havaleyi seçtiğinde parayı NEREYE göndereceğini
+    bilmek zorundadır. Bu bilgi hiçbir yerde yoktu: sipariş "ödeme bekleniyor"
+    durumunda açılıyor, üç gün sonra ödeme gelmediği için otomatik iptal
+    ediliyordu — müşteriye hesap numarası hiç verilmeden.
+
+    Ayar olarak tutulur, koda gömülmez: banka değiştirmek yeniden dağıtım
+    gerektirmemelidir.
+  */
+  'payment.bank.name': {
+    value: '',
+    valueType: 'string',
+    description: 'Havale/EFT için banka adı. Boşsa ödeme bilgisi gösterilmez.',
+  },
+  'payment.bank.account_holder': {
+    value: '',
+    valueType: 'string',
+    description: 'Hesap sahibinin adı (havale açıklamasında aranan isim).',
+  },
+  'payment.bank.iban': {
+    value: '',
+    valueType: 'string',
+    description: 'IBAN. Müşteriye sipariş detayında gösterilir.',
   },
 };
 
@@ -80,19 +108,6 @@ export async function getAllSettings(): Promise<Setting[]> {
       description: row?.description ?? fallback.description,
     };
   });
-}
-
-/** Tek ayarı okur. Kayıt yoksa varsayılan döner. */
-export async function getSetting(key: string): Promise<string | null> {
-  const fallback = DEFAULT_SETTINGS[key];
-
-  const rows = await db
-    .select({ value: siteSettings.value })
-    .from(siteSettings)
-    .where(eq(siteSettings.key, key))
-    .limit(1);
-
-  return rows[0]?.value ?? fallback?.value ?? null;
 }
 
 /** Değerin bildirilen tipe uyduğunu doğrular. */

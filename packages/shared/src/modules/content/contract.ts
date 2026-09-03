@@ -8,6 +8,7 @@
 
 import { z } from 'zod';
 import {
+  booleanQuerySchema,
   emailSchema,
   fullNameSchema,
   paginationSchema,
@@ -90,7 +91,7 @@ export type ReplyToContactMessageInput = z.infer<typeof replyToContactMessageSch
 
 export const contactMessageListQuerySchema = paginationSchema.extend({
   subject: z.enum(CONTACT_SUBJECTS).optional(),
-  isRead: z.coerce.boolean().optional(),
+  isRead: booleanQuerySchema.optional(),
 });
 
 export type ContactMessageListQuery = z.infer<typeof contactMessageListQuerySchema>;

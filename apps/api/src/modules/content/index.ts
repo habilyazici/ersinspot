@@ -7,7 +7,12 @@
  * Bağımlılıkları: identity (yazar, personel), files (kapak görseli)
  */
 
-export { contentRoutes } from './api/routes.ts';
+/*
+  Sözleşme yalnızca yönlendiriciden ibarettir.
 
-/** Site ayarını okur. Diğer modüller yapılandırılabilir değerlere buradan erişir. */
-export { getSetting } from './application/settings-service.ts';
+  Burada bir de `getSetting` duruyordu ama hiçbir modül çağırmıyordu: site
+  ayarları yalnızca `GET /api/settings` üzerinden tarayıcıya gidiyor. Modüller
+  arası bir yüzey açık tutmak, onu kullanan bir çağıran doğduğunda kolaydır;
+  kullanılmayan yüzey ise her okuyanı "bunu kim çağırıyor" diye aratır.
+*/
+export { contentRoutes } from './api/routes.ts';
