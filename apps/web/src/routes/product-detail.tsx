@@ -29,9 +29,16 @@ export default function ProductDetailPage() {
   const isPurchasable = product.status === 'for_sale';
   const cover = product.images[activeImage] ?? product.images[0];
 
-  function handleAddToCart(): void {
+  /*
+    Ürün kimliği parametreyle geçilir.
+
+    Fonksiyon, `product === undefined` erken dönüşünden SONRA tanımlı olsa da
+    TypeScript kapanış içinde daraltmayı koruyamaz; kimliği dışarıdan almak,
+    kod tabanının başka hiçbir yerinde bulunmayan bir `!` işaretinden kurtarır.
+  */
+  function handleAddToCart(productId: string): void {
     addToCart.mutate(
-      { productId: product!.id },
+      { productId },
       {
         onSuccess: () => toast.success('Ürün sepetinize eklendi.'),
         onError: (mutationError) => {
@@ -130,7 +137,9 @@ export default function ProductDetailPage() {
                 <Button
                   size="lg"
                   className="w-full sm:w-auto"
-                  onClick={handleAddToCart}
+                  onClick={() => {
+                    handleAddToCart(product.id);
+                  }}
                   isLoading={addToCart.isPending}
                 >
                   <ShoppingCart aria-hidden="true" />
