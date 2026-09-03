@@ -10,7 +10,7 @@
  * `dangerouslySetInnerHTML` kullanılıyordu.
  */
 
-import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type {
   BlogListQuery,
@@ -21,6 +21,7 @@ import type {
   UpdateBlogPostInput,
 } from '@ersinspot/shared';
 import { paginate } from '@ersinspot/shared';
+import { contains } from '../../../platform/db/search.ts';
 import { db } from '../../../platform/db/client.ts';
 import type { Transaction } from '../../../platform/db/client.ts';
 import { alreadyExists, notFound } from '../../../platform/errors/index.ts';
@@ -85,8 +86,10 @@ export async function listPublishedPosts(
   }
 
   if (query.search !== undefined && query.search !== '') {
-    const pattern = `%${query.search}%`;
-    const searchCondition = or(ilike(blogPosts.title, pattern), ilike(blogPosts.excerpt, pattern));
+    const searchCondition = or(
+      contains(blogPosts.title, query.search),
+      contains(blogPosts.excerpt, query.search),
+    );
     if (searchCondition !== undefined) {
       conditions.push(searchCondition);
     }
@@ -157,11 +160,10 @@ export async function listAllPosts(query: BlogListQuery): Promise<Paginated<Blog
   }
 
   if (query.search !== undefined && query.search !== '') {
-    const pattern = `%${query.search}%`;
     const searchCondition = or(
-      ilike(blogPosts.title, pattern),
-      ilike(blogPosts.slug, pattern),
-      ilike(blogPosts.excerpt, pattern),
+      contains(blogPosts.title, query.search),
+      contains(blogPosts.slug, query.search),
+      contains(blogPosts.excerpt, query.search),
     );
     if (searchCondition !== undefined) {
       conditions.push(searchCondition);

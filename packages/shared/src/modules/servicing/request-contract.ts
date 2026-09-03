@@ -13,6 +13,7 @@
 import { z } from 'zod';
 import {
   appointmentDateSchema,
+  dateOnlySchema,
   fullNameSchema,
   optionalText,
   paginationSchema,
@@ -186,10 +187,16 @@ export const requestListQuerySchema = paginationSchema.extend({
 
 export type RequestListQuery = z.infer<typeof requestListQuerySchema>;
 
+/**
+ * Yönetim paneli talep listesi süzgeçleri.
+ *
+ * Tarih alanları takvim günü şemasından geçer; sipariş listesiyle aynı
+ * gerekçe — doğrulanmamış bir gün değeri sorgu sürücüsünde 500'e dönüşüyordu.
+ */
 export const adminRequestListQuerySchema = requestListQuerySchema.extend({
   search: z.string().trim().max(120).optional(),
-  fromDate: z.string().optional(),
-  toDate: z.string().optional(),
+  fromDate: dateOnlySchema.optional(),
+  toDate: dateOnlySchema.optional(),
 });
 
 export type AdminRequestListQuery = z.infer<typeof adminRequestListQuerySchema>;

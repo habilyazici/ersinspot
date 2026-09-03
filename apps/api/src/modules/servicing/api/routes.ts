@@ -16,6 +16,7 @@ import { z } from 'zod';
 import {
   addStaffNoteSchema,
   adminRequestListQuerySchema,
+  booleanQuerySchema,
   cancelRequestSchema,
   convertToProductSchema,
   createMovingRequestSchema,
@@ -87,12 +88,20 @@ const createLimit = rateLimit(30, 60 * 60 * 1000, 'talep-olustur');
 const estimateInputSchema = z.object({
   houseSize: createMovingRequestSchema.innerType().shape.houseSize,
   fromFloor: z.coerce.number().int().min(-3).max(50),
-  fromHasElevator: z.coerce.boolean(),
+  /*
+    Mantıksal alanlar `booleanQuerySchema` ile okunur.
+
+    `z.coerce.boolean()` burada YANLIŞ sonuç verirdi: `Boolean('false')`
+    değeri `true`'dur, yani `?fromHasElevator=false` "asansör var" diye
+    okunur ve kat farkı ücreti hiç uygulanmazdı. Tahmin, sorulandan düşük
+    çıkardı.
+  */
+  fromHasElevator: booleanQuerySchema,
   toFloor: z.coerce.number().int().min(-3).max(50),
-  toHasElevator: z.coerce.boolean(),
+  toHasElevator: booleanQuerySchema,
   itemCount: z.coerce.number().int().min(0).max(500),
-  needsPacking: z.coerce.boolean(),
-  needsAssembly: z.coerce.boolean(),
+  needsPacking: booleanQuerySchema,
+  needsAssembly: booleanQuerySchema,
 });
 
 /**

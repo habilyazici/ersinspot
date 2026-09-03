@@ -333,24 +333,44 @@ describe('nakliye talebi', () => {
   });
 
   it('asansörsüz kat için ek ücret uygular', async () => {
-    const withoutElevator = await request('/api/moving/estimate', {
-      method: 'GET',
-    });
-    void withoutElevator;
+    const estimate = async (query: string): Promise<number> => {
+      const response = await request(`/api/moving/estimate?${query}`);
+      const payload = (await response.json()) as { estimate: { total: number } };
+      return payload.estimate.total;
+    };
 
-    const high = await request(
-      '/api/moving/estimate?houseSize=2%2B1&fromFloor=5&fromHasElevator=false' +
-        '&toFloor=0&toHasElevator=false&itemCount=0&needsPacking=false&needsAssembly=false',
-    );
-    const ground = await request(
-      '/api/moving/estimate?houseSize=2%2B1&fromFloor=0&fromHasElevator=false' +
-        '&toFloor=0&toHasElevator=false&itemCount=0&needsPacking=false&needsAssembly=false',
-    );
+    const base = 'houseSize=2%2B1&toFloor=0&toHasElevator=false&itemCount=0';
+    const services = 'needsPacking=false&needsAssembly=false';
 
-    const highTotal = ((await high.json()) as { estimate: { total: number } }).estimate.total;
-    const groundTotal = ((await ground.json()) as { estimate: { total: number } }).estimate.total;
+    const high = await estimate(`${base}&${services}&fromFloor=5&fromHasElevator=false`);
+    const ground = await estimate(`${base}&${services}&fromFloor=0&fromHasElevator=false`);
 
-    expect(highTotal).toBeGreaterThan(groundTotal);
+    expect(high).toBeGreaterThan(ground);
+  });
+
+  /*
+    Mantıksal sorgu parametreleri metindir ve `false` değeri "yanlış" demektir.
+
+    `z.coerce.boolean()` kullanıldığında `Boolean('false')` değeri `true` çıkıyor
+    ve asansör daima var sayılıyordu: asansörsüz bir binaya asansörlü fiyat
+    veriliyordu. Aşağıdaki karşılaştırma, iki değerin gerçekten ayrıştığını
+    doğrular.
+  */
+  it('asansör bilgisinde "false" değerini doğru okur', async () => {
+    const estimate = async (query: string): Promise<number> => {
+      const response = await request(`/api/moving/estimate?${query}`);
+      const payload = (await response.json()) as { estimate: { total: number } };
+      return payload.estimate.total;
+    };
+
+    const base =
+      'houseSize=2%2B1&fromFloor=5&toFloor=0&toHasElevator=false' +
+      '&itemCount=0&needsPacking=false&needsAssembly=false';
+
+    const withElevator = await estimate(`${base}&fromHasElevator=true`);
+    const withoutElevator = await estimate(`${base}&fromHasElevator=false`);
+
+    expect(withoutElevator).toBeGreaterThan(withElevator);
   });
 
   it('çıkış ve varış adresi aynıysa reddeder', async () => {

@@ -6,8 +6,9 @@
  * tabloları kendi repository dosyalarındadır.
  */
 
-import { and, desc, eq, gte, ilike, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
+import { businessDayEnd, businessDayStart } from '@ersinspot/shared';
 import type {
   AdminRequestListQuery,
   IzmirDistrict,
@@ -15,6 +16,7 @@ import type {
   RequestStatus,
   ServiceKind,
 } from '@ersinspot/shared';
+import { contains } from '../../../platform/db/search.ts';
 import { db } from '../../../platform/db/client.ts';
 import type { Transaction } from '../../../platform/db/client.ts';
 import {
@@ -425,19 +427,19 @@ export async function listForAdmin(query: AdminRequestListQuery): Promise<ListRe
   if (query.kind !== undefined) {
     conditions.push(eq(serviceRequests.kind, query.kind));
   }
+  // Sınırlar işletmenin saat dilimine göre; sipariş listesiyle aynı kural.
   if (query.fromDate !== undefined) {
-    conditions.push(gte(serviceRequests.createdAt, new Date(`${query.fromDate}T00:00:00Z`)));
+    conditions.push(gte(serviceRequests.createdAt, businessDayStart(query.fromDate)));
   }
   if (query.toDate !== undefined) {
-    conditions.push(lte(serviceRequests.createdAt, new Date(`${query.toDate}T23:59:59Z`)));
+    conditions.push(lt(serviceRequests.createdAt, businessDayEnd(query.toDate)));
   }
 
   if (query.search !== undefined && query.search !== '') {
-    const pattern = `%${query.search}%`;
     const searchCondition = or(
-      ilike(serviceRequests.referenceNumber, pattern),
-      ilike(serviceRequests.contactName, pattern),
-      ilike(serviceRequests.contactPhone, pattern),
+      contains(serviceRequests.referenceNumber, query.search),
+      contains(serviceRequests.contactName, query.search),
+      contains(serviceRequests.contactPhone, query.search),
     );
     if (searchCondition !== undefined) {
       conditions.push(searchCondition);
