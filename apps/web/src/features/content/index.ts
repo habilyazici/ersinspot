@@ -13,6 +13,7 @@ export {
   useDeleteBlogPost,
   useDeleteFaq,
   useMarkMessageRead,
+  usePaymentSettings,
   useReplyToMessage,
   useUnreadMessageCount,
   useUpdateBlogPost,

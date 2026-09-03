@@ -23,6 +23,7 @@ import {
   attachSession,
   currentUser,
   requireAdmin,
+  requireAuth,
   requireStaff,
 } from '../../../platform/http/auth.ts';
 import type { ValidatedVariables } from '../../../platform/http/validate.ts';
@@ -75,17 +76,38 @@ contentRoutes.get('/faqs', async (c) => {
   return c.json({ faqs: await faqService.listPublishedFaqs() });
 });
 
+/** Ayar listesini `{ anahtar: değer }` biçimine indirir. */
+function toValueMap(settings: readonly settingsService.Setting[]): Record<string, string> {
+  return Object.fromEntries(settings.map((setting) => [setting.key, setting.value]));
+}
+
 /**
- * Site ayarları.
+ * Vitrin ayarları — oturum gerektirmez.
  *
- * Yalnızca vitrinde gösterilen değerler (iletişim bilgisi, çalışma saatleri)
- * döner; tamamı zaten sitede görünen bilgilerdir.
+ * YALNIZCA `storefront` görünürlüğündeki değerler döner: iletişim bilgisi,
+ * çalışma saatleri, duyuru. Hepsi zaten sitenin alt bilgisinde yazar.
+ *
+ * Önceki hâli `getAllSettings()` çağırıyordu ve bu, adı "tüm ayarlar" olan bir
+ * fonksiyonun çıktısını olduğu gibi herkese açıyordu: havale bilgileri sonradan
+ * eklendiğinde IBAN ile hesap sahibinin adı da bu uçtan dönmeye başladı ve
+ * kimse fark etmedi — belgesi hâlâ "yalnızca vitrinde gösterilen değerler"
+ * diyordu. Kararı süzgecin kendisine bağlamak, aynı hatanın bir sonraki ayarda
+ * tekrarlanmasını engeller.
  */
 contentRoutes.get('/settings', async (c) => {
-  const settings = await settingsService.getAllSettings();
-  return c.json({
-    settings: Object.fromEntries(settings.map((setting) => [setting.key, setting.value])),
-  });
+  return c.json({ settings: toValueMap(await settingsService.getSettingsFor('storefront')) });
+});
+
+/**
+ * Ödeme bilgileri — oturum gerektirir.
+ *
+ * Havale/EFT ile sipariş veren müşteri parayı nereye göndereceğini görmelidir;
+ * bunun için sipariş detayı sayfası bu ucu çağırır ve o sayfa zaten oturum
+ * ister. Vitrin ayarları da birlikte döner: çağıran tek bir harita alır ve
+ * hangi değerin hangi uçtan geldiğini bilmek zorunda kalmaz.
+ */
+contentRoutes.get('/settings/payment', requireAuth, async (c) => {
+  return c.json({ settings: toValueMap(await settingsService.getSettingsFor('customer')) });
 });
 
 // ---------------------------------------------------------------------------

@@ -37,7 +37,7 @@ import {
   formatPrice,
   formatTimeSlot,
 } from '@/lib/format.ts';
-import { useSiteSettings } from '@/features/content';
+import { usePaymentSettings } from '@/features/content';
 import { OrderTotals, useCancelOrder, useOrder } from '@/features/ordering';
 
 /** Müşteri bu siparişi kendisi iptal edebilir mi? Kural sunucuyla ortak. */
@@ -53,9 +53,12 @@ function isCancellable(status: OrderStatus): boolean {
  * açılıyor, üç gün içinde ödeme gelmediği için otomatik iptal ediliyordu —
  * müşteriye hesap numarası hiç verilmeden. Değerler site ayarlarından gelir;
  * doldurulmamışsa kutu çizilmez ve müşteri telefonla yönlendirilir.
+ *
+ * Bilgiler oturum isteyen ayrı bir uçtan okunur: IBAN ile hesap sahibinin adı
+ * vitrinde herkese açık durmamalıdır. Bu sayfa zaten oturum arkasındadır.
  */
 function BankTransferInstructions({ referenceNumber }: { referenceNumber: string }) {
-  const { data: settings } = useSiteSettings();
+  const { data: settings } = usePaymentSettings();
 
   const iban = settings?.['payment.bank.iban'] ?? '';
   const bankName = settings?.['payment.bank.name'] ?? '';

@@ -22,6 +22,7 @@ import { apiRequest } from '@/lib/api';
 export const contentKeys = {
   all: ['content'] as const,
   settings: ['content', 'settings'] as const,
+  paymentSettings: ['content', 'settings', 'payment'] as const,
   adminBlog: (filters: Partial<BlogListQuery>) => ['content', 'admin', 'blog', filters] as const,
   adminFaqs: ['content', 'admin', 'faqs'] as const,
   adminSettings: ['content', 'admin', 'settings'] as const,
@@ -35,16 +36,42 @@ export const contentKeys = {
 };
 
 /**
- * Site ayarları.
+ * Vitrin ayarları.
  *
- * İletişim bilgileri ve çalışma saatleri gibi, arayüzün her yerinde kullanılan
- * değerler. Nadiren değiştiği için uzun süre önbellekte tutulur.
+ * İletişim bilgileri, çalışma saatleri ve duyuru: arayüzün her yerinde
+ * kullanılan, herkese açık değerler. Nadiren değiştiği için uzun süre
+ * önbellekte tutulur.
+ *
+ * Havale bilgileri BURADA DÖNMEZ; onlar oturum ister (`usePaymentSettings`).
  */
 export function useSiteSettings() {
   return useQuery({
     queryKey: contentKeys.settings,
     queryFn: async () => {
       const response = await apiRequest<{ settings: Record<string, string> }>('/api/settings');
+      return response.settings;
+    },
+    staleTime: 30 * 60_000,
+  });
+}
+
+/**
+ * Ödeme bilgileri — oturum gerektirir.
+ *
+ * Havale/EFT ile ödeyecek müşterinin banka bilgilerine ihtiyacı vardır. Bunlar
+ * vitrin ayarlarından ayrı bir uçtan gelir: IBAN ile hesap sahibinin adı
+ * birlikte kimlik avı için hazır bir şablondur ve oturumsuz ziyaretçiye
+ * gönderilmez.
+ *
+ * Yanıt vitrin değerlerini de içerir; çağıran tek bir harita okur.
+ */
+export function usePaymentSettings() {
+  return useQuery({
+    queryKey: contentKeys.paymentSettings,
+    queryFn: async () => {
+      const response = await apiRequest<{ settings: Record<string, string> }>(
+        '/api/settings/payment',
+      );
       return response.settings;
     },
     staleTime: 30 * 60_000,

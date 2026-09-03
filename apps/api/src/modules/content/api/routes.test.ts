@@ -495,6 +495,39 @@ describe('Site ayarları', () => {
     expect(response.status).toBe(200);
   });
 
+  /**
+   * Havale bilgileri vitrin ayarlarının içinde dönüyordu.
+   *
+   * IBAN ile hesap sahibinin adı birlikte, mağaza adına sahte bir ödeme
+   * sayfası kurmak için gereken her şeyi verir; üstelik hesap sahibi gerçek
+   * bir kişidir. Oturumsuz bir ziyaretçinin bunları görmesi için hiçbir sebep
+   * yok — bilgiyi isteyen tek kişi siparişini ödeyecek müşteridir.
+   */
+  it('havale bilgileri oturumsuz uçtan dönmez', async () => {
+    const response = await request('/api/settings');
+    const body = (await response.json()) as { settings: Record<string, string> };
+
+    expect(Object.keys(body.settings)).not.toContain('payment.bank.iban');
+    expect(Object.keys(body.settings)).not.toContain('payment.bank.account_holder');
+
+    // Vitrin değerleri yerinde durmalı: süzgeç ayarları topluca kesmemeli.
+    expect(Object.keys(body.settings)).toContain('contact.phone');
+  });
+
+  it('havale bilgileri için oturum gerekir', async () => {
+    const anonymous = await request('/api/settings/payment');
+
+    expect(anonymous.status).toBe(401);
+  });
+
+  it('oturum açmış müşteri havale bilgilerini görür', async () => {
+    const response = await request('/api/settings/payment', { cookie: customerCookie });
+    const body = (await response.json()) as { settings: Record<string, string> };
+
+    expect(response.status).toBe(200);
+    expect(Object.keys(body.settings)).toContain('payment.bank.iban');
+  });
+
   it('yalnızca yönetici değiştirebilir', async () => {
     const asStaff = await request('/api/admin/settings/store_phone', {
       method: 'PUT',

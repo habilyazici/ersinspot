@@ -17,6 +17,19 @@ import { siteSettings } from '../infrastructure/schema.ts';
 
 export type SettingValueType = 'string' | 'number' | 'boolean' | 'time';
 
+/**
+ * Ayarın kime açık olduğu.
+ *
+ *   storefront — vitrinde herkese görünür: iletişim bilgisi, çalışma saatleri,
+ *                duyuru. Zaten her sayfanın alt bilgisinde yazan şeyler.
+ *   customer   — yalnızca oturum açmış kullanıcıya gösterilir.
+ *
+ * Ayrım bir sınıflandırma etiketi değil, bir YETKİ KARARIDIR: `GET /settings`
+ * yalnızca `storefront` olanları döndürür. Yeni bir ayar eklendiğinde bu alanın
+ * yazılması zorunludur; unutulduğunda derleme kırılır.
+ */
+export type SettingAudience = 'storefront' | 'customer';
+
 export interface Setting {
   readonly key: string;
   readonly value: string;
@@ -31,38 +44,81 @@ export interface Setting {
  * eklemek migration gerektirmez ve eksik kayıt uygulamayı durdurmaz.
  */
 export const DEFAULT_SETTINGS: Readonly<
-  Record<string, { value: string; valueType: SettingValueType; description: string }>
+  Record<
+    string,
+    {
+      value: string;
+      valueType: SettingValueType;
+      description: string;
+      audience: SettingAudience;
+    }
+  >
 > = {
   'contact.phone': {
     value: '+905071940550',
     valueType: 'string',
     description: 'Sitede gösterilen iletişim telefonu (E.164 biçiminde).',
+    audience: 'storefront',
   },
   'contact.email': {
     value: 'bilgi@ersinspot.com',
     valueType: 'string',
     description: 'Sitede gösterilen iletişim e-postası.',
+    audience: 'storefront',
   },
   'contact.address': {
     value: 'Menderes Mahallesi, Buca / İzmir',
     valueType: 'string',
     description: 'Mağaza adresi.',
+    audience: 'storefront',
   },
-  'hours.weekday.open': { value: '09:00', valueType: 'time', description: 'Hafta içi açılış.' },
-  'hours.weekday.close': { value: '18:00', valueType: 'time', description: 'Hafta içi kapanış.' },
-  'hours.saturday.open': { value: '09:00', valueType: 'time', description: 'Cumartesi açılış.' },
-  'hours.saturday.close': { value: '17:00', valueType: 'time', description: 'Cumartesi kapanış.' },
+  'hours.weekday.open': {
+    value: '09:00',
+    valueType: 'time',
+    description: 'Hafta içi açılış.',
+    audience: 'storefront',
+  },
+  'hours.weekday.close': {
+    value: '18:00',
+    valueType: 'time',
+    description: 'Hafta içi kapanış.',
+    audience: 'storefront',
+  },
+  'hours.saturday.open': {
+    value: '09:00',
+    valueType: 'time',
+    description: 'Cumartesi açılış.',
+    audience: 'storefront',
+  },
+  'hours.saturday.close': {
+    value: '17:00',
+    valueType: 'time',
+    description: 'Cumartesi kapanış.',
+    audience: 'storefront',
+  },
   'hours.sunday.closed': {
     value: 'true',
     valueType: 'boolean',
     description: 'Pazar günü kapalı mı? Kapalıysa alt bilgide "Pazar kapalı" yazar.',
+    audience: 'storefront',
   },
-  'hours.sunday.open': { value: '10:00', valueType: 'time', description: 'Pazar açılış.' },
-  'hours.sunday.close': { value: '16:00', valueType: 'time', description: 'Pazar kapanış.' },
+  'hours.sunday.open': {
+    value: '10:00',
+    valueType: 'time',
+    description: 'Pazar açılış.',
+    audience: 'storefront',
+  },
+  'hours.sunday.close': {
+    value: '16:00',
+    valueType: 'time',
+    description: 'Pazar kapanış.',
+    audience: 'storefront',
+  },
   'banner.text': {
     value: '',
     valueType: 'string',
     description: 'Sitenin üstünde gösterilen duyuru. Boşsa gösterilmez.',
+    audience: 'storefront',
   },
 
   /*
@@ -70,44 +126,79 @@ export const DEFAULT_SETTINGS: Readonly<
 
     Müşteri ödeme yöntemi olarak havaleyi seçtiğinde parayı NEREYE göndereceğini
     bilmek zorundadır. Bu bilgi hiçbir yerde yoktu: sipariş "ödeme bekleniyor"
-    durumunda açılıyor, üç gün sonra ödeme gelmediği için otomatik iptal
-    ediliyordu — müşteriye hesap numarası hiç verilmeden.
+    durumunda açılıyor, ödeme süresi içinde bildirim gelmediği için otomatik
+    iptal ediliyordu — müşteriye hesap numarası hiç verilmeden.
 
     Ayar olarak tutulur, koda gömülmez: banka değiştirmek yeniden dağıtım
     gerektirmemelidir.
+
+    GÖRÜNÜRLÜK `customer`. Bu üçü vitrinin parçası değildir: IBAN ile hesap
+    sahibinin adı birlikte, kimlik avı için hazır bir şablondur — mağazanın
+    adına düzenlenmiş sahte bir ödeme sayfası yapmak için gereken her şeyi
+    verir. Üstelik hesap sahibi gerçek bir kişidir ve adı kişisel veridir.
+    Bilgiyi görmesi gereken tek kişi siparişini ödeyecek müşteridir ve o
+    oturum açmıştır.
   */
   'payment.bank.name': {
     value: '',
     valueType: 'string',
     description: 'Havale/EFT için banka adı. Boşsa ödeme bilgisi gösterilmez.',
+    audience: 'customer',
   },
   'payment.bank.account_holder': {
     value: '',
     valueType: 'string',
     description: 'Hesap sahibinin adı (havale açıklamasında aranan isim).',
+    audience: 'customer',
   },
   'payment.bank.iban': {
     value: '',
     valueType: 'string',
     description: 'IBAN. Müşteriye sipariş detayında gösterilir.',
+    audience: 'customer',
   },
 };
 
-/** Tüm ayarları döndürür; veritabanında olmayanlar varsayılanla tamamlanır. */
+/**
+ * Tüm ayarları döndürür; veritabanında olmayanlar varsayılanla tamamlanır.
+ *
+ * YÖNETİCİ İÇİNDİR: görünürlüğü ne olursa olsun her ayar döner. Vitrine giden
+ * liste için `getSettingsFor` kullanılır.
+ */
 export async function getAllSettings(): Promise<Setting[]> {
+  return readSettings(() => true);
+}
+
+/**
+ * Belirli bir izleyiciye açık ayarları döndürür.
+ *
+ * `storefront` herkese açıktır; `customer` ayarları yalnızca oturum açmış
+ * kullanıcıya gönderilir ve bu yüzden onları isteyen uç `requireAuth` ile
+ * korunur. Süzme burada yapılır, çağıran tarafta değil: bir ucun yanlışlıkla
+ * fazla alan döndürmesi ancak kararın tek yerde verilmesiyle engellenir.
+ */
+export async function getSettingsFor(audience: SettingAudience): Promise<Setting[]> {
+  return readSettings((entry) => entry.audience === 'storefront' || entry.audience === audience);
+}
+
+async function readSettings(
+  include: (entry: (typeof DEFAULT_SETTINGS)[string]) => boolean,
+): Promise<Setting[]> {
   const stored = await db.select().from(siteSettings);
   const storedByKey = new Map(stored.map((row) => [row.key, row]));
 
-  return Object.entries(DEFAULT_SETTINGS).map(([key, fallback]) => {
-    const row = storedByKey.get(key);
+  return Object.entries(DEFAULT_SETTINGS)
+    .filter(([, fallback]) => include(fallback))
+    .map(([key, fallback]) => {
+      const row = storedByKey.get(key);
 
-    return {
-      key,
-      value: row?.value ?? fallback.value,
-      valueType: row?.valueType ?? fallback.valueType,
-      description: row?.description ?? fallback.description,
-    };
-  });
+      return {
+        key,
+        value: row?.value ?? fallback.value,
+        valueType: row?.valueType ?? fallback.valueType,
+        description: row?.description ?? fallback.description,
+      };
+    });
 }
 
 /** Değerin bildirilen tipe uyduğunu doğrular. */
