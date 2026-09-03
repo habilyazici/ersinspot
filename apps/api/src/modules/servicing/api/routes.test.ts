@@ -1024,3 +1024,33 @@ describe('talep sahipliği', () => {
     expect(row?.userId).toBe(customerId);
   });
 });
+
+describe('personel notu silinebilir', () => {
+  it('boş not gönderilince kaldırılır', async () => {
+    /*
+      Not alanı bir süre zorunluydu (`requiredText`) ve arayüzdeki düğme boş
+      metinde devre dışı kalıyordu: yanlışlıkla yazılmış bir not hiçbir zaman
+      kaldırılamıyordu. Boş metin artık "notu sil" demektir.
+    */
+    const requestId = await createMoving();
+
+    await request(`/api/admin/requests/${requestId}/staff-note`, {
+      method: 'PUT',
+      cookie: staffCookie,
+      body: JSON.stringify({ note: 'Yanlışlıkla yazıldı' }),
+    });
+
+    const cleared = await request(`/api/admin/requests/${requestId}/staff-note`, {
+      method: 'PUT',
+      cookie: staffCookie,
+      body: JSON.stringify({ note: '' }),
+    });
+
+    expect(cleared.status).toBe(200);
+
+    const detail = await request(`/api/requests/${requestId}`, { cookie: staffCookie });
+    const payload = (await detail.json()) as { request: { staffNote: string | null } };
+
+    expect(payload.request.staffNote).toBeNull();
+  });
+});

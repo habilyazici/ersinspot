@@ -902,3 +902,88 @@ describe('ödeme süresi dolan siparişler', () => {
     expect(order?.status).toBe('pending_payment');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Personel notu
+// ---------------------------------------------------------------------------
+
+describe('sipariş personel notu', () => {
+  /**
+   * Sütun, servis fonksiyonu ve müşteriden gizleme baştan vardı ama notu
+   * yazacak bir uç yoktu: personel siparişe not düşemiyordu.
+   */
+  async function placeOrder(): Promise<string> {
+    await addToCart(customerCookie, productId);
+
+    const response = await request('/api/orders', {
+      method: 'POST',
+      cookie: customerCookie,
+      body: JSON.stringify(orderPayload()),
+    });
+
+    const payload = (await response.json()) as { order: { orderId: string } };
+    return payload.order.orderId;
+  }
+
+  it('müşteri not yazamaz', async () => {
+    const orderId = await placeOrder();
+
+    const response = await request(`/api/admin/orders/${orderId}/staff-note`, {
+      method: 'PUT',
+      cookie: customerCookie,
+      body: JSON.stringify({ note: 'İçeriden not' }),
+    });
+
+    expect(response.status).toBe(403);
+  });
+
+  it('personel not yazar; müşteri yanıtında görünmez', async () => {
+    const staff = await createTestUser({ email: 'personel-not@ersinspot.com', role: 'staff' });
+    const staffCookie = await loginAs(staff.email, staff.password);
+
+    const orderId = await placeOrder();
+
+    const saved = await request(`/api/admin/orders/${orderId}/staff-note`, {
+      method: 'PUT',
+      cookie: staffCookie,
+      body: JSON.stringify({ note: 'Müşteri kapıda ödeme yapacak.' }),
+    });
+    expect(saved.status).toBe(200);
+
+    const staffView = await request(`/api/orders/${orderId}`, { cookie: staffCookie });
+    const staffOrder = (await staffView.json()) as { order: { staffNote?: string | null } };
+    expect(staffOrder.order.staffNote).toBe('Müşteri kapıda ödeme yapacak.');
+
+    const customerView = await request(`/api/orders/${orderId}`, { cookie: customerCookie });
+    const customerOrder = (await customerView.json()) as { order: Record<string, unknown> };
+    expect('staffNote' in customerOrder.order).toBe(false);
+  });
+
+  it('boş not gönderilince not silinir', async () => {
+    const staff = await createTestUser({ email: 'personel-sil@ersinspot.com', role: 'staff' });
+    const staffCookie = await loginAs(staff.email, staff.password);
+
+    const orderId = await placeOrder();
+
+    await request(`/api/admin/orders/${orderId}/staff-note`, {
+      method: 'PUT',
+      cookie: staffCookie,
+      body: JSON.stringify({ note: 'Yanlışlıkla yazıldı' }),
+    });
+
+    // Boş metin bilinçli olarak geçerlidir: notu silmenin tek yolu budur.
+    const cleared = await request(`/api/admin/orders/${orderId}/staff-note`, {
+      method: 'PUT',
+      cookie: staffCookie,
+      body: JSON.stringify({ note: '' }),
+    });
+    expect(cleared.status).toBe(200);
+
+    const [row] = await db
+      .select({ staffNote: orders.staffNote })
+      .from(orders)
+      .where(eq(orders.id, orderId));
+
+    expect(row?.staffNote).toBeNull();
+  });
+});

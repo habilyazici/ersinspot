@@ -12,7 +12,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ImageOff, MapPin, Package, ShoppingBag, Store, Truck } from 'lucide-react';
+import { ImageOff, MapPin, NotebookPen, Package, ShoppingBag, Store, Truck } from 'lucide-react';
 import {
   ApiError,
   DELIVERY_METHOD_LABELS,
@@ -36,15 +36,37 @@ import {
   formatPrice,
   formatTimeSlot,
 } from '@/lib/format.ts';
-import { OrderTotals, useOrder, useUpdateOrderStatus } from '@/features/ordering';
+import {
+  OrderTotals,
+  useOrder,
+  useSetOrderStaffNote,
+  useUpdateOrderStatus,
+} from '@/features/ordering';
 
 export default function AdminOrderDetailPage() {
   const { orderId = '' } = useParams<{ orderId: string }>();
   const { data: order, isLoading, isError, error, refetch } = useOrder(orderId);
   const updateStatus = useUpdateOrderStatus();
+  const saveStaffNote = useSetOrderStaffNote();
 
   const [nextStatus, setNextStatus] = useState<OrderStatus | ''>('');
   const [note, setNote] = useState('');
+
+  /*
+    Personel notu kutusu kontrollüdür ve yüklenen siparişten doldurulur.
+
+    Doldurma render sırasında, hangi siparişin yüklendiği karşılaştırılarak
+    yapılır — React'in "prop değişince state'i ayarla" için önerdiği kalıp.
+    Kaydet düğmesi yalnızca metin değiştiğinde etkinleşir; boşaltıp kaydetmek
+    notu siler, ki yanlışlıkla yazılmış bir not kaldırılabilsin.
+  */
+  const [staffNote, setStaffNote] = useState('');
+  const [loadedOrderId, setLoadedOrderId] = useState<string | null>(null);
+
+  if (order !== undefined && order.id !== loadedOrderId) {
+    setLoadedOrderId(order.id);
+    setStaffNote(order.staffNote ?? '');
+  }
 
   if (isLoading) return <PageSpinner label="Sipariş yükleniyor" />;
 
@@ -241,6 +263,50 @@ export default function AdminOrderDetailPage() {
                 </Button>
               </div>
             )}
+          </Card>
+
+          {/* ---------------------------------------------------------------
+              Personel notu — müşteriye gitmez
+              --------------------------------------------------------------- */}
+          <Card padding="md" className="space-y-3">
+            <h2 className="flex items-center gap-2 font-semibold text-slate-900">
+              <NotebookPen className="size-4" aria-hidden="true" />
+              Personel Notu
+            </h2>
+
+            <TextAreaField
+              label="Not"
+              rows={3}
+              hint="Yalnızca personel görür; müşteriye giden yanıtlarda yer almaz. Boşaltıp kaydetmek notu siler."
+              value={staffNote}
+              onChange={(event) => {
+                setStaffNote(event.target.value);
+              }}
+            />
+
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={staffNote === (order.staffNote ?? '')}
+              isLoading={saveStaffNote.isPending}
+              onClick={() => {
+                saveStaffNote.mutate(
+                  { orderId, note: staffNote.trim() },
+                  {
+                    onSuccess: () => {
+                      toast.success(staffNote.trim() === '' ? 'Not silindi.' : 'Not kaydedildi.');
+                    },
+                    onError: (failure) => {
+                      toast.error(
+                        failure instanceof ApiError ? failure.message : 'Not kaydedilemedi.',
+                      );
+                    },
+                  },
+                );
+              }}
+            >
+              Notu kaydet
+            </Button>
           </Card>
         </div>
       </div>

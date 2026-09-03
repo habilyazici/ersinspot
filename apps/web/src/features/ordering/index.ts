@@ -17,6 +17,7 @@ export {
   useOrder,
   useOrderTracking,
   useRemoveFromCart,
+  useSetOrderStaffNote,
   useToggleFavorite,
   useUpdateOrderStatus,
 } from './api.ts';

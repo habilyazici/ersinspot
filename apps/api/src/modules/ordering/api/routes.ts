@@ -13,6 +13,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import {
   MAX_PAGE_SIZE,
+  addStaffNoteSchema,
   adminOrderListQuerySchema,
   cancelOrderSchema,
   cartItemInputSchema,
@@ -216,6 +217,30 @@ orderingRoutes.get(
   async (c) => {
     const filters = query(c, adminOrderListQuerySchema);
     return c.json(await orderService.listOrdersForAdmin(filters));
+  },
+);
+
+/**
+ * Personel notu.
+ *
+ * Yalnızca personelin gördüğü serbest metin; müşteri yanıtlarında hiç yer
+ * almaz (`buildOrderView` alanı role göre ekler). Hizmet talebiyle aynı
+ * sözleşme: boş metin notu siler.
+ *
+ * Sütun, servis fonksiyonu ve müşteriden gizleme baştan vardı ama notu yazacak
+ * bir uç yoktu; personel siparişe not düşemiyordu.
+ */
+orderingRoutes.put(
+  '/admin/orders/:id/staff-note',
+  requireStaff,
+  validateParams(idParamSchema),
+  validateBody(addStaffNoteSchema),
+  async (c) => {
+    const { id } = params(c, idParamSchema);
+    const input = body(c, addStaffNoteSchema);
+
+    await orderService.setStaffNote(id, input.note);
+    return c.json({ success: true });
   },
 );
 

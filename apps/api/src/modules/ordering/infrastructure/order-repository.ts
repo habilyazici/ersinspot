@@ -388,8 +388,12 @@ export async function updateStatus(
   await tx.update(orders).set({ status }).where(eq(orders.id, orderId));
 }
 
+/** Personel notunu yazar. Boş metin notu SİLER; talep tarafıyla aynı sözleşme. */
 export async function updateStaffNote(orderId: string, staffNote: string): Promise<void> {
-  await db.update(orders).set({ staffNote }).where(eq(orders.id, orderId));
+  await db
+    .update(orders)
+    .set({ staffNote: staffNote === '' ? null : staffNote })
+    .where(eq(orders.id, orderId));
 }
 
 /**

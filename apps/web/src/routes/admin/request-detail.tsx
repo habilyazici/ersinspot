@@ -65,8 +65,22 @@ export default function AdminRequestDetailPage() {
   const [nextStatus, setNextStatus] = useState<RequestStatus | ''>('');
   const [statusNote, setStatusNote] = useState('');
 
-  const [note, setNote] = useState('');
   const [diagnosis, setDiagnosis] = useState('');
+
+  /*
+    Personel notu kutusu kontrollüdür ve yüklenen talepten doldurulur.
+
+    Önceden kutu `defaultValue` ile çiziliyor, düğme ise boş metinde devre dışı
+    kalıyordu: yanlışlıkla yazılmış bir not hiçbir zaman kaldırılamıyordu.
+    Artık düğme yalnızca metin DEĞİŞTİĞİNDE etkin ve boş kaydetmek notu siler.
+  */
+  const [note, setNote] = useState('');
+  const [loadedRequestId, setLoadedRequestId] = useState<string | null>(null);
+
+  if (request !== undefined && request.id !== loadedRequestId) {
+    setLoadedRequestId(request.id);
+    setNote(request.staffNote ?? '');
+  }
 
   if (isLoading) return <PageSpinner label="Talep yükleniyor" />;
 
@@ -394,8 +408,8 @@ export default function AdminRequestDetailPage() {
             <TextAreaField
               label="Not"
               rows={3}
-              hint="Yalnızca personel görür; müşteriye giden yanıtlarda yer almaz."
-              defaultValue={request.staffNote ?? ''}
+              hint="Yalnızca personel görür; müşteriye giden yanıtlarda yer almaz. Boşaltıp kaydetmek notu siler."
+              value={note}
               onChange={(event) => {
                 setNote(event.target.value);
               }}
@@ -404,14 +418,14 @@ export default function AdminRequestDetailPage() {
             <Button
               variant="outline"
               className="w-full"
-              disabled={note.trim() === ''}
+              disabled={note === (request.staffNote ?? '')}
               isLoading={setStaffNote.isPending}
               onClick={() => {
                 setStaffNote.mutate(
                   { requestId, note: note.trim() },
                   {
                     onSuccess: () => {
-                      toast.success('Not kaydedildi.');
+                      toast.success(note.trim() === '' ? 'Not silindi.' : 'Not kaydedildi.');
                     },
                     onError: (failure) => {
                       reportError(failure, 'Not kaydedilemedi.');

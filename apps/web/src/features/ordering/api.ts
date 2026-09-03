@@ -293,6 +293,26 @@ export function useAdminOrders(filters: Partial<AdminOrderListQuery> = {}) {
   });
 }
 
+/**
+ * Yalnızca personelin gördüğü not. Müşteriye giden yanıtlarda yer almaz.
+ *
+ * Boş metin notu siler; hizmet talebindeki not kutusuyla aynı sözleşme.
+ */
+export function useSetOrderStaffNote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { orderId: string; note: string }) =>
+      apiRequest<{ success: boolean }>(`/api/admin/orders/${input.orderId}/staff-note`, {
+        method: 'PUT',
+        body: { note: input.note },
+      }),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: orderingKeys.order(variables.orderId) });
+    },
+  });
+}
+
 /** Sipariş durumunu ilerletir. Geçişin geçerliliği sunucuda doğrulanır. */
 export function useUpdateOrderStatus() {
   const queryClient = useQueryClient();

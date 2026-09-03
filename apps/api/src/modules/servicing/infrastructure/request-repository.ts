@@ -496,8 +496,17 @@ export async function updateStatus(
   await tx.update(serviceRequests).set({ status }).where(eq(serviceRequests.id, requestId));
 }
 
+/**
+ * Personel notunu yazar. Boş metin notu SİLER.
+ *
+ * Boş dize ile `null` arasındaki ayrım burada kapanır: sözleşme boş metni
+ * "notu kaldır" olarak tanımlar, veritabanı ise yokluğu `null` ile gösterir.
+ */
 export async function updateStaffNote(requestId: string, staffNote: string): Promise<void> {
-  await db.update(serviceRequests).set({ staffNote }).where(eq(serviceRequests.id, requestId));
+  await db
+    .update(serviceRequests)
+    .set({ staffNote: staffNote === '' ? null : staffNote })
+    .where(eq(serviceRequests.id, requestId));
 }
 
 /**

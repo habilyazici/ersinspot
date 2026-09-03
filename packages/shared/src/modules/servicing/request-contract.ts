@@ -18,7 +18,6 @@ import {
   paginationSchema,
   phoneSchema,
   referenceNumberSchema,
-  requiredText,
   timeSlotSchema,
   uuidSchema,
 } from '../../kernel/validation.ts';
@@ -163,8 +162,15 @@ export const updateRequestStatusSchema = z.object({
   note: optionalText(1000),
 });
 
+/**
+ * Personel notu.
+ *
+ * Boş metin BİLİNÇLİ OLARAK geçerlidir: notu silmenin tek yolu odur. Zorunlu
+ * alan yapıldığında yanlışlıkla yazılmış bir not hiçbir zaman kaldırılamıyordu.
+ * Sunucu boş metni `null` olarak saklar.
+ */
 export const addStaffNoteSchema = z.object({
-  note: requiredText('Not', 1, 2000),
+  note: optionalText(2000).transform((note) => note ?? ''),
 });
 
 export type AddStaffNoteInput = z.infer<typeof addStaffNoteSchema>;
