@@ -5,6 +5,7 @@ import type {
   TextareaHTMLAttributes,
 } from 'react';
 import { forwardRef, useId } from 'react';
+import { describedByFor } from '@/lib/form.ts';
 import { cn } from '@/lib/utils.ts';
 
 /**
@@ -43,10 +44,12 @@ export function FormField({
   const hintId = `${inputId}-yardim`;
   const errorId = `${inputId}-hata`;
 
-  const describedBy =
-    [error === undefined ? null : errorId, hint === undefined ? null : hintId]
-      .filter((id): id is string => id !== null)
-      .join(' ') || undefined;
+  const describedBy = describedByFor({
+    hintId,
+    errorId,
+    hasHint: hint !== undefined,
+    hasError: error !== undefined,
+  });
 
   return (
     <div className={cn('space-y-1', className)}>

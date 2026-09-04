@@ -10,6 +10,7 @@ import type { InputHTMLAttributes, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { forwardRef, useId } from 'react';
 import { cn } from '@/lib/utils.ts';
+import { describedByFor } from '@/lib/form.ts';
 
 export interface ChoiceOption<T extends string> {
   value: T;
@@ -119,10 +120,12 @@ export const CheckboxField = forwardRef<HTMLInputElement, CheckboxFieldProps>(
     const hintId = `${inputId}-yardim`;
     const errorId = `${inputId}-hata`;
 
-    const describedBy =
-      [error === undefined ? null : errorId, hint === undefined ? null : hintId]
-        .filter((id): id is string => id !== null)
-        .join(' ') || undefined;
+    const describedBy = describedByFor({
+      hintId,
+      errorId,
+      hasHint: hint !== undefined,
+      hasError: error !== undefined,
+    });
 
     return (
       <div className={cn('space-y-1', className)}>

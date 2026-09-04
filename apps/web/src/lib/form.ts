@@ -27,3 +27,28 @@ export function findError(errors: FieldErrors, path: string): string | undefined
 
   return undefined;
 }
+
+/**
+ * `aria-describedby` değerini üretir.
+ *
+ * Yalnızca EKRANDA GERÇEKTEN ÇİZİLEN öğeyi gösterir. Alan bileşenlerinin hepsi
+ * hata varken yardım metnini gizleyip yerine hatayı yazıyor; buna rağmen
+ * öznitelik ikisini birden bildiriyor ve var olmayan bir kimliğe işaret
+ * ediyordu. Ekran okuyucular eksik kimliği sessizce atlar, dolayısıyla hata
+ * hiçbir yerde görünmüyordu — yine de öznitelik, gösterilmeyen bir metni vaat
+ * etmemelidir.
+ *
+ * Üç alan bileşeni (metin, onay kutusu, fotoğraf) aynı kuralı uyguladığı için
+ * kural burada bir kez yazılır. `form-field.tsx` içinde duramaz: bileşen
+ * dosyasından bileşen olmayan bir değer dışa aktarmak hızlı yenilemeyi
+ * (fast refresh) bozar ve lint bunu uyarı olarak bildirir.
+ */
+export function describedByFor(options: {
+  hintId: string;
+  errorId: string;
+  hasHint: boolean;
+  hasError: boolean;
+}): string | undefined {
+  if (options.hasError) return options.errorId;
+  return options.hasHint ? options.hintId : undefined;
+}

@@ -18,6 +18,7 @@ import { ALLOWED_IMAGE_TYPES, ApiError, MAX_IMAGE_BYTES } from '@ersinspot/share
 import type { UploadPurpose } from '@ersinspot/shared';
 import { apiRequest, apiUpload } from '@/lib/api';
 import { Button } from './button.tsx';
+import { describedByFor } from '@/lib/form.ts';
 
 /** Sunucudan dönen yükleme sonucu. */
 interface UploadedFile {
@@ -129,10 +130,12 @@ export function PhotoUpload({
 
   const message = uploadError ?? error;
 
-  const describedBy =
-    [message === undefined || message === null ? null : errorId, hint === undefined ? null : hintId]
-      .filter((id): id is string => id !== null)
-      .join(' ') || undefined;
+  const describedBy = describedByFor({
+    hintId,
+    errorId,
+    hasHint: hint !== undefined,
+    hasError: message !== undefined && message !== null,
+  });
 
   return (
     <div className="space-y-2">
