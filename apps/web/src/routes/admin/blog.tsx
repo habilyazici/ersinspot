@@ -13,13 +13,14 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Newspaper, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, Newspaper, Pencil, Plus } from 'lucide-react';
 // Bağlantı adı, sunucunun kullandığı AYNI fonksiyonla üretilir; ekranda
 // önerilen ile kaydedilen ayrışmaz.
 import { ApiError, BLOG_CATEGORIES, BLOG_CATEGORY_LABELS, slugify } from '@ersinspot/shared';
 import type { BlogCategory } from '@ersinspot/shared';
 import { Button } from '@/components/ui/button.tsx';
 import { Card } from '@/components/ui/card.tsx';
+import { ConfirmDelete } from '@/components/ui/confirm-delete.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { SelectField, TextAreaField, TextField } from '@/components/ui/form-field.tsx';
@@ -423,13 +424,11 @@ export default function AdminBlogPage() {
                     <Pencil aria-hidden="true" />
                   </Button>
 
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Sil"
-                    className="text-state-danger-fg"
-                    isLoading={deletePost.isPending}
-                    onClick={() => {
+                  <ConfirmDelete
+                    label="Yazıyı sil"
+                    question="Yazı kalıcı olarak silinecek."
+                    isPending={deletePost.isPending && deletePost.variables === post.id}
+                    onConfirm={() => {
                       deletePost.mutate(post.id, {
                         onSuccess: () => {
                           toast.success('Yazı silindi.');
@@ -439,9 +438,7 @@ export default function AdminBlogPage() {
                         },
                       });
                     }}
-                  >
-                    <Trash2 aria-hidden="true" />
-                  </Button>
+                  />
                 </div>
               </Card>
             ))}

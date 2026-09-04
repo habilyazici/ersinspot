@@ -15,7 +15,6 @@ import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Trash2 } from 'lucide-react';
 import { z } from 'zod';
 import {
   ApiError,
@@ -28,6 +27,7 @@ import {
 import type { CreateProductInput } from '@ersinspot/shared';
 import { Button } from '@/components/ui/button.tsx';
 import { Card } from '@/components/ui/card.tsx';
+import { ConfirmDelete } from '@/components/ui/confirm-delete.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { FormSection, SelectField, TextAreaField, TextField } from '@/components/ui/form-field.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
@@ -317,12 +317,12 @@ export default function AdminProductFormPage() {
           </Button>
 
           {isEditing ? (
-            <Button
-              type="button"
-              variant="ghost"
-              className="text-state-danger-fg"
-              isLoading={deleteProduct.isPending}
-              onClick={() => {
+            <ConfirmDelete
+              appearance="text"
+              label="Ürünü sil"
+              question="Ürün vitrinden kaldırılacak."
+              isPending={deleteProduct.isPending}
+              onConfirm={() => {
                 deleteProduct.mutate(productId, {
                   onSuccess: () => {
                     toast.success('Ürün silindi.');
@@ -334,10 +334,7 @@ export default function AdminProductFormPage() {
                   },
                 });
               }}
-            >
-              <Trash2 aria-hidden="true" />
-              Ürünü sil
-            </Button>
+            />
           ) : null}
         </div>
       </form>

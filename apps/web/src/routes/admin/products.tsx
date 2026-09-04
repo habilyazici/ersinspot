@@ -170,7 +170,15 @@ export default function AdminProductsPage() {
                   label="Durum"
                   className="w-40 shrink-0"
                   value={product.status}
-                  disabled={updateStatus.isPending}
+                  /*
+                    Kilit YALNIZCA işlem gören satırda. Mutasyon durumu liste
+                    boyunca paylaşıldığı için tek bir ürünün durumunu
+                    değiştirmek, o sırada bütün satırların seçicisini devre dışı
+                    bırakıyordu.
+                  */
+                  disabled={
+                    updateStatus.isPending && updateStatus.variables?.productId === product.id
+                  }
                   onChange={(event) => {
                     updateStatus.mutate(
                       { productId: product.id, status: event.target.value as ProductStatus },

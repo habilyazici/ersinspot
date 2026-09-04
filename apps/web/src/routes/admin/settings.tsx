@@ -137,7 +137,12 @@ export default function AdminSettingsPage() {
                         <div className="flex gap-2">
                           <Button
                             size="sm"
-                            isLoading={updateSetting.isPending}
+                            // Yükleme göstergesi yalnızca kaydedilen ayarda;
+                            // mutasyon durumu tüm liste tarafından paylaşılır.
+                            isLoading={
+                              updateSetting.isPending &&
+                              updateSetting.variables?.key === setting.key
+                            }
                             onClick={() => {
                               save(setting.key);
                             }}
