@@ -16,7 +16,8 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const ROUTES = path.resolve(import.meta.dirname, '../../routes');
-const UI = path.resolve(import.meta.dirname);
+const COMPONENTS = path.resolve(import.meta.dirname, '..');
+const FEATURES = path.resolve(import.meta.dirname, '../../features');
 
 /**
  * Tüm sayfa dosyaları, ALT DİZİNLER DAHİL.
@@ -53,6 +54,22 @@ const CONTAINER_WIDTHS = 'max-w-(?:md|2xl|4xl|5xl|7xl)';
 const HAND_ROLLED_CONTAINER = new RegExp(
   `mx-auto[^"'\`]*\\b${CONTAINER_WIDTHS}\\b|\\b${CONTAINER_WIDTHS}\\b[^"'\`]*mx-auto`,
 );
+
+/** `components/` ve `features/` altındaki tüm bileşen dosyaları. */
+function componentFiles(): { name: string; source: string }[] {
+  function walk(dir: string, prefix: string): { name: string; source: string }[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = path.join(dir, entry.name);
+
+      if (entry.isDirectory()) return walk(full, `${prefix}${entry.name}/`);
+      if (!entry.name.endsWith('.tsx') || entry.name.includes('.test.')) return [];
+
+      return [{ name: `${prefix}${entry.name}`, source: readFileSync(full, 'utf8') }];
+    });
+  }
+
+  return [...walk(COMPONENTS, ''), ...walk(FEATURES, 'features/')];
+}
 
 describe('Arayüz tutarlılığı', () => {
   it('hiçbir sayfa kendi kapsayıcı ölçüsünü yazmaz', () => {
@@ -162,14 +179,20 @@ describe('Arayüz tutarlılığı', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('ortak bileşenler tek bir kart ölçü kümesi tanımlar', () => {
-    // Ölçüler `card.tsx` içinde bir kez tanımlanır; başka bir ui dosyası
-    // kendi kart stilini yazarsa iki kaynak oluşur.
+  it('kart görünümü yalnızca card.tsx içinde tanımlıdır', () => {
+    /*
+      Kural `components/ui/` ile sınırlıydı ve özellik modülleri dışarıda
+      kalıyordu: ürün kartı kendi kenarlığını, köşe yarıçapını ve zeminini
+      yazıyordu — yani kart görünümünün ikinci tanımıydı ve testten habersizce
+      ayrışabilirdi. Tarama artık `components/` ve `features/` ağaçlarının
+      tamamını kapsar.
+    */
     const cardClass = /rounded-(?:xl|lg|2xl)\s+border\s+border-slate-200\s+bg-white/;
 
-    const offenders = readdirSync(UI)
-      .filter((name) => name.endsWith('.tsx') && name !== 'card.tsx')
-      .filter((name) => cardClass.test(readFileSync(path.join(UI, name), 'utf8')));
+    const offenders = componentFiles()
+      .filter(({ name }) => name !== 'ui/card.tsx')
+      .filter(({ source }) => cardClass.test(source))
+      .map(({ name }) => name);
 
     expect(offenders).toEqual([]);
   });

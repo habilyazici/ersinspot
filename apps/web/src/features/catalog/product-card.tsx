@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ImageOff } from 'lucide-react';
 import type { ProductSummary } from '@ersinspot/shared';
 import { PRODUCT_CONDITION_LABELS, PRODUCT_STATUS_LABELS } from '@ersinspot/shared';
+import { Card } from '@/components/ui/card.tsx';
 import { StatusBadge } from '@/components/ui/status-badge.tsx';
 import { formatPrice } from '@/lib/format.ts';
 import { cn } from '@/lib/utils.ts';
@@ -31,9 +32,19 @@ export function ProductCard({
   const isReserved = product.status === 'reserved';
 
   return (
-    <article
+    /*
+      Kart görünümü ortak `Card` bileşeninden gelir.
+
+      Burada kenarlık, köşe yarıçapı ve zemin elle yazılıydı — yani kart
+      görünümünün ikinci bir tanımıydı. Tutarlılık testi bu kalıbı arıyor ama
+      yalnızca `routes/` ve `components/ui/` altını tarıyordu; özellik
+      modüllerindeki kopya denetim dışında kalmıştı. Dolgu `p-0` ile kapatılır:
+      görsel kartın kenarına kadar uzanır.
+    */
+    <Card
+      as="article"
       className={cn(
-        'group relative flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white',
+        'group relative flex flex-col overflow-hidden p-0',
         'shadow-card transition-shadow hover:shadow-card-hover',
         'focus-within:ring-2 focus-within:ring-brand-orange-500 focus-within:ring-offset-2',
       )}
@@ -87,6 +98,6 @@ export function ProductCard({
           {formatPrice(product.price)}
         </p>
       </div>
-    </article>
+    </Card>
   );
 }
