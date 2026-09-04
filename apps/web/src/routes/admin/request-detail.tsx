@@ -18,6 +18,7 @@ import {
   APPOINTMENT_TIME_SLOTS,
   ApiError,
   LEAD_TIME_DAYS,
+  MIN_DIAGNOSIS_LENGTH,
   QUOTE_VALIDITY_DAYS,
   REQUEST_STATUS_LABELS,
   REQUEST_STATUS_TRANSITIONS,
@@ -68,11 +69,21 @@ export default function AdminRequestDetailPage() {
   const [diagnosis, setDiagnosis] = useState('');
 
   /*
-    Personel notu kutusu kontrollüdür ve yüklenen talepten doldurulur.
+    Kayıttan doldurulan kutular KONTROLLÜDÜR.
 
-    Önceden kutu `defaultValue` ile çiziliyor, düğme ise boş metinde devre dışı
-    kalıyordu: yanlışlıkla yazılmış bir not hiçbir zaman kaldırılamıyordu.
-    Artık düğme yalnızca metin DEĞİŞTİĞİNDE etkin ve boş kaydetmek notu siler.
+    Personel notu kutusu önceden `defaultValue` ile çiziliyor, düğme ise boş
+    metinde devre dışı kalıyordu: yanlışlıkla yazılmış bir not hiçbir zaman
+    kaldırılamıyordu. Artık düğme yalnızca metin DEĞİŞTİĞİNDE etkin ve boş
+    kaydetmek notu siler.
+
+    Teknisyen tespiti kutusu aynı hatayı taşımaya devam ediyordu. `defaultValue`
+    yalnızca ilk çizimde okunur; bileşen bir talepten diğerine geçerken (aynı
+    rota, farklı parametre) yeniden bağlanmaz, dolayısıyla kutuda ÖNCEKİ
+    talebin tespiti kalıyordu. Kaydet düğmesi de yerel duruma baktığı için
+    mevcut tespiti gören personel, tek karakter yazana kadar düğmeyi kapalı
+    buluyordu.
+
+    İkisi de aynı yerde, yüklenen talebe göre tazelenir.
   */
   const [note, setNote] = useState('');
   const [loadedRequestId, setLoadedRequestId] = useState<string | null>(null);
@@ -80,6 +91,7 @@ export default function AdminRequestDetailPage() {
   if (request !== undefined && request.id !== loadedRequestId) {
     setLoadedRequestId(request.id);
     setNote(request.staffNote ?? '');
+    setDiagnosis(request.kind === 'technical_service' ? (request.diagnosis ?? '') : '');
   }
 
   if (isLoading) return <PageSpinner label="Talep yükleniyor" />;
@@ -365,8 +377,8 @@ export default function AdminRequestDetailPage() {
               <TextAreaField
                 label="Tespit"
                 rows={4}
-                hint="Keşif sonrası arızanın nedeni ve yapılacak işlem."
-                defaultValue={request.diagnosis ?? ''}
+                hint={`Keşif sonrası arızanın nedeni ve yapılacak işlem. En az ${String(MIN_DIAGNOSIS_LENGTH)} karakter.`}
+                value={diagnosis}
                 onChange={(event) => {
                   setDiagnosis(event.target.value);
                 }}
@@ -375,7 +387,12 @@ export default function AdminRequestDetailPage() {
               <Button
                 variant="outline"
                 className="w-full"
-                disabled={diagnosis.trim().length < 10}
+                // Değişmemiş bir tespiti yeniden kaydetmenin anlamı yok; alt
+                // sınır şemadan gelir.
+                disabled={
+                  diagnosis.trim() === (request.diagnosis ?? '') ||
+                  diagnosis.trim().length < MIN_DIAGNOSIS_LENGTH
+                }
                 isLoading={recordDiagnosis.isPending}
                 onClick={() => {
                   recordDiagnosis.mutate(
