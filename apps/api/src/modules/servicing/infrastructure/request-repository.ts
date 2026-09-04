@@ -6,7 +6,7 @@
  * tabloları kendi repository dosyalarındadır.
  */
 
-import { and, desc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import { businessDayEnd, businessDayStart } from '@ersinspot/shared';
 import type {
@@ -405,7 +405,9 @@ export async function listForUser(userId: string, query: RequestListQuery): Prom
     .select(requestSelection)
     .from(serviceRequests)
     .where(and(...conditions))
-    .orderBy(desc(serviceRequests.createdAt))
+    // Kimlik, eşit sıralama anahtarlarını bozan kararlı ikinci anahtardır:
+    // eşitlik olduğunda sayfalar arasında kayma olmaz.
+    .orderBy(desc(serviceRequests.createdAt), asc(serviceRequests.id))
     .limit(query.pageSize)
     .offset(offset);
 
@@ -452,7 +454,9 @@ export async function listForAdmin(query: AdminRequestListQuery): Promise<ListRe
     .select(requestSelection)
     .from(serviceRequests)
     .where(where)
-    .orderBy(desc(serviceRequests.createdAt))
+    // Kimlik, eşit sıralama anahtarlarını bozan kararlı ikinci anahtardır:
+    // eşitlik olduğunda sayfalar arasında kayma olmaz.
+    .orderBy(desc(serviceRequests.createdAt), asc(serviceRequests.id))
     .limit(query.pageSize)
     .offset(offset);
 

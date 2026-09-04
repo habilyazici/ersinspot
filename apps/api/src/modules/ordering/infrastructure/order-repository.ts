@@ -319,7 +319,9 @@ export async function listForUser(userId: string, query: OrderListQuery): Promis
     .select(orderSelection)
     .from(orders)
     .where(and(...conditions))
-    .orderBy(desc(orders.createdAt))
+    // Kimlik, eşit sıralama anahtarlarını bozan kararlı ikinci anahtardır:
+    // eşitlik olduğunda sayfalar arasında kayma olmaz.
+    .orderBy(desc(orders.createdAt), asc(orders.id))
     .limit(query.pageSize)
     .offset(offset);
 
@@ -370,7 +372,9 @@ export async function listForAdmin(query: AdminOrderListQuery): Promise<ListResu
     .select(orderSelection)
     .from(orders)
     .where(where)
-    .orderBy(desc(orders.createdAt))
+    // Kimlik, eşit sıralama anahtarlarını bozan kararlı ikinci anahtardır:
+    // eşitlik olduğunda sayfalar arasında kayma olmaz.
+    .orderBy(desc(orders.createdAt), asc(orders.id))
     .limit(query.pageSize)
     .offset(offset);
 

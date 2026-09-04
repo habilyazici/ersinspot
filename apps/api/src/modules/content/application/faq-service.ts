@@ -11,12 +11,20 @@ import { db } from '../../../platform/db/client.ts';
 import { notFound } from '../../../platform/errors/index.ts';
 import { faqs } from '../infrastructure/schema.ts';
 
+/*
+  Sıralamanın son anahtarı kimliktir.
+
+  Aynı kategoride aynı `displayOrder` değerine sahip iki soru olağandır —
+  alan elle girilir ve benzersizliği zorunlu değildir. Üçüncü bir anahtar
+  olmadan bu soruların sırası her okumada değişebilir ve SSS sayfası kendi
+  kendine karışırdı.
+*/
 export async function listPublishedFaqs(): Promise<Faq[]> {
   const rows = await db
     .select()
     .from(faqs)
     .where(eq(faqs.isPublished, true))
-    .orderBy(asc(faqs.category), asc(faqs.displayOrder));
+    .orderBy(asc(faqs.category), asc(faqs.displayOrder), asc(faqs.id));
 
   return rows.map((row) => ({
     id: row.id,
@@ -29,7 +37,10 @@ export async function listPublishedFaqs(): Promise<Faq[]> {
 }
 
 export async function listAllFaqs(): Promise<Faq[]> {
-  const rows = await db.select().from(faqs).orderBy(asc(faqs.category), asc(faqs.displayOrder));
+  const rows = await db
+    .select()
+    .from(faqs)
+    .orderBy(asc(faqs.category), asc(faqs.displayOrder), asc(faqs.id));
 
   return rows.map((row) => ({
     id: row.id,

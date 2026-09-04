@@ -5,7 +5,7 @@
  * Bu yüzden IP bazlı hız sınırı ve bot tuzağı ile korunur.
  */
 
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type {
   ContactMessage,
@@ -84,8 +84,9 @@ export async function listMessages(
     .select()
     .from(contactMessages)
     .where(where)
-    // Okunmamışlar önce, sonra en yeniden eskiye.
-    .orderBy(contactMessages.isRead, desc(contactMessages.createdAt))
+    // Okunmamışlar önce, sonra en yeniden eskiye. Kimlik kararlı son
+    // anahtardır: aynı anda gelen iki mesaj sayfalar arasında kaymaz.
+    .orderBy(contactMessages.isRead, desc(contactMessages.createdAt), asc(contactMessages.id))
     .limit(query.pageSize)
     .offset(offset);
 

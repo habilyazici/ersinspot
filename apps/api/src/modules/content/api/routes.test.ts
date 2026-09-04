@@ -488,6 +488,44 @@ describe('İletişim formu', () => {
   });
 });
 
+describe('etiket bulutu', () => {
+  /**
+   * Sayım yalnızca YAYINLANMIŞ yazıları kapsar.
+   *
+   * Uç herkese açık ve liste `isPublished` süzüyor; sayım süzmediğinde
+   * yalnızca taslağa bağlı bir etiket bulutta görünüyor, tıklayan kullanıcı
+   * boş listeye düşüyordu. Ayrıca yayınlanmamış bir yazının etiketi dışarıya
+   * sızıyordu.
+   */
+  it('yalnızca taslağa bağlı etiketi göstermez', async () => {
+    await request('/api/admin/blog', {
+      method: 'POST',
+      cookie: staffCookie,
+      body: JSON.stringify(
+        postBody({ slug: 'taslak-yazi', isPublished: false, tags: ['Gizli Etiket'] }),
+      ),
+    });
+
+    const response = await request('/api/blog/tags');
+    const body = (await response.json()) as { tags: { name: string }[] };
+
+    expect(body.tags.map((tag) => tag.name)).not.toContain('Gizli Etiket');
+  });
+
+  it('yayınlanmış yazının etiketini sayar', async () => {
+    await request('/api/admin/blog', {
+      method: 'POST',
+      cookie: staffCookie,
+      body: JSON.stringify(postBody({ tags: ['Beyaz Eşya'] })),
+    });
+
+    const response = await request('/api/blog/tags');
+    const body = (await response.json()) as { tags: { name: string; postCount: number }[] };
+
+    expect(body.tags.find((tag) => tag.name === 'Beyaz Eşya')?.postCount).toBe(1);
+  });
+});
+
 describe('Site ayarları', () => {
   it('herkese açık uçtan okunur', async () => {
     const response = await request('/api/settings');
