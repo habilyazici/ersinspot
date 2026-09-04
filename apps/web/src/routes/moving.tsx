@@ -36,6 +36,7 @@ import { Card } from '@/components/ui/card.tsx';
 import { CheckboxField } from '@/components/ui/choice-field.tsx';
 import { FormSection, SelectField, TextAreaField, TextField } from '@/components/ui/form-field.tsx';
 import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
+import { PhotoUpload } from '@/components/ui/photo-upload.tsx';
 import { findError } from '@/lib/form.ts';
 import { formatPrice } from '@/lib/format.ts';
 import { useAuth } from '@/features/auth';
@@ -66,6 +67,7 @@ export default function MovingPage() {
     control,
     handleSubmit,
     setError,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<MovingValues>({
     resolver: zodResolver(createMovingRequestSchema),
@@ -91,6 +93,8 @@ export default function MovingPage() {
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' });
+
+  const photos = useWatch({ control, name: 'photos' }) ?? [];
 
   // Tahmini etkileyen her alan izlenir; değiştikçe tutar güncellenir.
   const watched = useWatch({ control });
@@ -373,6 +377,31 @@ export default function MovingPage() {
               label={`Montaj hizmeti istiyorum (+${formatPrice(MOVING_ASSEMBLY_FEE)})`}
               hint="Sökülen mobilyalar yeni adreste kurulur."
               {...register('needsAssembly')}
+            />
+          </FormSection>
+
+          {/*
+            Fotoğraf alanı üç talep formunda da bulunur.
+
+            Sözleşme (`createMovingRequestSchema`) fotoğrafı baştan kabul
+            ediyor, sunucu kaydediyor ve talep detayında gösteriyordu; yalnızca
+            nakliye formunda alanı çizen bir şey yoktu. Müşteri, taşınacak
+            eşyayı ancak yazıyla anlatabiliyordu.
+          */}
+          <FormSection
+            legend="Fotoğraflar"
+            description="Büyük veya kırılacak eşyaların fotoğrafı, tahmini gerçeğe yaklaştırır."
+          >
+            <PhotoUpload
+              label="Fotoğraflar"
+              purpose="request_photo"
+              value={photos}
+              onChange={(next) => {
+                setValue('photos', next, { shouldValidate: true });
+              }}
+              max={10}
+              hint="İsteğe bağlı. Eşyaların ve merdiven/koridor durumunun fotoğrafı işimizi kolaylaştırır."
+              error={findError(errors, 'photos')}
             />
           </FormSection>
 
