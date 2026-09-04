@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { LayoutDashboard, LogOut, Menu, Package, ShoppingCart, User, X } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
+import { PageContainer } from '@/components/ui/page.tsx';
 import { cn } from '@/lib/utils.ts';
 import { useAuth, useLogout } from '@/features/auth';
 import { useCartCount } from '@/features/ordering';
@@ -28,7 +29,7 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+      <PageContainer width="wide" className="flex h-16 items-center gap-4 py-0">
         <Link to="/" className="flex shrink-0 items-center gap-2">
           <span className="text-xl font-bold tracking-tight text-brand-navy-800">
             Ersin<span className="text-brand-orange-500">Spot</span>
@@ -119,7 +120,7 @@ export function SiteHeader() {
             {isMenuOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
           </Button>
         </div>
-      </div>
+      </PageContainer>
 
       {isMenuOpen ? (
         <nav

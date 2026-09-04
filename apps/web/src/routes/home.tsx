@@ -58,7 +58,7 @@ export default function HomePage() {
           Neden Ersin Spot?
         </h2>
 
-        <div className="mx-auto grid max-w-7xl gap-6 px-4 py-10 sm:px-6 md:grid-cols-3 lg:px-8">
+        <PageContainer width="wide" className="grid gap-6 py-10 md:grid-cols-3">
           {[
             {
               icon: PackageCheck,
@@ -84,7 +84,7 @@ export default function HomePage() {
               </div>
             </div>
           ))}
-        </div>
+        </PageContainer>
       </section>
 
       {/* Son eklenen ürünler */}

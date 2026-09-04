@@ -36,10 +36,28 @@ function pageFiles(dir: string = ROUTES, prefix = ''): { name: string; source: s
   });
 }
 
+/**
+ * Elle yazılmış sayfa kapsayıcısı arar.
+ *
+ * Kural, `PageContainer`ın tanımladığı SAYFA ÇERÇEVESİNİ hedefler; genişlikler
+ * `page.tsx` içindeki `WIDTHS` kümesinden gelir. Bir metin ölçüsü (duyuru
+ * şeridindeki `max-w-3xl` gibi) çerçeve değildir ve kapsam dışıdır.
+ *
+ * İlk hâli `/mx-auto\s+max-w-/` idi ve yalnızca iki sınıf YAN YANA yazıldığında
+ * eşleşiyordu. Aradaki tek bir sınıf kuralı görünmez kılıyordu: anasayfa,
+ * başlık ve alt bilgi `mx-auto grid max-w-7xl` yazıp denetimden geçiyordu.
+ * Deseni aynı sınıf dizesi içinde, sıradan bağımsız arar.
+ */
+const CONTAINER_WIDTHS = 'max-w-(?:md|2xl|4xl|5xl|7xl)';
+
+const HAND_ROLLED_CONTAINER = new RegExp(
+  `mx-auto[^"'\`]*\\b${CONTAINER_WIDTHS}\\b|\\b${CONTAINER_WIDTHS}\\b[^"'\`]*mx-auto`,
+);
+
 describe('Arayüz tutarlılığı', () => {
   it('hiçbir sayfa kendi kapsayıcı ölçüsünü yazmaz', () => {
     const offenders = pageFiles()
-      .filter(({ source }) => /mx-auto\s+max-w-/.test(source))
+      .filter(({ source }) => HAND_ROLLED_CONTAINER.test(source))
       .map(({ name }) => name);
 
     expect(offenders).toEqual([]);
@@ -69,7 +87,7 @@ describe('Arayüz tutarlılığı', () => {
 
     const offenders = readdirSync(LAYOUTS)
       .filter((name) => name.endsWith('.tsx') && !name.includes('.test.'))
-      .filter((name) => /mx-auto\s+max-w-/.test(readFileSync(path.join(LAYOUTS, name), 'utf8')));
+      .filter((name) => HAND_ROLLED_CONTAINER.test(readFileSync(path.join(LAYOUTS, name), 'utf8')));
 
     expect(offenders).toEqual([]);
   });

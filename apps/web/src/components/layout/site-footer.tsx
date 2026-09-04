@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Clock, Mail, MapPin, Phone } from 'lucide-react';
+import { PageContainer } from '@/components/ui/page.tsx';
 import { useSiteSettings } from '@/features/content';
 import { phone as phoneUtils } from '@ersinspot/shared';
 
@@ -22,7 +23,7 @@ export function SiteFooter() {
 
   return (
     <footer className="mt-16 border-t border-slate-200 bg-white">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-3 lg:px-8">
+      <PageContainer width="wide" className="grid gap-8 py-12 md:grid-cols-3">
         <div>
           <span className="text-lg font-bold text-brand-navy-800">
             Ersin<span className="text-brand-orange-500">Spot</span>
@@ -134,7 +135,7 @@ export function SiteFooter() {
             </li>
           </ul>
         </div>
-      </div>
+      </PageContainer>
 
       <div className="border-t border-slate-200 py-6">
         <p className="text-center text-sm text-slate-500">
