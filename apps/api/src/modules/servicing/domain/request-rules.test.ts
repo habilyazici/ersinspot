@@ -15,7 +15,6 @@ import {
   canCancelRequest,
   canRespondToQuote,
   canTransitionRequest,
-  isQuoteExpired,
   requiresAppointment,
   requiresQuote,
 } from './request-rules.ts';
@@ -81,31 +80,9 @@ describe('teklife yanıt', () => {
   });
 });
 
-describe('teklif geçerliliği', () => {
-  /*
-    15 Mart'a kadar geçerli bir teklif, İstanbul'da 16 Mart 00:00'da biter —
-    yani 15 Mart 21:00 UTC. Sınır UTC gece yarısından alındığında teklif
-    ertesi sabah 03:00'e kadar kabul edilmeye devam ediyordu.
-  */
-  const VALID_UNTIL = '2026-03-15';
-
-  it('geçerlilik gününün son anında hâlâ geçerlidir', () => {
-    // 15 Mart 23:59:59 İstanbul.
-    expect(isQuoteExpired(VALID_UNTIL, new Date('2026-03-15T20:59:59Z'))).toBe(false);
-  });
-
-  it('ertesi gün başladığında süresi dolar', () => {
-    // 16 Mart 00:00 İstanbul.
-    expect(isQuoteExpired(VALID_UNTIL, new Date('2026-03-15T21:00:00Z'))).toBe(true);
-  });
-
-  it('ertesi günün ilk saatlerinde kabul edilmez', () => {
-    // 16 Mart 02:00 İstanbul — UTC sınırına bakan bir kontrol burada
-    // teklifi hâlâ geçerli sayardı.
-    expect(isQuoteExpired(VALID_UNTIL, new Date('2026-03-15T23:00:00Z'))).toBe(true);
-  });
-
-  it('geçerlilik gününden önce geçerlidir', () => {
-    expect(isQuoteExpired(VALID_UNTIL, new Date('2026-03-10T12:00:00Z'))).toBe(false);
-  });
-});
+/*
+  Teklif geçerliliği artık paylaşılan pakette (`@ersinspot/shared`) tanımlı ve
+  testi de orada: kuralı arayüz de uyguluyor. Buradan yalnızca yeniden dışa
+  aktarılıyor, dolayısıyla aynı senaryoyu ikinci kez denemenin bir karşılığı
+  yok — iki kopya test, kural değiştiğinde birinin güncellenmemesi demektir.
+*/
