@@ -54,9 +54,19 @@ export default function ProductsPage() {
       next.set(key, value);
     }
 
-    // Filtre değişince ilk sayfaya dön: üçüncü sayfada filtre daraltılırsa
-    // boş sonuç görünürdü.
-    next.delete('sayfa');
+    /*
+      Filtre değişince ilk sayfaya dönülür: üçüncü sayfada filtre daraltılırsa
+      boş sonuç görünürdü.
+
+      Sıfırlama SAYFA DEĞİŞİMİNDE uygulanmaz. Koşulsuz yazıldığında, sayfa
+      numarası yazıldıktan hemen sonra siliniyordu: "2. sayfa" düğmesi
+      `sayfa=2` yazıp aynı fonksiyonun bir alt satırında onu kaldırıyor ve
+      liste birinci sayfada kalıyordu. Yönetim panelindeki üç liste bu
+      korumayı baştan taşıyor; eksik olan vitrindeki listeydi.
+    */
+    if (key !== 'sayfa') {
+      next.delete('sayfa');
+    }
 
     /*
       Süzgeç değişimi geçmişe kayıt EKLEMEZ, mevcut kaydı değiştirir.
