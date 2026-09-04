@@ -24,6 +24,7 @@ export const contentKeys = {
   settings: ['content', 'settings'] as const,
   paymentSettings: ['content', 'settings', 'payment'] as const,
   adminBlog: (filters: Partial<BlogListQuery>) => ['content', 'admin', 'blog', filters] as const,
+  adminPost: (postId: string) => ['content', 'admin', 'post', postId] as const,
   adminFaqs: ['content', 'admin', 'faqs'] as const,
   adminSettings: ['content', 'admin', 'settings'] as const,
   messages: (filters: Partial<ContactMessageListQuery>) =>
@@ -167,6 +168,26 @@ export function useAdminBlogPosts(filters: Partial<BlogListQuery> = {}) {
         },
       }),
     placeholderData: (previous) => previous,
+  });
+}
+
+/**
+ * Kimliğe göre yazı — TASLAKLAR DAHİL.
+ *
+ * Düzenleme formu yazının tam içeriğini buradan alır. Önceden vitrin ucu
+ * (`useBlogPost`) kullanılıyordu; o uç yalnızca yayınlanmış yazıyı bulduğu için
+ * taslağa "düzenle" denince istek 404 dönüyor ve form bir önceki yazının
+ * içeriğiyle açık kalıyordu — kaydedildiğinde taslağın üzerine o içerik
+ * yazılıyordu.
+ */
+export function useAdminBlogPost(postId: string) {
+  return useQuery({
+    queryKey: contentKeys.adminPost(postId),
+    queryFn: async () => {
+      const response = await apiRequest<{ post: BlogPost }>(`/api/admin/blog/${postId}`);
+      return response.post;
+    },
+    enabled: postId !== '',
   });
 }
 

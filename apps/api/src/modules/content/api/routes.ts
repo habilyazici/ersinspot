@@ -140,6 +140,17 @@ contentRoutes.get('/admin/blog', requireStaff, validateQuery(blogListQuerySchema
   return c.json(await blogService.listAllPosts(query(c, blogListQuerySchema)));
 });
 
+/**
+ * Kimliğe göre yazı — taslaklar dahil.
+ *
+ * Panelin düzenleme formu yazının tam içeriğini buradan alır. Vitrin ucu
+ * (`GET /blog/:slug`) yalnızca yayınlanmış yazıyı bulur; form onu kullandığı
+ * sürece taslak düzenlenemiyordu.
+ */
+contentRoutes.get('/admin/blog/:id', requireStaff, validateParams(idParamSchema), async (c) => {
+  return c.json({ post: await blogService.getPostById(params(c, idParamSchema).id) });
+});
+
 contentRoutes.post('/admin/blog', requireStaff, validateBody(createBlogPostSchema), async (c) => {
   const user = currentUser(c);
   const result = await blogService.createPost(body(c, createBlogPostSchema), {

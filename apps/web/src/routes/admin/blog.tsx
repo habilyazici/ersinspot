@@ -31,8 +31,8 @@ import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { StatusBadge } from '@/components/ui/status-badge.tsx';
 import { formatDate } from '@/lib/format.ts';
 import {
+  useAdminBlogPost,
   useAdminBlogPosts,
-  useBlogPost,
   useCreateBlogPost,
   useDeleteBlogPost,
   useUpdateBlogPost,
@@ -90,28 +90,29 @@ export default function AdminBlogPage() {
   const deletePost = useDeleteBlogPost();
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingSlug, setEditingSlug] = useState<string>('');
   const [isFormOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [showPreview, setShowPreview] = useState(false);
 
   /*
     Düzenlemede yazının TAM içeriği gerekir; liste yalnızca özet döndürür.
-    Bu yüzden seçilen yazı bağlantı adıyla ayrıca çekilir.
+
+    Yazı KİMLİĞE göre, yönetim ucundan çekilir. Önceden bağlantı adıyla vitrin
+    ucundan çekiliyordu ve o uç yalnızca yayınlanmış yazıyı bulur: taslağa
+    "düzenle" denince istek 404 dönüyor, form da bir önceki yazının içeriğiyle
+    açık kalıyordu. Kaydet'e basıldığında taslak o içerikle üzerine yazılıyordu.
   */
-  const editingPost = useBlogPost(editingSlug);
+  const editingPost = useAdminBlogPost(editingId ?? '');
 
   function startCreate(): void {
     setEditingId(null);
-    setEditingSlug('');
-    setLoadedSlug(null);
+    setLoadedPostId(null);
     setForm(EMPTY);
     setFormOpen(true);
   }
 
-  function startEdit(postId: string, slug: string): void {
+  function startEdit(postId: string): void {
     setEditingId(postId);
-    setEditingSlug(slug);
     setFormOpen(true);
   }
 
@@ -124,14 +125,14 @@ export default function AdminBlogPage() {
     önce eski formla boyar, sonra effect state'i değiştirir ve ikinci kez
     boyar. Kullanıcı bir an boş formu görür.
 
-    `loadedSlug` hangi yazının forma yazıldığını tutar; aynı yazı ikinci kez
+    `loadedPostId` hangi yazının forma yazıldığını tutar; aynı yazı ikinci kez
     doldurulmaz, yoksa kullanıcının yazdıkları her render'da geri alınırdı.
   */
   const loadedPost = editingPost.data;
-  const [loadedSlug, setLoadedSlug] = useState<string | null>(null);
+  const [loadedPostId, setLoadedPostId] = useState<string | null>(null);
 
-  if (loadedPost !== undefined && loadedPost.slug !== loadedSlug) {
-    setLoadedSlug(loadedPost.slug);
+  if (loadedPost !== undefined && loadedPost.id !== loadedPostId) {
+    setLoadedPostId(loadedPost.id);
     setForm({
       slug: loadedPost.slug,
       title: loadedPost.title,
@@ -168,7 +169,7 @@ export default function AdminBlogPage() {
         setFormOpen(false);
         setForm(EMPTY);
         setEditingId(null);
-        setEditingSlug('');
+        setLoadedPostId(null);
       },
       onError: (failure: unknown) => {
         reportError(failure, 'Yazı kaydedilemedi.');
@@ -203,6 +204,16 @@ export default function AdminBlogPage() {
 
           {editingId !== null && editingPost.isLoading ? (
             <PageSpinner label="Yazı yükleniyor" />
+          ) : editingId !== null && editingPost.isError ? (
+            /*
+              Yazı yüklenemediyse form ÇİZİLMEZ.
+
+              Önceden hata durumunda da form açılıyordu; alanlar önceki yazının
+              içeriğiyle dolu olduğu için kaydetmek, düzenlenmek istenen yazının
+              üzerine yanlış içeriği yazardı. Doldurulamayan bir formu
+              göstermemek tek güvenli davranış.
+            */
+            <ErrorState error={editingPost.error} onRetry={() => void editingPost.refetch()} />
           ) : (
             <>
               <TextField
@@ -327,7 +338,7 @@ export default function AdminBlogPage() {
                   onClick={() => {
                     setFormOpen(false);
                     setEditingId(null);
-                    setEditingSlug('');
+                    setLoadedPostId(null);
                     setForm(EMPTY);
                   }}
                 >
@@ -406,7 +417,7 @@ export default function AdminBlogPage() {
                     size="icon"
                     aria-label="Düzenle"
                     onClick={() => {
-                      startEdit(post.id, post.slug);
+                      startEdit(post.id);
                     }}
                   >
                     <Pencil aria-hidden="true" />

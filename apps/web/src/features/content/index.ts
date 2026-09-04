@@ -4,6 +4,7 @@
 
 export {
   contentKeys,
+  useAdminBlogPost,
   useAdminBlogPosts,
   useAdminFaqs,
   useAdminSettings,

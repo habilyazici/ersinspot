@@ -203,6 +203,32 @@ async function loadTags(postId: string): Promise<string[]> {
   return rows.map((row) => row.name);
 }
 
+/** Satırı tam yazı görünümüne çevirir; etiketler ayrıca okunur. */
+async function toPost(row: typeof blogPosts.$inferSelect): Promise<BlogPost> {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    excerpt: row.excerpt,
+    content: row.content,
+    coverImageUrl: row.coverImageStorageKey === null ? null : resolveUrl(row.coverImageStorageKey),
+    category: row.category,
+    tags: await loadTags(row.id),
+    authorName: row.authorName,
+    readingMinutes: row.readingMinutes,
+    isPublished: row.isPublished,
+    publishedAt: row.publishedAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+/**
+ * Vitrin için bağlantı adına göre yazı. YALNIZCA yayınlanmış yazılar döner.
+ *
+ * Yönetim paneli bu yolu kullanamaz: taslak yazı burada bulunamaz. Panelin
+ * kendi okuma yolu `getPostById`.
+ */
 export async function getPostBySlug(slug: string): Promise<BlogPost> {
   const rows = await db
     .select()
@@ -225,22 +251,34 @@ export async function getPostBySlug(slug: string): Promise<BlogPost> {
       logger.warn('Blog görüntülenme sayacı güncellenemedi', { error: String(error) });
     });
 
-  return {
-    id: row.id,
-    slug: row.slug,
-    title: row.title,
-    excerpt: row.excerpt,
-    content: row.content,
-    coverImageUrl: row.coverImageStorageKey === null ? null : resolveUrl(row.coverImageStorageKey),
-    category: row.category,
-    tags: await loadTags(row.id),
-    authorName: row.authorName,
-    readingMinutes: row.readingMinutes,
-    isPublished: row.isPublished,
-    publishedAt: row.publishedAt?.toISOString() ?? null,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
+  return toPost(row);
+}
+
+/**
+ * Yönetim paneli için kimliğe göre yazı. Taslaklar dahil.
+ *
+ * Panelin düzenleme formu yazının TAM içeriğine ihtiyaç duyar; liste yalnızca
+ * özet döndürür. Form bu içeriği vitrin ucundan (`/api/blog/:slug`) çekiyordu
+ * ve o uç yayınlanmamış yazıyı bulamaz: taslağa "düzenle" denince istek 404
+ * dönüyor, form da önceki yazının içeriğiyle açık kalıyordu. Kaydet'e
+ * basıldığında taslak, o içerikle ÜZERİNE YAZILIYORDU.
+ *
+ * Katalogdaki ayrımın aynısı: `getProductBySlug` vitrin, `getProductById`
+ * panel içindir.
+ *
+ * Görüntülenme sayacı burada ARTMAZ: personelin kendi yazısını düzenlemek
+ * için açması bir okunma değildir.
+ */
+export async function getPostById(postId: string): Promise<BlogPost> {
+  const rows = await db.select().from(blogPosts).where(eq(blogPosts.id, postId)).limit(1);
+
+  const row = rows[0];
+
+  if (row === undefined) {
+    throw notFound('Yazı');
+  }
+
+  return toPost(row);
 }
 
 // ---------------------------------------------------------------------------

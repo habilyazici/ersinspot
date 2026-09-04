@@ -488,6 +488,55 @@ describe('İletişim formu', () => {
   });
 });
 
+describe('yönetim yazı okuma', () => {
+  /**
+   * Taslak yazı YÖNETİM ucundan okunabilir.
+   *
+   * Düzenleme formu yazının tam içeriğini vitrin ucundan çekiyordu ve o uç
+   * yalnızca yayınlanmış yazıyı bulur. Taslağa "düzenle" denince istek 404
+   * dönüyor, form bir önceki yazının içeriğiyle açık kalıyor ve kaydedildiğinde
+   * taslağın üzerine o içerik yazılıyordu.
+   */
+  it('taslak yazıyı kimliğiyle döndürür', async () => {
+    const created = await request('/api/admin/blog', {
+      method: 'POST',
+      cookie: staffCookie,
+      body: JSON.stringify(postBody({ slug: 'taslak-icerik', isPublished: false })),
+    });
+    const { post } = (await created.json()) as { post: { postId: string } };
+
+    // Vitrin ucu taslağı bulmaz — panelin oradan okuyamamasının sebebi bu.
+    const publicResponse = await request('/api/blog/taslak-icerik');
+    expect(publicResponse.status).toBe(404);
+
+    const adminResponse = await request(`/api/admin/blog/${post.postId}`, {
+      cookie: staffCookie,
+    });
+    const body = (await adminResponse.json()) as {
+      post: { content: string; isPublished: boolean };
+    };
+
+    expect(adminResponse.status).toBe(200);
+    expect(body.post.isPublished).toBe(false);
+    expect(body.post.content.length).toBeGreaterThan(0);
+  });
+
+  it('personel yetkisi ister', async () => {
+    const created = await request('/api/admin/blog', {
+      method: 'POST',
+      cookie: staffCookie,
+      body: JSON.stringify(postBody({ slug: 'yetki-denemesi' })),
+    });
+    const { post } = (await created.json()) as { post: { postId: string } };
+
+    const asCustomer = await request(`/api/admin/blog/${post.postId}`, {
+      cookie: customerCookie,
+    });
+
+    expect(asCustomer.status).toBe(403);
+  });
+});
+
 describe('etiket bulutu', () => {
   /**
    * Sayım yalnızca YAYINLANMIŞ yazıları kapsar.
