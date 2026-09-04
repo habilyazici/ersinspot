@@ -34,7 +34,7 @@ export default function ProductDetailPage() {
 
     Fonksiyon, `product === undefined` erken dönüşünden SONRA tanımlı olsa da
     TypeScript kapanış içinde daraltmayı koruyamaz; kimliği dışarıdan almak,
-    kod tabanının başka hiçbir yerinde bulunmayan bir `!` işaretinden kurtarır.
+    burada bir `!` işareti yazmaktan kurtarır.
   */
   function handleAddToCart(productId: string): void {
     addToCart.mutate(productId, {

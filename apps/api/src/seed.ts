@@ -60,6 +60,12 @@ const CRC_TABLE = Array.from({ length: 256 }, (_, index) => {
 function crc32(data: Buffer): number {
   let crc = 0xffffffff;
   for (const byte of data) {
+    /*
+      Dizin `& 0xff` ile 0-255 aralığına indirgenir ve tablo tam olarak 256
+      girdilidir; erişim tanımsız olamaz. Kod tabanındaki tek `!` işareti
+      budur ve gerekçesi burada yazılıdır — `?? 0` yazmak, hiç oluşamayacak
+      bir dalı sessiz bir sağlama toplamı hatasına çevirirdi.
+    */
     crc = CRC_TABLE[(crc ^ byte) & 0xff]! ^ (crc >>> 8);
   }
   return (crc ^ 0xffffffff) >>> 0;

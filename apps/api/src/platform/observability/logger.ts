@@ -124,17 +124,27 @@ function sanitize(value: unknown, depth = 0): unknown {
 function write(level: LogLevel, message: string, context?: Record<string, unknown>): void {
   if (LEVEL_RANK[level] < LEVEL_RANK[MIN_LEVEL]) return;
 
-  const entry = {
-    level,
-    time: new Date().toISOString(),
-    message,
-    ...(context === undefined ? {} : { context: sanitize(context) }),
-  };
+  const time = new Date().toISOString();
+
+  /*
+    Temizlik BİR KEZ yapılır.
+
+    Önceki hâlinde hem yapılandırılmış kayıt hem geliştirme satırı kendi
+    `sanitize` çağrısını yapıyordu: geliştirmede aynı nesne her log satırı
+    için iki kez, özyinelemeli olarak dolaşılıyordu. Sonuç ikisinde de aynı
+    olduğu için fark edilmiyordu — ikinci çağrının tek etkisi maliyetti.
+  */
+  const safeContext = context === undefined ? undefined : sanitize(context);
 
   const output = isProduction
-    ? JSON.stringify(entry)
-    : `${entry.time.slice(11, 19)} ${level.toUpperCase().padEnd(5)} ${message}${
-        context === undefined ? '' : ` ${JSON.stringify(sanitize(context))}`
+    ? JSON.stringify({
+        level,
+        time,
+        message,
+        ...(safeContext === undefined ? {} : { context: safeContext }),
+      })
+    : `${time.slice(11, 19)} ${level.toUpperCase().padEnd(5)} ${message}${
+        safeContext === undefined ? '' : ` ${JSON.stringify(safeContext)}`
       }`;
 
   // Logger, konsola yazma iznine sahip tek modüldür.
