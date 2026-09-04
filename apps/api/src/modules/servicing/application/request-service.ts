@@ -449,14 +449,19 @@ export async function cancelRequest(
   });
 }
 
+/**
+ * Yönetim panelinden personel notu yazar. Müşteri yanıtlarında görünmez.
+ *
+ * Varlık denetimi güncellemenin KENDİSİNDEN gelir; sipariş tarafındaki
+ * karşılığıyla aynı desen. Önce okuyup sonra yazmak hem fazladan bir
+ * gidiş-dönüş hem de iki sorgu arasında kaydın silinmesine açık bir aralıktı.
+ */
 export async function setStaffNote(requestId: string, note: string): Promise<void> {
-  const row = await repository.findById(requestId);
+  const updated = await repository.updateStaffNote(requestId, note);
 
-  if (row === null) {
+  if (!updated) {
     throw notFound('Talep');
   }
-
-  await repository.updateStaffNote(requestId, note);
 }
 
 // ---------------------------------------------------------------------------

@@ -123,10 +123,6 @@ export function add(a: Kurus, b: Kurus): Kurus {
   return fromKurus(a + b);
 }
 
-export function subtract(a: Kurus, b: Kurus): Kurus {
-  return fromKurus(a - b);
-}
-
 /** Para değerini tam sayı adetle çarpar. Kesirli çarpan kabul edilmez. */
 export function multiply(amount: Kurus, quantity: number): Kurus {
   if (!Number.isInteger(quantity)) {
@@ -137,31 +133,6 @@ export function multiply(amount: Kurus, quantity: number): Kurus {
 
 export function sum(amounts: readonly Kurus[]): Kurus {
   return amounts.reduce<Kurus>((total, amount) => add(total, amount), ZERO);
-}
-
-/**
- * Yüzde uygular ve en yakın kuruşa yuvarlar (yarımı yukarı).
- * İndirim ve KDV hesapları için.
- */
-export function percentage(amount: Kurus, percent: number): Kurus {
-  if (!Number.isFinite(percent)) {
-    throw new MoneyError('Yüzde sonlu bir sayı olmalıdır.');
-  }
-  return fromKurus(Math.round((amount * percent) / 100));
-}
-
-export function compare(a: Kurus, b: Kurus): -1 | 0 | 1 {
-  if (a < b) return -1;
-  if (a > b) return 1;
-  return 0;
-}
-
-export function max(a: Kurus, b: Kurus): Kurus {
-  return a >= b ? a : b;
-}
-
-export function min(a: Kurus, b: Kurus): Kurus {
-  return a <= b ? a : b;
 }
 
 // ---------------------------------------------------------------------------

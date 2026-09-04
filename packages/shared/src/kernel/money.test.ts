@@ -3,14 +3,11 @@ import {
   MoneyError,
   ZERO,
   add,
-  compare,
   format,
   fromKurus,
   fromLira,
   multiply,
   parseLira,
-  percentage,
-  subtract,
   sum,
   toInputValue,
 } from './money.ts';
@@ -90,9 +87,8 @@ describe('para: kullanıcı girdisini ayrıştırma', () => {
 });
 
 describe('para: aritmetik', () => {
-  it('toplar ve çıkarır', () => {
+  it('toplar', () => {
     expect(add(fromLira(10), fromLira(5))).toBe(fromLira(15));
-    expect(subtract(fromLira(10), fromLira(15))).toBe(fromLira(-5));
   });
 
   it('kayan nokta hatası biriktirmez', () => {
@@ -117,17 +113,6 @@ describe('para: aritmetik', () => {
 
   it('boş listenin toplamı sıfırdır', () => {
     expect(sum([])).toBe(ZERO);
-  });
-
-  it('yüzde hesaplar ve yuvarlar', () => {
-    expect(percentage(fromLira(100), 20)).toBe(fromLira(20));
-    expect(percentage(fromLira(33.33), 18)).toBe(600); // 5.9994 → 6.00 ₺
-  });
-
-  it('karşılaştırır', () => {
-    expect(compare(fromLira(1), fromLira(2))).toBe(-1);
-    expect(compare(fromLira(2), fromLira(2))).toBe(0);
-    expect(compare(fromLira(3), fromLira(2))).toBe(1);
   });
 });
 

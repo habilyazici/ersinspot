@@ -46,11 +46,6 @@ export function normalize(input: string): PhoneNumber | null {
   return `+${COUNTRY_CODE}${national}`;
 }
 
-/** Girdinin geçerli bir Türkiye cep numarası olup olmadığını söyler. */
-export function isValid(input: string): boolean {
-  return normalize(input) !== null;
-}
-
 /**
  * Kanonik numarayı okunabilir biçime çevirir: "0507 194 05 50".
  * Geçersiz bir değer verilirse olduğu gibi döndürür — ekranda hiçbir zaman boş görünmez.
@@ -68,28 +63,12 @@ export function format(phone: PhoneNumber): string {
   return `0${area} ${first} ${second} ${third}`;
 }
 
-/** Uluslararası biçim: "+90 507 194 05 50". Fatura ve resmi belgelerde kullanılır. */
-export function formatInternational(phone: PhoneNumber): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length !== NATIONAL_SIGNIFICANT_LENGTH + 2) return phone;
-
-  const national = digits.slice(2);
-  return `+${COUNTRY_CODE} ${national.slice(0, 3)} ${national.slice(3, 6)} ${national.slice(6, 8)} ${national.slice(8, 10)}`;
-}
-
 /**
  * `tel:` bağlantısı için kullanılacak biçim. Kanonik biçimle aynıdır ama
  * niyeti açık olsun diye ayrı isimlendirilmiştir.
  */
 export function toTelHref(phone: PhoneNumber): string {
   return `tel:${phone}`;
-}
-
-/** WhatsApp bağlantısı: numara başındaki artı işareti olmadan. */
-export function toWhatsAppHref(phone: PhoneNumber, message?: string): string {
-  const digits = phone.replace(/\D/g, '');
-  const base = `https://wa.me/${digits}`;
-  return message === undefined ? base : `${base}?text=${encodeURIComponent(message)}`;
 }
 
 /**

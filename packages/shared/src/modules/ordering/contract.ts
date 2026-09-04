@@ -272,8 +272,6 @@ export const orderTrackingQuerySchema = z.object({
   phone: phoneSchema,
 });
 
-export type OrderTrackingQuery = z.infer<typeof orderTrackingQuerySchema>;
-
 /**
  * Takip numarasıyla sorgulanan sipariş durumu.
  *

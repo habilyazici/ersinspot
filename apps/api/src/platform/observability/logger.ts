@@ -12,6 +12,7 @@
  *    çağıran taraftadır: kişisel veri loglanmaz.
  */
 
+import { phone } from '@ersinspot/shared';
 import { isProduction, isTest } from '../config/env.ts';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent';
@@ -50,7 +51,15 @@ const SENSITIVE_KEYS = [
   'creditcard',
 ] as const;
 
-/** Kısmi maskeleme uygulanacak alanlar: tanınabilir kalsın ama tam görünmesin. */
+/**
+ * Kısmi maskeleme uygulanacak alanlar: tanınabilir kalsın ama tam görünmesin.
+ *
+ * Telefon maskesi PAYLAŞILAN ÇEKİRDEKTEN gelir (`phone.mask`). Burada ikinci
+ * bir uygulama duruyordu ve ikisi aynı şeyi farklı yapıyordu: buradaki son
+ * dört karakteri açıkta bırakıyordu — numara olsun olmasın, her değer için.
+ * Çekirdektekiyse yalnızca geçerli bir numarayı maskeler, tanımadığı değeri
+ * tamamen gizler.
+ */
 const PARTIAL_MASK_KEYS = ['email', 'phone'] as const;
 
 function maskEmail(value: string): string {
@@ -60,10 +69,6 @@ function maskEmail(value: string): string {
   const domain = value.slice(atIndex);
   const visible = local.slice(0, Math.min(2, local.length));
   return `${visible}***${domain}`;
-}
-
-function maskPhone(value: string): string {
-  return value.length <= 4 ? '***' : `***${value.slice(-4)}`;
 }
 
 function sanitize(value: unknown, depth = 0): unknown {
@@ -103,7 +108,7 @@ function sanitize(value: unknown, depth = 0): unknown {
       }
 
       if (typeof entry === 'string' && PARTIAL_MASK_KEYS.some((k) => lowerKey.includes(k))) {
-        result[key] = lowerKey.includes('email') ? maskEmail(entry) : maskPhone(entry);
+        result[key] = lowerKey.includes('email') ? maskEmail(entry) : phone.mask(entry);
         continue;
       }
 

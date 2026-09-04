@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { format, formatInternational, isValid, mask, normalize, toWhatsAppHref } from './phone.ts';
+import { format, mask, normalize } from './phone.ts';
 
 const CANONICAL = '+905071940550';
 
@@ -43,20 +43,11 @@ describe('telefon: normalleştirme', () => {
   it('yabancı ülke kodunu reddeder', () => {
     expect(normalize('+49 151 12345678')).toBeNull();
   });
-
-  it('isValid ile normalize tutarlıdır', () => {
-    expect(isValid('0507 194 05 50')).toBe(true);
-    expect(isValid('0232 123 45 67')).toBe(false);
-  });
 });
 
 describe('telefon: biçimlendirme', () => {
   it('yerel biçimde yazar', () => {
     expect(format(CANONICAL)).toBe('0507 194 05 50');
-  });
-
-  it('uluslararası biçimde yazar', () => {
-    expect(formatInternational(CANONICAL)).toBe('+90 507 194 05 50');
   });
 
   it('geçersiz değeri olduğu gibi döndürür, hata atmaz', () => {
@@ -65,11 +56,6 @@ describe('telefon: biçimlendirme', () => {
 
   it('maskeler', () => {
     expect(mask(CANONICAL)).toBe('0507 *** ** 50');
-  });
-
-  it('WhatsApp bağlantısı üretir', () => {
-    expect(toWhatsAppHref(CANONICAL)).toBe('https://wa.me/905071940550');
-    expect(toWhatsAppHref(CANONICAL, 'Merhaba')).toBe('https://wa.me/905071940550?text=Merhaba');
   });
 
   it('normalleştirip biçimlendirdiğinde girdiye geri döner', () => {

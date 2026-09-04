@@ -203,16 +203,6 @@ export async function findById(
   return rows[0] ?? null;
 }
 
-export async function findByReferenceNumber(reference: string): Promise<RequestRow | null> {
-  const rows = await db
-    .select(requestSelection)
-    .from(serviceRequests)
-    .where(eq(serviceRequests.referenceNumber, reference))
-    .limit(1);
-
-  return rows[0] ?? null;
-}
-
 /**
  * Talebi kilitleyerek okur.
  *
@@ -512,12 +502,17 @@ export async function updateStatus(
  *
  * Boş dize ile `null` arasındaki ayrım burada kapanır: sözleşme boş metni
  * "notu kaldır" olarak tanımlar, veritabanı ise yokluğu `null` ile gösterir.
+ *
+ * @returns Böyle bir talep varsa `true`.
  */
-export async function updateStaffNote(requestId: string, staffNote: string): Promise<void> {
-  await db
+export async function updateStaffNote(requestId: string, staffNote: string): Promise<boolean> {
+  const updated = await db
     .update(serviceRequests)
     .set({ staffNote: staffNote === '' ? null : staffNote })
-    .where(eq(serviceRequests.id, requestId));
+    .where(eq(serviceRequests.id, requestId))
+    .returning({ id: serviceRequests.id });
+
+  return updated.length > 0;
 }
 
 /**

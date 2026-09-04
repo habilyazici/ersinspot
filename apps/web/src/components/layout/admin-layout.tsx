@@ -51,10 +51,13 @@ const LINKS: readonly AdminLink[] = [
 ];
 
 export function AdminLayout() {
-  const { user } = useAuth();
+  // Rol karşılaştırması `hasRole` üzerinden yapılır: roller hiyerarşiktir ve
+  // kural tek yerdedir (`hasRoleAtLeast`). Doğrudan `role === 'admin'` yazmak,
+  // yeni bir rol eklendiğinde bulunup güncellenmesi gereken bir kopya bırakır.
+  const { hasRole } = useAuth();
   const { data: unreadCount } = useUnreadMessageCount();
 
-  const visibleLinks = LINKS.filter((link) => link.adminOnly !== true || user?.role === 'admin');
+  const visibleLinks = LINKS.filter((link) => link.adminOnly !== true || hasRole('admin'));
 
   return (
     <PageContainer width="wide" className="grid gap-6 lg:grid-cols-[15rem_1fr]">
