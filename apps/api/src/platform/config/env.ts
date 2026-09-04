@@ -42,8 +42,14 @@ const envSchema = z
      * denemesi sınırını tamamen atlaması demektir.
      *
      * Bu yüzden başlık yalnızca burası açıkken okunur. Kapalıyken adres TCP
-     * bağlantısından alınır ve uydurulamaz. Vekil arkasında çalışıyorsanız
-     * açın — vekil başlığı kendisi yazar ve istemcininkini ezer.
+     * bağlantısından alınır ve uydurulamaz.
+     *
+     * AÇARKEN DİKKAT: vekilin başlığı KENDİSİ YAZMASI gerekir. Yaygın nginx
+     * yapılandırması `$proxy_add_x_forwarded_for` istemcinin gönderdiği değeri
+     * ezmez, sonuna ekler; zincirin ilk halkası o zaman hâlâ istemcinindir.
+     * Bu yüzden `X-Real-IP` tercih edilir ve vekilde şöyle kurulmalıdır:
+     *
+     *     proxy_set_header X-Real-IP $remote_addr;
      */
     TRUST_PROXY: z
       .enum(['true', 'false'])

@@ -8,6 +8,7 @@
 
 import type { Context, MiddlewareHandler, Next } from 'hono';
 import { cors } from 'hono/cors';
+import { isIP } from 'node:net';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { env, isProduction } from '../config/env.ts';
 import { forbidden, rateLimited } from '../errors/index.ts';
@@ -159,27 +160,58 @@ export function rateLimit(
 }
 
 /**
+ * Değer, sözdizimsel olarak geçerli bir IP adresi mi?
+ *
+ * Başlıktan okunan her şey adres DEĞİLDİR. Adres `inet` sütunlarına yazılıyor
+ * (giriş denemeleri, oturumlar, şifre sıfırlama istekleri, iletişim mesajları)
+ * ve PostgreSQL biçimsiz bir değeri reddediyor; hata haritalanmadığı için
+ * istemci 500 görüyordu. Yani `X-Forwarded-For: bu-bir-ip-degil` gönderen biri
+ * girişi ve iletişim formunu kendisi için çökertebiliyordu.
+ *
+ * Hız sınırı açısından da önemli: doğrulanmayan bir değer, her istekte yeni bir
+ * sayaç kovası açan sınırsız bir anahtar kümesi demektir.
+ */
+function parseIpAddress(value: string): string | null {
+  const trimmed = value.trim();
+  return isIP(trimmed) === 0 ? null : trimmed;
+}
+
+/**
  * İstemcinin IP adresini çıkarır.
  *
  * Adres yalnızca hız sınırı ve denetim kaydı için kullanılır; yetkilendirme
  * kararında ASLA kullanılmaz.
  *
- * `X-Forwarded-For` başlığı YALNIZCA `TRUST_PROXY=true` iken okunur. Başlığı
- * istemci de gönderebilir: doğrudan internete açık bir sunucuda ona güvenmek,
- * saldırganın her istekte farklı bir adres uydurup giriş denemesi sınırını
- * tamamen atlaması demektir. Vekil arkasında değilken adres TCP bağlantısından
- * alınır ve uydurulamaz.
+ * Vekil başlıkları YALNIZCA `TRUST_PROXY=true` iken okunur. Başlığı istemci de
+ * gönderebilir: doğrudan internete açık bir sunucuda ona güvenmek, saldırganın
+ * her istekte farklı bir adres uydurup giriş denemesi sınırını tamamen atlaması
+ * demektir. Vekil arkasında değilken adres TCP bağlantısından alınır ve
+ * uydurulamaz.
+ *
+ * SIRA ÖNEMLİDİR: önce `X-Real-IP` okunur. O başlık TEK değer taşır ve vekil
+ * onu bağlantının karşı ucundan yazar. `X-Forwarded-For` ise bir zincirdir ve
+ * yaygın vekil yapılandırması (`$proxy_add_x_forwarded_for`) istemcinin
+ * gönderdiği değeri EZMEZ, sonuna ekler — yani zincirin ilk halkası vekil
+ * arkasında bile istemcinin denetimindedir. Önceki sıralama zinciri öne
+ * aldığı için `TRUST_PROXY=true` kurulumunda sınır yine atlanabiliyordu.
+ *
+ * Değer her hâlükârda doğrulanır; biçimsiz bir başlık yok sayılır ve soket
+ * adresine düşülür.
  */
 export function clientIp(c: Context): string | null {
   if (env.TRUST_PROXY) {
-    const forwarded = c.req.header('X-Forwarded-For');
-    if (forwarded !== undefined) {
-      const first = forwarded.split(',')[0]?.trim();
-      if (first !== undefined && first !== '') return first;
+    const realIp = c.req.header('X-Real-IP');
+    if (realIp !== undefined) {
+      const parsed = parseIpAddress(realIp);
+      if (parsed !== null) return parsed;
     }
 
-    const realIp = c.req.header('X-Real-IP');
-    if (realIp !== undefined && realIp !== '') return realIp;
+    const forwarded = c.req.header('X-Forwarded-For');
+    if (forwarded !== undefined) {
+      const first = forwarded.split(',')[0];
+      const parsed = first === undefined ? null : parseIpAddress(first);
+      if (parsed !== null) return parsed;
+    }
   }
 
   /*
@@ -191,7 +223,7 @@ export function clientIp(c: Context): string | null {
   */
   try {
     const address = getConnInfo(c).remote.address;
-    return address === undefined || address === '' ? null : address;
+    return address === undefined ? null : parseIpAddress(address);
   } catch {
     return null;
   }
