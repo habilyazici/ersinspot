@@ -198,3 +198,21 @@ export function useDeleteProduct() {
     },
   });
 }
+
+/**
+ * Kategori ağacını açılır liste seçeneklerine indirger.
+ *
+ * Alt kategoriler tire ile girintilenir; iki seviyeli ağaç tek bir `select`
+ * içinde okunabilir kalır. Ürün formu ve satış talebi dönüşümü aynı listeyi
+ * gösterdiği için burada durur — ürün formunun içinde kaldığında ikinci ekran
+ * kendi kopyasını yazmak zorundaydı.
+ */
+export function flattenCategories(
+  nodes: readonly CategoryNode[],
+  depth = 0,
+): { id: string; label: string }[] {
+  return nodes.flatMap((node) => [
+    { id: node.id, label: `${'— '.repeat(depth)}${node.name}` },
+    ...flattenCategories(node.children, depth + 1),
+  ]);
+}

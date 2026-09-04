@@ -34,9 +34,9 @@ import { PageHeader } from '@/components/ui/page.tsx';
 import { PhotoUpload } from '@/components/ui/photo-upload.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { findError } from '@/lib/form.ts';
-import type { CategoryNode } from '@/features/catalog';
 import {
   useAdminProduct,
+  flattenCategories,
   useBrands,
   useCategories,
   useCreateProduct,
@@ -95,16 +95,6 @@ const productFormSchema = createProductSchema.extend({
 type ProductValues = Omit<CreateProductInput, 'price'> & { price: string };
 
 /** Kategori ağacını girintili düz listeye çevirir. */
-function flattenCategories(
-  nodes: readonly CategoryNode[],
-  depth = 0,
-): { id: string; label: string }[] {
-  return nodes.flatMap((node) => [
-    { id: node.id, label: `${'— '.repeat(depth)}${node.name}` },
-    ...flattenCategories(node.children, depth + 1),
-  ]);
-}
-
 export default function AdminProductFormPage() {
   const { productId } = useParams<{ productId: string }>();
   const isEditing = productId !== undefined && productId !== 'yeni';

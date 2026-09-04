@@ -4,6 +4,7 @@
 
 export {
   catalogKeys,
+  flattenCategories,
   useAdminProduct,
   useAdminProducts,
   useBrands,
