@@ -53,7 +53,18 @@ function detailRows(request: ServiceRequest): {
           { term: 'Çıkış adresi', value: describeLocation(request.fromLocation), stacked: true },
           { term: 'Varış adresi', value: describeLocation(request.toLocation), stacked: true },
           { term: 'Tercih edilen tarih', value: formatDate(request.preferredDate) },
-          { term: 'Eşya sayısı', value: `${String(request.items.length)} kalem` },
+          {
+            /*
+              Hem satır hem ADET yazılır. Tahmin adede göre hesaplanır
+              (`estimateMoving`, `itemCount`); yalnızca satır sayısını
+              göstermek "1 kalem" yazan bir talebin beş koltuk üzerinden
+              fiyatlandığını gizliyordu.
+            */
+            term: 'Eşya sayısı',
+            value: `${String(request.items.length)} kalem · ${String(
+              request.items.reduce((total, item) => total + item.quantity, 0),
+            )} adet`,
+          },
           { term: 'Ambalajlama', value: request.needsPacking ? 'İsteniyor' : 'İstenmiyor' },
           { term: 'Montaj', value: request.needsAssembly ? 'İsteniyor' : 'İstenmiyor' },
           { term: 'İlk tahmin', value: formatPrice(request.estimatedTotal) },

@@ -13,6 +13,7 @@
 import { z } from 'zod';
 import {
   appointmentDateSchema,
+  businessDayEnd,
   dateOnlySchema,
   fullNameSchema,
   optionalText,
@@ -200,3 +201,24 @@ export const adminRequestListQuerySchema = requestListQuerySchema.extend({
 });
 
 export type AdminRequestListQuery = z.infer<typeof adminRequestListQuerySchema>;
+
+// ---------------------------------------------------------------------------
+// Teklif geçerliliği
+// ---------------------------------------------------------------------------
+
+/**
+ * Teklifin geçerlilik süresi dolmuş mu?
+ *
+ * Teklif, geçerlilik gününün SONUNA kadar kabul edilir ve o gün işletmenin
+ * saat dilimine göre biter. Sınır UTC'den alındığında teklif Türkiye'de
+ * ertesi sabah 03:00'e kadar kabul edilmeye devam ediyordu: müşteriye
+ * bildirilen son gün ile sunucunun uyguladığı sınır aynı değildi.
+ *
+ * PAYLAŞILAN PAKETTE DURUR çünkü iki taraf da bilmek zorundadır: sunucu
+ * süresi geçmiş teklifin kabulünü reddeder, arayüz de müşteriye kabul
+ * düğmesini göstermemelidir. Kural yalnızca sunucuda olduğunda müşteri
+ * düğmeye basıyor ve ancak hata mesajıyla öğreniyordu.
+ */
+export function isQuoteExpired(validUntil: string, now: Date = new Date()): boolean {
+  return now.getTime() >= businessDayEnd(validUntil).getTime();
+}

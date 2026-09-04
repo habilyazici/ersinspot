@@ -19,6 +19,7 @@ import {
   CUSTOMER_CANCELLABLE_REQUEST_STATUSES,
   REQUEST_STATUS_LABELS,
   SERVICE_KIND_LABELS,
+  isQuoteExpired,
 } from '@ersinspot/shared';
 import type { RequestStatus } from '@ersinspot/shared';
 import { Button } from '@/components/ui/button.tsx';
@@ -188,15 +189,34 @@ export default function RequestDetailPage() {
               */}
               {request.status === 'quoted' ? (
                 <div className="space-y-2 border-t border-slate-200 pt-4">
-                  <Button
-                    className="w-full"
-                    isLoading={respondToQuote.isPending}
-                    onClick={() => {
-                      respond('accept');
-                    }}
-                  >
-                    Teklifi kabul et
-                  </Button>
+                  {/*
+                    Süresi dolmuş teklif kabul EDİLEMEZ ve düğmesi çizilmez.
+
+                    Kural sunucuda vardı ama arayüz bilmiyordu: müşteri
+                    "Geçerlilik" tarihini geçmiş bir teklifte kabul düğmesini
+                    görüyor, basıyor ve karşılığında yalnızca bir hata mesajı
+                    alıyordu. Kural artık paylaşılan pakette; iki taraf aynı
+                    sınırı uyguluyor.
+
+                    Reddetme açık kalır: müşteri süresi geçmiş bir teklifi
+                    kapatabilmelidir.
+                  */}
+                  {isQuoteExpired(request.quote.validUntil) ? (
+                    <p className="rounded-lg bg-state-pending-bg px-3 py-2 text-sm text-state-pending-fg">
+                      Bu teklifin geçerlilik süresi doldu. Güncel fiyat için bizimle iletişime
+                      geçebilirsiniz.
+                    </p>
+                  ) : (
+                    <Button
+                      className="w-full"
+                      isLoading={respondToQuote.isPending}
+                      onClick={() => {
+                        respond('accept');
+                      }}
+                    >
+                      Teklifi kabul et
+                    </Button>
+                  )}
 
                   <Button
                     variant="outline"
