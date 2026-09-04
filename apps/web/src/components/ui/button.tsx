@@ -61,12 +61,34 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     tanımlı bir davranış olması gerekir.
   */
   const showLoading = isLoading && !asChild;
+  const isDisabled = disabled ?? isLoading;
+
+  /*
+    Bağlantı `disabled` ÖZNİTELİĞİYLE devre dışı kalmaz.
+
+    `asChild` verildiğinde çizilen öğe bir `<a>`dır. `disabled` orada geçerli
+    bir öznitelik değildir: tarayıcı yok sayar, `:disabled` sözde sınıfı
+    eşleşmez ve varyantlardaki `disabled:pointer-events-none` hiç uygulanmaz.
+    Sonuç, devre dışı görünmeyen ve tıklandığında gerçekten gezinen bir
+    bağlantıydı — sepette satışta olmayan ürün varken "Siparişi Tamamla"
+    düğmesi tam olarak böyleydi.
+
+    Bağlantıda karşılığı olan araçlar kullanılır: işaretçi olayları ve odak
+    kapatılır, durum `aria-disabled` ile bildirilir.
+  */
+  const disabledLinkClass = 'pointer-events-none opacity-50';
 
   return (
     <Component
       ref={ref}
-      className={cn(buttonVariants({ variant, size }), className)}
-      disabled={disabled ?? isLoading}
+      className={cn(
+        buttonVariants({ variant, size }),
+        asChild && isDisabled && disabledLinkClass,
+        className,
+      )}
+      {...(asChild
+        ? { 'aria-disabled': isDisabled || undefined, tabIndex: isDisabled ? -1 : undefined }
+        : { disabled: isDisabled })}
       aria-busy={showLoading}
       {...props}
     >

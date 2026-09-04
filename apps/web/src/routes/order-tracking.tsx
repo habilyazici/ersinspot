@@ -117,7 +117,17 @@ export default function OrderTrackingPage() {
 
               <ol className="mt-3 space-y-3">
                 {data.timeline.map((event, index) => (
-                  <li key={`${event.status}-${event.occurredAt}`} className="flex gap-3">
+                  /*
+                    Anahtar SIRA numarasıdır.
+
+                    Durum ve zaman damgasından üretilen anahtar benzersiz
+                    değildi: aynı işlemde yazılan olaylar aynı damgayı taşıyor
+                    ve bir durum tekrar ettiğinde iki kardeş aynı anahtarı
+                    alıyordu. Liste yalnızca gösterim amaçlıdır; sıralanmaz,
+                    süzülmez ve öğe eklenip çıkarılmaz, bu yüzden sıra
+                    numarası burada doğru anahtardır.
+                  */
+                  <li key={index} className="flex gap-3">
                     <div className="flex flex-col items-center">
                       <span
                         className={

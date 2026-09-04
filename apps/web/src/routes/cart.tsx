@@ -63,12 +63,15 @@ export default function CartPage() {
       />
 
       {cart.hasUnavailableItems ? (
+        // Uyarı kutusu, hesap ve ödeme sayfalarındaki uyarılarla aynı belirteçleri
+        // kullanır. Burada ham `amber-*` tonları yazılıydı ve aynı işi yapan iki
+        // kutu iki farklı sarı gösteriyordu.
         <div
           role="alert"
-          className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4"
+          className="mt-4 flex items-start gap-3 rounded-lg bg-state-pending-bg p-4 text-state-pending-fg"
         >
-          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-600" aria-hidden="true" />
-          <p className="text-sm text-amber-900">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+          <p className="text-sm">
             Sepetinizde artık satışta olmayan ürün var. Sipariş verebilmek için bu ürünleri
             çıkarmanız gerekiyor.
           </p>

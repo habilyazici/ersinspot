@@ -60,6 +60,43 @@ describe('düğme', () => {
     expect(screen.getByRole('link', { name: 'Ürünler' })).toBeInTheDocument();
   });
 
+  /**
+   * `asChild` ile sarmalanan bağlantı gerçekten devre dışı kalır.
+   *
+   * `disabled` özniteliği `<a>` üzerinde hiçbir şey yapmaz: tarayıcı yok sayar
+   * ve `:disabled` eşleşmediği için varyantlardaki `disabled:pointer-events-none`
+   * de uygulanmaz. Bağlantı normal görünüyor ve tıklandığında gezindiriyordu.
+   */
+  it('asChild ile sarmalanan bağlantı devre dışı bırakılabilir', () => {
+    render(
+      <Button asChild disabled>
+        <a href="/odeme">Siparişi Tamamla</a>
+      </Button>,
+    );
+
+    const link = screen.getByRole('link', { name: 'Siparişi Tamamla' });
+
+    expect(link).toHaveAttribute('aria-disabled', 'true');
+    // Klavye kullanıcısı da erişememeli.
+    expect(link).toHaveAttribute('tabindex', '-1');
+    expect(link).toHaveClass('pointer-events-none');
+    // Geçersiz öznitelik bağlantıya yazılmaz.
+    expect(link).not.toHaveAttribute('disabled');
+  });
+
+  it('devre dışı olmayan bağlantı işaretlenmez', () => {
+    render(
+      <Button asChild>
+        <a href="/urunler">Ürünler</a>
+      </Button>,
+    );
+
+    const link = screen.getByRole('link', { name: 'Ürünler' });
+
+    expect(link).not.toHaveAttribute('aria-disabled');
+    expect(link).not.toHaveAttribute('tabindex');
+  });
+
   it('devre dışıyken tıklanamaz', async () => {
     const onClick = vi.fn();
     render(
