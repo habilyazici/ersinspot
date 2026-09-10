@@ -6,29 +6,28 @@
  * çalışmalıdır. Süzgeci yalnızca bileşen durumunda tutmak bu üçünü de bozardı.
  */
 
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Clock, ImageOff, Newspaper } from 'lucide-react';
 import { BLOG_CATEGORIES, BLOG_CATEGORY_LABELS } from '@ersinspot/shared';
-import type { BlogCategory } from '@ersinspot/shared';
 import { Card } from '@/components/ui/card.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
-import { Pagination } from '@/components/ui/pagination.tsx';
+import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { cn } from '@/lib/utils.ts';
 import { formatDate } from '@/lib/format.ts';
+import { enumParam, useListFilters } from '@/lib/list-filters.ts';
 import { useBlogPosts, useBlogTags } from '@/features/content';
 
 export default function BlogPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const category = searchParams.get('kategori') ?? undefined;
-  const tag = searchParams.get('etiket') ?? undefined;
-  const page = Number(searchParams.get('sayfa') ?? '1');
+  const { params, page, hasActiveFilters, setFilters } = useListFilters();
+  const category = enumParam(params.get('kategori'), BLOG_CATEGORIES);
+  const tag = params.get('etiket') ?? undefined;
 
   const { data, isLoading, isError, error, refetch } = useBlogPosts({
     page,
-    ...(category === undefined ? {} : { category: category as BlogCategory }),
+    ...(category === undefined ? {} : { category }),
     ...(tag === undefined ? {} : { tag }),
   });
 
@@ -38,19 +37,16 @@ export default function BlogPage() {
    * Süzgeci adres çubuğuna yazar.
    *
    * Aynı değere tekrar basmak süzgeci kaldırır; ayrı bir "temizle" düğmesi
-   * gerekmez. Kategori ve etiket birbirini dışlar: ikisi birden seçilirse
-   * sonuç genellikle boş olur ve kullanıcı sebebini anlamaz.
+   * gerekmez. Kategori ve etiket BİRBİRİNİ DIŞLAR: ikisi birden seçilirse
+   * sonuç genellikle boş olur ve kullanıcı sebebini anlamaz. Bu yüzden ikisi
+   * tek yazımda değiştirilir; ardışık iki `setFilter` çağrısı ikincisinin
+   * birincisini silmesiyle sonuçlanırdı.
    */
-  function setFilter(key: 'kategori' | 'etiket', value: string | null): void {
+  function setFilter(key: 'kategori' | 'etiket', value: string | undefined): void {
     const current = key === 'kategori' ? category : tag;
-    // Süzgeç değişince ilk sayfaya dönülür; ikinci sayfada boş liste kalmasın.
-    setSearchParams(value === null || value === current ? {} : { [key]: value });
-  }
+    const next = value === undefined || value === current ? undefined : value;
 
-  function goToPage(next: number): void {
-    const params = new URLSearchParams(searchParams);
-    params.set('sayfa', String(next));
-    setSearchParams(params);
+    setFilters({ kategori: undefined, etiket: undefined, [key]: next });
   }
 
   return (
@@ -60,42 +56,18 @@ export default function BlogPage() {
         description="İkinci el eşya seçimi, bakım ipuçları ve taşınma rehberleri."
       />
 
-      <div className="mt-6 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            setFilter('kategori', null);
-          }}
-          aria-pressed={category === undefined && tag === undefined}
-          className={cn(
-            'rounded-full border px-3 py-1.5 text-sm transition-colors',
-            category === undefined && tag === undefined
-              ? 'border-brand-orange-500 bg-brand-orange-50 text-brand-orange-700'
-              : 'border-slate-200 text-slate-600 hover:border-slate-300',
-          )}
-        >
-          Tümü
-        </button>
-
-        {BLOG_CATEGORIES.map((item) => (
-          <button
-            key={item}
-            type="button"
-            onClick={() => {
-              setFilter('kategori', item);
-            }}
-            aria-pressed={category === item}
-            className={cn(
-              'rounded-full border px-3 py-1.5 text-sm transition-colors',
-              category === item
-                ? 'border-brand-orange-500 bg-brand-orange-50 text-brand-orange-700'
-                : 'border-slate-200 text-slate-600 hover:border-slate-300',
-            )}
-          >
-            {BLOG_CATEGORY_LABELS[item]}
-          </button>
-        ))}
-      </div>
+      <FilterChips
+        label="Yazı kategorisi"
+        className="mt-6"
+        options={BLOG_CATEGORIES.map((item) => ({
+          value: item,
+          label: BLOG_CATEGORY_LABELS[item],
+        }))}
+        value={category}
+        onChange={(value) => {
+          setFilter('kategori', value);
+        }}
+      />
 
       {tags === undefined || tags.length === 0 ? null : (
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -132,8 +104,12 @@ export default function BlogPage() {
       ) : data === undefined || data.items.length === 0 ? (
         <EmptyState
           icon={Newspaper}
-          title="Bu kategoride yazı yok"
-          description="Diğer kategorilere göz atabilir veya daha sonra tekrar uğrayabilirsiniz."
+          title={hasActiveFilters ? 'Bu süzgeçle yazı yok' : 'Henüz yazı yok'}
+          description={
+            hasActiveFilters
+              ? 'Diğer kategorilere göz atabilir veya etiketi kaldırabilirsiniz.'
+              : 'Yakında burada olacağız.'
+          }
           className="mt-4"
         />
       ) : (
@@ -181,7 +157,13 @@ export default function BlogPage() {
             ))}
           </ul>
 
-          <Pagination page={data.page} totalPages={data.totalPages} onPageChange={goToPage} />
+          <Pagination
+            page={data.page}
+            totalPages={data.totalPages}
+            onPageChange={(next) => {
+              setFilters({ sayfa: String(next) });
+            }}
+          />
         </>
       )}
     </PageContainer>

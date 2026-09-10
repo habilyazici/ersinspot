@@ -39,6 +39,15 @@ export interface ListFilters {
   readonly hasActiveFilters: boolean;
   /** Süzgeci yazar; boş değer süzgeci kaldırır. */
   readonly setFilter: (key: string, value: string | undefined) => void;
+  /**
+   * Birden çok süzgeci TEK yazımda değiştirir.
+   *
+   * Birbirini dışlayan süzgeçler için gereklidir: `setFilter` ardışık iki kez
+   * çağrıldığında ikisi de aynı `params` değerinden türer ve ikinci yazım
+   * birincisini siler. Kategori seçen blog okuru etiketin kalktığını değil,
+   * kategorinin hiç yazılmadığını görürdü.
+   */
+  readonly setFilters: (values: Readonly<Record<string, string | undefined>>) => void;
   /** Tüm süzgeçleri ve sayfa numarasını kaldırır. */
   readonly clearFilters: () => void;
 }
@@ -57,11 +66,15 @@ export function useListFilters(): ListFilters {
   const requested = Number(params.get(PAGE_PARAM) ?? '1');
   const page = Number.isInteger(requested) && requested >= 1 ? requested : 1;
 
-  function setFilter(key: string, value: string | undefined): void {
+  function setFilters(values: Readonly<Record<string, string | undefined>>): void {
     const next = new URLSearchParams(params);
+    const keys = Object.keys(values);
 
-    if (value === undefined || value === '') next.delete(key);
-    else next.set(key, value);
+    for (const key of keys) {
+      const value = values[key];
+      if (value === undefined || value === '') next.delete(key);
+      else next.set(key, value);
+    }
 
     /*
       Süzgeç değişince ilk sayfaya dönülür: üçüncü sayfada süzgeç
@@ -70,7 +83,7 @@ export function useListFilters(): ListFilters {
       Sıfırlama SAYFA DEĞİŞİMİNDE uygulanmaz — aksi halde yazılan numara aynı
       çağrıda siliniyor ve sayfalama hiç çalışmıyordu.
     */
-    if (key !== PAGE_PARAM) next.delete(PAGE_PARAM);
+    if (!keys.includes(PAGE_PARAM)) next.delete(PAGE_PARAM);
 
     /*
       SÜZGEÇ değişimi geçmişe kayıt EKLEMEZ, mevcut kaydı değiştirir. Aksi
@@ -81,7 +94,11 @@ export function useListFilters(): ListFilters {
       kümeye gider; ikisi aynı sayılınca 2. sayfadaki müşteri geri tuşuna
       bastığında 1. sayfaya değil, listeden tamamen dışarı çıkıyordu.
     */
-    setSearchParams(next, { replace: key !== PAGE_PARAM });
+    setSearchParams(next, { replace: !keys.includes(PAGE_PARAM) });
+  }
+
+  function setFilter(key: string, value: string | undefined): void {
+    setFilters({ [key]: value });
   }
 
   function clearFilters(): void {
@@ -90,5 +107,27 @@ export function useListFilters(): ListFilters {
 
   const hasActiveFilters = [...params.keys()].some((key) => key !== PAGE_PARAM);
 
-  return { params, page, hasActiveFilters, setFilter, clearFilters };
+  return { params, page, hasActiveFilters, setFilter, setFilters, clearFilters };
+}
+
+/**
+ * Adres çubuğundaki değeri KAPALI BİR KÜMEYE göre doğrular.
+ *
+ * Tanınmayan değer bir süzgeç değil, bozuk bir bağlantıdır; süzgeç
+ * uygulanmamış sayılır. Değer olduğu gibi sunucuya geçirildiğinde şema onu
+ * haklı olarak reddediyor ve sayfa kalıcı bir hata ekranına dönüyordu —
+ * "Tekrar dene" düğmesi de aynı adresi çağırdığı için çıkışı yoktu. Eskimiş
+ * bir yer imi, yanlış yazılmış bir kategori ya da paylaşılan bir bağlantıdaki
+ * eski değer bunun için yeter.
+ *
+ * Sayfa numarasında aynı kural `useListFilters` içinde uygulanıyor; kapalı
+ * kümeler için de tek yer burasıdır.
+ */
+export function enumParam<T extends string>(
+  value: string | null | undefined,
+  allowed: readonly T[],
+): T | undefined {
+  return value !== null && value !== undefined && (allowed as readonly string[]).includes(value)
+    ? (value as T)
+    : undefined;
 }

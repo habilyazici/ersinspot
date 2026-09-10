@@ -5,9 +5,8 @@ import {
   PRODUCT_SORT_LABELS,
   PRODUCT_SORT_OPTIONS,
 } from '@ersinspot/shared';
-import type { ProductCondition, ProductSort } from '@ersinspot/shared';
 import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
-import { useListFilters } from '@/lib/list-filters.ts';
+import { enumParam, useListFilters } from '@/lib/list-filters.ts';
 import { fieldControlClass } from '@/components/ui/form-field.tsx';
 import { SearchField } from '@/components/ui/search-field.tsx';
 import { cn } from '@/lib/utils.ts';
@@ -31,9 +30,9 @@ export default function ProductsPage() {
   const filters = {
     page,
     categorySlug: params.get('kategori') ?? undefined,
-    condition: (params.get('durum') as ProductCondition | null) ?? undefined,
+    condition: enumParam(params.get('durum'), PRODUCT_CONDITIONS),
     search: params.get('ara') ?? undefined,
-    sort: (params.get('sirala') as ProductSort | null) ?? 'newest',
+    sort: enumParam(params.get('sirala'), PRODUCT_SORT_OPTIONS) ?? 'newest',
   };
 
   const { data, isLoading, isError, error, refetch } = useProducts(filters);

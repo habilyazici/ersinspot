@@ -11,11 +11,11 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
-import { useListFilters } from './list-filters.ts';
+import { enumParam, useListFilters } from './list-filters.ts';
 
 /** Hook'un ürettiği adresi ve sayfayı teste görünür kılan küçük ekran. */
 function Probe() {
-  const { params, page, setFilter, clearFilters } = useListFilters();
+  const { params, page, setFilter, setFilters, clearFilters } = useListFilters();
   const navigate = useNavigate();
 
   return (
@@ -34,6 +34,14 @@ function Probe() {
       </button>
       <button type="button" onClick={clearFilters}>
         Temizle
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setFilters({ etiket: undefined, kategori: 'rehber' });
+        }}
+      >
+        Değiştir
       </button>
       <button
         type="button"
@@ -142,5 +150,46 @@ describe('liste süzgeçleri', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Temizle' }));
 
     expect(screen.getByTestId('sorgu').textContent).toBe('');
+  });
+});
+
+describe('kapalı küme süzgeçleri', () => {
+  /*
+    Tanınmayan değer olduğu gibi sunucuya geçirildiğinde şema onu reddediyor ve
+    sayfa kalıcı bir hata ekranına dönüyordu: "Tekrar dene" aynı adresi
+    çağırdığı için çıkışı da yoktu. Eskimiş bir yer imi bunun için yeter.
+  */
+  const durumlar = ['light_use', 'good', 'fair'] as const;
+
+  it('kümedeki değeri geçirir', () => {
+    expect(enumParam('good', durumlar)).toBe('good');
+  });
+
+  it('kümede olmayan değeri süzgeç saymaz', () => {
+    expect(enumParam('xyz', durumlar)).toBeUndefined();
+  });
+
+  it('eksik değeri süzgeç saymaz', () => {
+    expect(enumParam(null, durumlar)).toBeUndefined();
+    expect(enumParam(undefined, durumlar)).toBeUndefined();
+  });
+
+  it('boş dizgeyi süzgeç saymaz', () => {
+    expect(enumParam('', durumlar)).toBeUndefined();
+  });
+});
+
+describe('çoklu süzgeç yazımı', () => {
+  it('birbirini dışlayan iki süzgeci tek yazımda değiştirir', async () => {
+    /*
+      Ardışık iki `setFilter` çağrısı ikisi de aynı `params` değerinden türer;
+      ikinci yazım birincisini siler. Kategori seçen blog okuru etiketin
+      kalktığını değil, kategorinin hiç yazılmadığını görürdü.
+    */
+    renderAt('/liste?etiket=buzdolabi');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Değiştir' }));
+
+    expect(screen.getByTestId('sorgu').textContent).toBe('kategori=rehber');
   });
 });
