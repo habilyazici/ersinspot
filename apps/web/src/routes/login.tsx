@@ -81,6 +81,7 @@ export default function LoginPage() {
 
         <TextField
           label="E-posta"
+          required
           type="email"
           autoComplete="email"
           error={errors.email?.message}
@@ -90,6 +91,7 @@ export default function LoginPage() {
         <div>
           <TextField
             label="Şifre"
+            required
             type="password"
             autoComplete="current-password"
             error={errors.password?.message}

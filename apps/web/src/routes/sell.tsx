@@ -258,12 +258,20 @@ export default function SellPage() {
             Aklınızdaki Fiyat
           </h2>
 
+          {/*
+            Alan METİNDİR, `type="number"` değil.
+
+            Tutar `money.parseLira` ile okunuyor ve o, Türkçe yazımı da kabul
+            eder ("6.500", "6500,50"). Sayı girdisi virgülü reddeder: tarayıcı
+            değeri boş dizeye çevirir, `setValueAs` `undefined` döndürür ve
+            müşterinin yazdığı fiyat sessizce kaybolurdu. Ürün formu ile teklif
+            kutusu da aynı sebeple metin kullanıyor.
+          */}
           <TextField
             label="Beklediğiniz Tutar"
-            type="number"
-            min={1}
+            inputMode="decimal"
             placeholder="Örn. 6500"
-            hint="İsteğe bağlı ve bağlayıcı değil. Yazarsanız pazarlığın nereden başlayacağını biliriz."
+            hint="İsteğe bağlı ve bağlayıcı değil. Lira olarak yazın; kuruş için virgül kullanın."
             error={errors.askingPrice?.message}
             {...register('askingPrice', {
               /*
