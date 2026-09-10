@@ -216,3 +216,22 @@ export function flattenCategories(
     ...flattenCategories(node.children, depth + 1),
   ]);
 }
+
+/**
+ * Ürünün kart ve detay ekranlarında görünen üst satırı: "Beko · Buzdolabı".
+ *
+ * Marka ile kategori TEK slotta gösterilir ama biri diğerinin yerine geçmez.
+ * Kart eskiden markası olmayan üründe kategoriyi aynı yere basıyordu; ızgarada
+ * "Beko, Samsung, Bosch, Oturma Odası" alt alta gelince kategori marka gibi
+ * okunuyordu. Detay sayfası ise markasız üründe "— · Oturma Odası" yazıp
+ * boşluğu tire ile dolduruyordu. İkisi de aynı kurala bağlandı: marka varsa
+ * yazılır, yoksa satır yalnızca kategoriden ibarettir.
+ */
+export function formatBrandAndCategory(product: {
+  brand: { name: string } | null;
+  category: { name: string };
+}): string {
+  return product.brand === null
+    ? product.category.name
+    : `${product.brand.name} · ${product.category.name}`;
+}

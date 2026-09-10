@@ -6,6 +6,7 @@ import { PRODUCT_CONDITION_LABELS, PRODUCT_STATUS_LABELS } from '@ersinspot/shar
 import { Card } from '@/components/ui/card.tsx';
 import { StatusBadge } from '@/components/ui/status-badge.tsx';
 import { formatPrice } from '@/lib/format.ts';
+import { formatBrandAndCategory } from './api.ts';
 import { cn } from '@/lib/utils.ts';
 
 /**
@@ -74,8 +75,8 @@ export function ProductCard({
 
       <div className="flex flex-1 flex-col gap-2 p-4">
         <div className="flex items-start justify-between gap-2">
-          <span className="text-xs font-medium text-slate-500">
-            {product.brand?.name ?? product.category.name}
+          <span className="truncate text-xs font-medium text-slate-500">
+            {formatBrandAndCategory(product)}
           </span>
           <StatusBadge meta={PRODUCT_CONDITION_LABELS[product.condition]} />
         </div>

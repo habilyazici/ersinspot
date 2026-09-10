@@ -11,7 +11,7 @@ import { StatusBadge } from '@/components/ui/status-badge.tsx';
 import { formatPrice } from '@/lib/format.ts';
 import { cn } from '@/lib/utils.ts';
 import { useAuth } from '@/features/auth';
-import { useProduct } from '@/features/catalog';
+import { formatBrandAndCategory, useProduct } from '@/features/catalog';
 import { FavoriteButton, useAddToCart, useFavoriteStatus } from '@/features/ordering';
 
 export default function ProductDetailPage() {
@@ -113,9 +113,7 @@ export default function ProductDetailPage() {
 
           <h1 className="mt-3 text-2xl font-bold text-slate-900 lg:text-3xl">{product.title}</h1>
 
-          <p className="mt-1 text-sm text-slate-600">
-            {product.brand?.name ?? '—'} · {product.category.name}
-          </p>
+          <p className="mt-1 text-sm text-slate-600">{formatBrandAndCategory(product)}</p>
 
           <p className="mt-6 text-3xl font-bold text-brand-orange-600">
             {formatPrice(product.price)}
