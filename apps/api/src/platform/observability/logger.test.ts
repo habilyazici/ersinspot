@@ -33,8 +33,8 @@ let yazilan: string[] = [];
 beforeEach(() => {
   yazilan = [];
   for (const kanal of ['log', 'warn', 'error'] as const) {
-    vi.spyOn(console, kanal).mockImplementation((satir: unknown) => {
-      yazilan.push(String(satir));
+    vi.spyOn(console, kanal).mockImplementation((...args: unknown[]) => {
+      yazilan.push(args.map(String).join(' '));
     });
   }
 });
