@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { LayoutDashboard, LogOut, Menu, Package, ShoppingCart, User, X } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
@@ -17,9 +17,33 @@ const NAV_LINKS = [
 
 export function SiteHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const { isAuthenticated, isStaff, user } = useAuth();
   const logout = useLogout();
   const { data: cartCount = 0 } = useCartCount();
+
+  /*
+    Escape menüyü kapatır ve odağı düğmeye geri verir.
+
+    Panel telefonda ekranın neredeyse tamamını kaplıyor ve klavye ya da ekran
+    okuyucu kullanan biri için tek çıkış yolu, listenin sonuna kadar sekme
+    tuşuna basmaktı. Dinleyici yalnızca panel AÇIKKEN bağlanır; kapalıyken
+    sayfanın her tuş vuruşunu dinlemenin anlamı yok.
+  */
+  useEffect(() => {
+    if (!isMenuOpen) return undefined;
+
+    function onKeyDown(event: KeyboardEvent): void {
+      if (event.key !== 'Escape') return;
+      setIsMenuOpen(false);
+      menuButtonRef.current?.focus();
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isMenuOpen]);
 
   const navLinkClass = ({ isActive }: { isActive: boolean }): string =>
     cn(
@@ -110,11 +134,13 @@ export function SiteHeader() {
           )}
 
           <Button
+            ref={menuButtonRef}
             variant="ghost"
             size="icon"
             className="lg:hidden"
             aria-label={isMenuOpen ? 'Menüyü kapat' : 'Menüyü aç'}
             aria-expanded={isMenuOpen}
+            aria-controls="mobil-menu"
             onClick={() => setIsMenuOpen((open) => !open)}
           >
             {isMenuOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
@@ -124,6 +150,7 @@ export function SiteHeader() {
 
       {isMenuOpen ? (
         <nav
+          id="mobil-menu"
           aria-label="Mobil menü"
           className="border-t border-slate-200 bg-white px-4 py-3 lg:hidden"
         >
