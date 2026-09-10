@@ -21,7 +21,19 @@
 
 import { deflateSync } from 'node:zlib';
 import { eq } from 'drizzle-orm';
-import { slugify } from '@ersinspot/shared';
+import {
+  DELIVERY_FEE_OTHER_DISTRICT,
+  FREE_DELIVERY_THRESHOLD,
+  HOME_DISTRICT,
+  INSPECTION_FEE,
+  IZMIR_DISTRICTS,
+  MIN_PRODUCT_IMAGES,
+  SERVICED_DISTRICTS,
+  UNSERVICED_DISTRICTS,
+  money,
+  slugify,
+} from '@ersinspot/shared';
+import type { Kurus } from '@ersinspot/shared';
 import type { FAQ_CATEGORIES } from '@ersinspot/shared';
 import { closeDatabase, db } from './platform/db/client.ts';
 import { isProduction } from './platform/config/env.ts';
@@ -301,7 +313,18 @@ const PRODUCTS = [
   },
 ] as const;
 
-/** SSS içeriği. Cevaplar sistemin gerçek davranışını anlatır. */
+/**
+ * SSS içeriği. Cevaplar sistemin gerçek davranışını anlatır.
+ *
+ * Tutarlar ve ilçe listeleri SABİTLERDEN okunur, elle yazılmaz — koşullar
+ * sayfasındaki kuralın aynısı. Elle yazıldıklarında ikisi de yanlıştı:
+ * teslimat sorusu kodda hiçbir yerde bulunmayan on bir ilçelik bir liste
+ * sayıyordu (oysa sipariş teslimatı bütün İzmir'e açık; kısıt yalnızca
+ * nakliye, teknik servis ve ürün satmada) ve tutarlar "500,00 ₺" biçiminde
+ * yazılmıştı, uygulamanın her yerde bastığı "₺500" biçiminde değil.
+ */
+const lira = (amount: Kurus): string => money.format(amount, { hideDecimalsWhenWhole: true });
+
 const FAQS: { question: string; answer: string; category: (typeof FAQ_CATEGORIES)[number] }[] = [
   {
     category: 'orders',
@@ -322,16 +345,18 @@ const FAQS: { question: string; answer: string; category: (typeof FAQ_CATEGORIES
     category: 'delivery',
     question: 'Hangi ilçelere teslimat yapıyorsunuz?',
     answer:
-      'Buca, Bornova, Konak, Karabağlar, Gaziemir, Balçova, Narlıdere, Bayraklı, Çiğli, ' +
-      'Karşıyaka ve Menderes ilçelerine teslimat yapıyoruz. Mağazamızdan teslim alma seçeneği ' +
-      'her zaman mevcuttur.',
+      `İzmir'in ${String(IZMIR_DISTRICTS.length)} ilçesinin tamamına teslimat yapıyoruz. ` +
+      'Mağazamızdan teslim alma seçeneği her zaman mevcuttur. Nakliye, teknik servis ve ' +
+      `ürün satma hizmetlerimiz ise ${String(SERVICED_DISTRICTS.length)} ilçede verilir; ` +
+      `${UNSERVICED_DISTRICTS.join(', ')} ilçelerinde bu üç hizmet verilmez.`,
   },
   {
     category: 'delivery',
     question: 'Teslimat ücreti ne kadar?',
     answer:
-      'Buca içi teslimat ücretsizdir. Diğer ilçelere 500,00 ₺ teslimat ücreti alınır. ' +
-      '15.000,00 ₺ ve üzeri siparişlerde teslimat her ilçede ücretsizdir.',
+      `${HOME_DISTRICT} içi teslimat ücretsizdir. Diğer ilçelere ` +
+      `${lira(DELIVERY_FEE_OTHER_DISTRICT)} teslimat ücreti alınır. ` +
+      `${lira(FREE_DELIVERY_THRESHOLD)} ve üzeri siparişlerde teslimat her ilçede ücretsizdir.`,
   },
   {
     category: 'delivery',
@@ -373,7 +398,8 @@ const FAQS: { question: string; answer: string; category: (typeof FAQ_CATEGORIES
     category: 'technical_service',
     question: 'Teknik servis ücreti nasıl işliyor?',
     answer:
-      "Keşif ücreti 750,00 ₺'dir ve teknisyenimizin adresinize gelip arızayı yerinde " +
+      `Keşif ücreti ${lira(INSPECTION_FEE)}'dir ve teknisyenimizin adresinize gelip arızayı ` +
+      'yerinde ' +
       'incelemesinin karşılığıdır. Onarımı bize yaptırmanız hâlinde bu tutar toplam fiyattan ' +
       'düşülür. Onarım fiyatı, arıza görüldükten sonra ayrı bir teklif olarak iletilir.',
   },
@@ -406,8 +432,8 @@ const FAQS: { question: string; answer: string; category: (typeof FAQ_CATEGORIES
     question: 'Ürünümü nasıl satabilirim?',
     answer:
       '"Ürününüzü Satın" sayfasından ürünü fotoğraflarıyla birlikte tanıtmanız yeterli. ' +
-      'En az üç fotoğraf gerekiyor: ürünü görmeden değerleme yapamıyoruz. Ekibimiz inceledikten ' +
-      'sonra size bir fiyat teklifi sunar.',
+      `En az ${String(MIN_PRODUCT_IMAGES)} fotoğraf gerekiyor: ürünü görmeden değerleme ` +
+      'yapamıyoruz. Ekibimiz inceledikten sonra size bir fiyat teklifi sunar.',
   },
   {
     category: 'selling',
