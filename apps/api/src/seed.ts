@@ -43,6 +43,7 @@ import {
   tags,
 } from './modules/content/infrastructure/schema.ts';
 import { DEFAULT_SETTINGS } from './modules/content/application/settings-service.ts';
+import { estimateReadingMinutes } from './modules/content/domain/content-rules.ts';
 import { uploadedFiles } from './modules/files/infrastructure/schema.ts';
 
 // ---------------------------------------------------------------------------
@@ -772,8 +773,16 @@ async function seed(): Promise<void> {
         category: post.category,
         authorName: 'Ersin Spot',
         authorUserId: admin.id,
-        // Okuma süresi uygulamada içerikten hesaplanır; burada kabaca kelime sayısından.
-        readingMinutes: Math.max(1, Math.round(post.content.split(/\s+/).length / 200)),
+        /*
+          Okuma süresi, uygulamanın kullandığı AYNI fonksiyonla hesaplanır.
+
+          Burada kelime sayısı elle bölünüyordu ve bu, kuralın ikinci bir
+          uygulamasıydı: `estimateReadingMinutes` markdown işaretlerini metinden
+          ayıklar, buradaki bölme ayıklamazdı. Tohumlanan yazı ile panelden
+          girilen yazı aynı içerikte farklı süre gösterebilirdi. Etiket
+          bağlantısı zaten aynı sebeple paylaşılan `slugify`yi kullanıyor.
+        */
+        readingMinutes: estimateReadingMinutes(post.content),
         isPublished: true,
         publishedAt: new Date(),
       })
