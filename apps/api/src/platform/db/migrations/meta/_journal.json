@@ -71,6 +71,13 @@
       "when": 1789058460685,
       "tag": "0009_ayar_aciklamasini_kaldir",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789080370714,
+      "tag": "0010_arama_normallestirme",
+      "breakpoints": true
     }
   ]
 }

@@ -21,6 +21,7 @@
 import { sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
+import { toAsciiLower } from '@ersinspot/shared';
 
 /**
  * Kaçış işareti.
@@ -31,19 +32,75 @@ import type { PgColumn } from 'drizzle-orm/pg-core';
  */
 const ESCAPE_CHARACTER = '!';
 
+/*
+  `translate` için harf çiftleri.
+
+  Sıra ve uzunluk birebir eşleşmelidir; `toAsciiLower` içindeki eşleme
+  tablosunun aynısıdır. Küçük harfler de listede: `translate` küçültmeden önce
+  çalışır ve "ı" ile "ş" zaten küçükken de dönüştürülmelidir.
+*/
+const TURKISH_LETTERS = 'çÇğĞıIİiöÖşŞüÜ';
+const ASCII_LETTERS = 'ccggiiiioossuu';
+
+/*
+  Harf tabloları sorguya PARAMETRE olarak değil, gömülü olarak girer.
+
+  Drizzle `${sabit}` yazımını `$1` bağlamasına çevirir ve PostgreSQL çalışma
+  anındaki bir parametreyi indeksin ifadesiyle eşleştiremez: sorgu, aynı ifade
+  üzerine kurulmuş trigram indeksini kullanamaz hâle gelir. İkisi de bu
+  dosyada tanımlı sabitlerdir, kullanıcı girdisi değildir; tek tırnak
+  içermedikleri de aşağıda doğrulanır.
+*/
+if (/'/.test(TURKISH_LETTERS) || /'/.test(ASCII_LETTERS)) {
+  throw new Error('Harf tablosu tek tırnak içeremez.');
+}
+
+const TRANSLATE_ARGS = sql.raw(`'${TURKISH_LETTERS}', '${ASCII_LETTERS}'`);
+
 /** `LIKE` joker karakterlerini düz metne çevirir. */
 function escapePattern(value: string): string {
   return value.replace(/[!%_]/g, (character) => `${ESCAPE_CHARACTER}${character}`);
 }
 
 /**
+ * Metni ASCII küçük harfe indiren SQL ifadesi.
+ *
+ * `toAsciiLower`'ın veritabanı karşılığıdır ve onunla AYNI SONUCU vermek
+ * zorundadır; `search.test.ts` ikisini aynı örnekler üzerinde karşılaştırır.
+ *
+ * `translate` küçültmeden ÖNCE uygulanır: PostgreSQL'in `lower` işlevi bu
+ * kurulumda ASCII kuralını izliyor ve "I" harfini "i" yapıyor, oysa Türkçede
+ * "ı" olmalı. Eşleme zaten her iki büyüklüğü de karşılıyor.
+ */
+function normalized(column: PgColumn): SQL {
+  return sql`lower(translate(${column}, ${TRANSLATE_ARGS}))`;
+}
+
+/**
  * "Bu sütun verilen metni İÇERİYOR mu?" koşulu üretir.
  *
- * Büyük/küçük harf duyarsızdır (`ILIKE`). Arama metni joker karakter içerse
- * bile düz metin olarak aranır.
+ * Karşılaştırma HEM büyük/küçük harf HEM Türkçe harf duyarsızdır: iki taraf da
+ * ASCII küçük harfe indirgenir. Sebebi ölçülebilir bir davranıştı —
+ *
+ *   "çamaşır"  → 1 sonuç
+ *   "camasir"  → 0 sonuç
+ *
+ * — oysa Türkçe klavyede ı, ş, ğ yazmak tuş değiştirmeyi gerektirir ve
+ * müşterilerin önemli bir kısmı telefonda bu harfleri hiç yazmaz. Arama
+ * kutusu, kataloğun tamamı Türkçe ürün adlarından oluşan bir sitede en sık
+ * yazılan biçimi bulamıyordu.
+ *
+ * Aynı indirgeme "BUZDOLABI" gibi tümü büyük harfle yazılmış başlıkları da
+ * çözer; `lower` tek başına onları "buzdolabi" yapıp "buzdolabı" aramasıyla
+ * eşleştiremiyordu.
+ *
+ * Arama metni joker karakter içerse bile düz metin olarak aranır. `ILIKE`
+ * yerine `LIKE` kullanılır: iki taraf da zaten küçük harftedir ve `ILIKE`'ın
+ * ek harf katlaması bu noktada yalnızca maliyet olurdu.
  */
 export function contains(column: PgColumn, search: string): SQL {
-  return sql`${column} ILIKE ${`%${escapePattern(search)}%`} ESCAPE ${ESCAPE_CHARACTER}`;
+  const pattern = `%${escapePattern(toAsciiLower(search))}%`;
+  return sql`${normalized(column)} LIKE ${pattern} ESCAPE ${ESCAPE_CHARACTER}`;
 }
 
 /**
