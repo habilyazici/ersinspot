@@ -57,7 +57,15 @@ import {
  * Ayrım artık tipte görünür: forma giren değer metin, şemadan çıkan değer
  * kuruştur.
  */
-const productFormSchema = createProductSchema.extend({
+/*
+  Form durum alanı TAŞIMAZ.
+
+  Yeni ürün daima taslak olarak doğar (sunucu varsayanı) ve mevcut ürünün
+  durumu ayrı bir uçtan, geçiş kuralları denetlenerek değişir — listede bunun
+  için bir seçici var. Form bir durum gönderiyordu ama hiçbir kutu onu
+  düzenlemiyordu; düzenlemede sunucu alanı zaten yok sayıyordu.
+*/
+const productFormSchema = createProductSchema.omit({ status: true }).extend({
   /*
     Fiyat DOĞRULANIR ama şemada dönüştürülmez.
 
@@ -92,7 +100,7 @@ const productFormSchema = createProductSchema.extend({
  * kuruş kutuya olduğu gibi yazılıyor, personel ekranda "2450000 ₺" görüyordu.
  * Düzeltmek için "24500" yazan biri de ürünü 245 ₺'ye düşürüyordu.
  */
-type ProductValues = Omit<CreateProductInput, 'price'> & { price: string };
+type ProductValues = Omit<CreateProductInput, 'price' | 'status'> & { price: string };
 
 /** Kategori ağacını girintili düz listeye çevirir. */
 export default function AdminProductFormPage() {
@@ -122,7 +130,6 @@ export default function AdminProductFormPage() {
       description: '',
       price: '',
       condition: 'good',
-      status: 'draft',
       warrantyMonths: 0,
       brandId: null,
       images: [],
@@ -147,7 +154,6 @@ export default function AdminProductFormPage() {
       // Kuruş → lira metni. Kutuya kuruş yazmak fiyatı 100 katı gösterirdi.
       price: money.toInputValue(money.fromKurus(product.price)),
       condition: product.condition,
-      status: product.status,
       warrantyMonths: product.warrantyMonths,
       categoryId: product.category.id,
       brandId: product.brand?.id ?? null,
@@ -171,7 +177,12 @@ export default function AdminProductFormPage() {
 
     if (price === null) return;
 
-    const payload: CreateProductInput = { ...values, price };
+    /*
+      Durum gönderilmez: yeni ürün sunucunun varsayanıyla TASLAK olarak doğar,
+      düzenlemede ise durum bu uçtan hiç değişmez. Buradan bir değer yazmak,
+      sunucudaki varsayılanı arayüzde ikinci kez tanımlamak olurdu.
+    */
+    const payload = { ...values, price };
 
     const done = {
       onSuccess: () => {

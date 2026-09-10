@@ -10,7 +10,7 @@ import type {
   BrandSummary,
   CategoryNode,
   ProductDetail,
-  CreateProductInput,
+  CreateProductBody,
   ProductStatus,
   UpdateProductInput,
   Paginated,
@@ -137,7 +137,7 @@ export function useCreateProduct() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: CreateProductInput) => {
+    mutationFn: async (input: CreateProductBody) => {
       const response = await apiRequest<{ product: { productId: string } }>('/api/admin/products', {
         method: 'POST',
         body: input,

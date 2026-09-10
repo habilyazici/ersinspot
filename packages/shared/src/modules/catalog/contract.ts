@@ -172,6 +172,18 @@ const productImageInputSchema = z.object({
   altText: optionalText(200),
 });
 
+/**
+ * Yeni bir ürünün başlayabileceği durumlar.
+ *
+ * `reserved` ve `sold` bu listede YOKTUR: ikisi de sipariş akışının sonucudur.
+ * Durum makinesi ürünü `for_sale → reserved → sold` yolundan geçirir; doğrudan
+ * "satıldı" olarak oluşturulan bir ürün, hiçbir siparişe bağlanmadan satılmış
+ * görünürdü. Şema önce tüm durumları kabul ediyordu ve oluşturma yolu, durum
+ * değiştirme ucundaki denetimleri (`changeProductStatus`) tamamen atlıyordu —
+ * `reserved` yalnızca veritabanı kısıtına takıldığı için kazara engelleniyordu.
+ */
+export const CREATABLE_PRODUCT_STATUSES = ['draft', 'in_storage', 'for_sale'] as const;
+
 export const createProductSchema = z.object({
   title: requiredText('Ürün başlığı', 5, 160),
   description: requiredText('Ürün açıklaması', 20, 5000),
@@ -179,7 +191,7 @@ export const createProductSchema = z.object({
   condition: z.enum(PRODUCT_CONDITIONS, {
     errorMap: () => ({ message: 'Lütfen ürün durumunu seçin.' }),
   }),
-  status: z.enum(PRODUCT_STATUSES).default('draft'),
+  status: z.enum(CREATABLE_PRODUCT_STATUSES).default('draft'),
   warrantyMonths: z.number().int().min(0).max(60).default(0),
   categoryId: uuidSchema,
   brandId: uuidSchema.nullable().default(null),
@@ -204,8 +216,25 @@ export const createProductSchema = z.object({
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 
-/** Güncellemede tüm alanlar isteğe bağlıdır; yalnızca gönderilenler değiştirilir. */
-export const updateProductSchema = createProductSchema.partial();
+/**
+ * İstemcinin GÖNDERDİĞİ gövde.
+ *
+ * Varsayılanı olan alanlar (`status`, `warrantyMonths`, `specs`) burada isteğe
+ * bağlıdır: değeri sunucu doldurur. `CreateProductInput` ise doğrulamadan
+ * SONRAKİ şekildir ve o alanlar dolu olduğu için istemci tarafında kullanmak,
+ * sunucunun varsayılanını arayüzde ikinci kez yazmayı gerektirirdi.
+ */
+export type CreateProductBody = z.input<typeof createProductSchema>;
+
+/**
+ * Güncellemede tüm alanlar isteğe bağlıdır; yalnızca gönderilenler değiştirilir.
+ *
+ * `status` DIŞARIDA bırakılır. Durum değişikliği kendi ucundadır çünkü geçiş
+ * kuralları orada denetlenir; bu şema onu kabul ediyor ama yazma katmanı sessizce
+ * yok sayıyordu. İsteği gönderen taraf durumu değiştirdiğini sanıyor, hiçbir şey
+ * olmuyordu — kabul edilen bir alanın uygulanmaması, reddedilmesinden kötüdür.
+ */
+export const updateProductSchema = createProductSchema.omit({ status: true }).partial();
 
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 
