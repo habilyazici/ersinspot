@@ -70,9 +70,9 @@ export default function ProductsPage() {
           <h2 id="filtreler" className="text-sm font-semibold text-slate-900">
             <span className="hidden lg:block">Filtreler</span>
 
-            <button
-              type="button"
-              className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 lg:hidden"
+            <Button
+              variant="outline"
+              className="w-full justify-between lg:hidden"
               aria-expanded={filtersOpen}
               aria-controls="filtre-alanlari"
               onClick={() => {
@@ -84,7 +84,7 @@ export default function ProductsPage() {
                 aria-hidden="true"
                 className={cn('size-4 transition-transform', filtersOpen && 'rotate-180')}
               />
-            </button>
+            </Button>
           </h2>
 
           <div

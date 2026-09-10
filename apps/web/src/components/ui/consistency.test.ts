@@ -196,4 +196,18 @@ describe('Arayüz tutarlılığı', () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it('atlama bağlantısının hedefi odaklanabilir', () => {
+    /*
+      "İçeriğe atla" bağlantısı `#icerik` adresine gider. Hedef odak
+      alamıyorsa tarayıcı yalnızca kaydırma yapar, odağı taşımaz: odak `body`
+      üzerinde kalır ve bir sonraki sekme kullanıcıyı sayfanın en başına,
+      atlamak istediği menüye geri götürür. Bağlantı görünür, tıklanır ve
+      hiçbir işe yaramaz — bu yüzden gözden kaçmıştı.
+    */
+    const layout = readFileSync(path.resolve(COMPONENTS, 'layout/site-layout.tsx'), 'utf8');
+
+    expect(layout).toMatch(/href="#icerik"/);
+    expect(layout).toMatch(/<main[^>]*id="icerik"[^>]*tabIndex=\{-1\}/);
+  });
 });

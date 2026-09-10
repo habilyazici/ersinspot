@@ -32,6 +32,12 @@ function AnnouncementBanner() {
  *
  * "İçeriğe atla" bağlantısı, klavye kullanıcısının her sayfada gezinme
  * menüsünü baştan geçmesini engeller.
+ *
+ * `<main>` ODAKLANABİLİR olmak zorundadır (`tabIndex={-1}`). Aksi halde
+ * tarayıcı bağlantıyı izlerken yalnızca kaydırma yapar, odağı taşımaz: odak
+ * `body` üzerinde kalır ve bir sonraki sekme tuşu kullanıcıyı sayfanın en
+ * başına, atlamak istediği menüye geri götürür. Bağlantı görünüyor, tıklanıyor
+ * ve hiçbir işe yaramıyordu.
  */
 export function SiteLayout() {
   return (
@@ -46,7 +52,7 @@ export function SiteLayout() {
       <AnnouncementBanner />
       <SiteHeader />
 
-      <main id="icerik" className="flex-1">
+      <main id="icerik" tabIndex={-1} className="flex-1 focus:outline-none">
         <Outlet />
       </main>
 
