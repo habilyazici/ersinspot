@@ -34,7 +34,7 @@ import { formatPrice } from '@/lib/format.ts';
 import { useAdminProducts, useUpdateProductStatus } from '@/features/catalog';
 
 export default function AdminProductsPage() {
-  const { params, page, setFilter } = useListFilters();
+  const { params, page, hasActiveFilters, setFilter, clearFilters } = useListFilters();
 
   const status = (params.get('durum') ?? undefined) as ProductStatus | undefined;
   const search = params.get('ara') ?? '';
@@ -91,12 +91,19 @@ export default function AdminProductsPage() {
         <ErrorState error={error} onRetry={() => void refetch()} />
       ) : data === undefined || data.items.length === 0 ? (
         <EmptyState
-          icon={search === '' ? Package : Search}
-          title={search === '' ? 'Ürün yok' : 'Sonuç bulunamadı'}
+          icon={hasActiveFilters ? Search : Package}
+          title={hasActiveFilters ? 'Sonuç bulunamadı' : 'Ürün yok'}
           description={
-            search === ''
+            hasActiveFilters
               ? 'Bu süzgeçle eşleşen ürün bulunmuyor.'
-              : 'Arama kriterlerinizi değiştirip tekrar deneyin.'
+              : 'İlk ürünü ekleyerek başlayın.'
+          }
+          action={
+            hasActiveFilters ? (
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Süzgeçleri temizle
+              </Button>
+            ) : undefined
           }
           className="mt-4"
         />

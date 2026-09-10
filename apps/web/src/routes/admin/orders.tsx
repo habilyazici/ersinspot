@@ -12,6 +12,7 @@ import { ImageOff, Search, ShoppingBag } from 'lucide-react';
 import { ORDER_STATUSES, ORDER_STATUS_LABELS } from '@ersinspot/shared';
 import type { OrderStatus } from '@ersinspot/shared';
 import { Card } from '@/components/ui/card.tsx';
+import { Button } from '@/components/ui/button.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
@@ -24,7 +25,7 @@ import { formatDate, formatPrice } from '@/lib/format.ts';
 import { useAdminOrders } from '@/features/ordering';
 
 export default function AdminOrdersPage() {
-  const { params, page, setFilter } = useListFilters();
+  const { params, page, hasActiveFilters, setFilter, clearFilters } = useListFilters();
 
   const status = (params.get('durum') ?? undefined) as OrderStatus | undefined;
   const search = params.get('ara') ?? '';
@@ -73,12 +74,19 @@ export default function AdminOrdersPage() {
         <ErrorState error={error} onRetry={() => void refetch()} />
       ) : data === undefined || data.items.length === 0 ? (
         <EmptyState
-          icon={search === '' ? ShoppingBag : Search}
-          title={search === '' ? 'Sipariş yok' : 'Sonuç bulunamadı'}
+          icon={hasActiveFilters ? Search : ShoppingBag}
+          title={hasActiveFilters ? 'Sonuç bulunamadı' : 'Sipariş yok'}
           description={
-            search === ''
+            hasActiveFilters
               ? 'Bu süzgeçle eşleşen sipariş bulunmuyor.'
-              : 'Arama kriterlerinizi değiştirip tekrar deneyin.'
+              : 'Vitrinden sipariş verildiğinde burada görünür.'
+          }
+          action={
+            hasActiveFilters ? (
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Süzgeçleri temizle
+              </Button>
+            ) : undefined
           }
           className="mt-4"
         />

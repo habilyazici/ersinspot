@@ -17,6 +17,7 @@ import {
 } from '@ersinspot/shared';
 import type { RequestStatus, ServiceKind } from '@ersinspot/shared';
 import { Card } from '@/components/ui/card.tsx';
+import { Button } from '@/components/ui/button.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
@@ -35,7 +36,7 @@ const KIND_ICONS: Readonly<Record<ServiceKind, typeof Home>> = {
 };
 
 export default function AdminRequestsPage() {
-  const { params, page, setFilter } = useListFilters();
+  const { params, page, hasActiveFilters, setFilter, clearFilters } = useListFilters();
 
   const status = (params.get('durum') ?? undefined) as RequestStatus | undefined;
   const kind = (params.get('tur') ?? undefined) as ServiceKind | undefined;
@@ -97,12 +98,19 @@ export default function AdminRequestsPage() {
         <ErrorState error={error} onRetry={() => void refetch()} />
       ) : data === undefined || data.items.length === 0 ? (
         <EmptyState
-          icon={search === '' ? ClipboardList : Search}
-          title={search === '' ? 'Talep yok' : 'Sonuç bulunamadı'}
+          icon={hasActiveFilters ? Search : ClipboardList}
+          title={hasActiveFilters ? 'Sonuç bulunamadı' : 'Talep yok'}
           description={
-            search === ''
+            hasActiveFilters
               ? 'Bu süzgeçle eşleşen talep bulunmuyor.'
-              : 'Arama kriterlerinizi değiştirip tekrar deneyin.'
+              : 'Nakliye, teknik servis ve satış talepleri buraya düşer.'
+          }
+          action={
+            hasActiveFilters ? (
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Süzgeçleri temizle
+              </Button>
+            ) : undefined
           }
           className="mt-4"
         />

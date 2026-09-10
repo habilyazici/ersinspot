@@ -60,7 +60,7 @@ const EMPTY: FormState = {
 };
 
 export default function AdminBlogPage() {
-  const { params, page, setFilter } = useListFilters();
+  const { params, page, hasActiveFilters, setFilter, clearFilters } = useListFilters();
 
   const category = (params.get('kategori') ?? undefined) as BlogCategory | undefined;
   const search = params.get('ara') ?? '';
@@ -361,11 +361,18 @@ export default function AdminBlogPage() {
       {data === undefined || data.items.length === 0 ? (
         <EmptyState
           icon={Newspaper}
-          title={search === '' && category === undefined ? 'Henüz yazı yok' : 'Sonuç bulunamadı'}
+          title={hasActiveFilters ? 'Sonuç bulunamadı' : 'Henüz yazı yok'}
           description={
-            search === '' && category === undefined
-              ? 'İlk yazıyı ekleyerek başlayın.'
-              : 'Süzgeçleri değiştirerek tekrar deneyin.'
+            hasActiveFilters
+              ? 'Bu süzgeçle eşleşen yazı bulunmuyor.'
+              : 'İlk yazıyı ekleyerek başlayın.'
+          }
+          action={
+            hasActiveFilters ? (
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Süzgeçleri temizle
+              </Button>
+            ) : undefined
           }
           className="mt-8"
         />

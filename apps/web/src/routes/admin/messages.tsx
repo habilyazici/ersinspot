@@ -28,7 +28,7 @@ import { formatDateTime } from '@/lib/format.ts';
 import { useContactMessages, useMarkMessageRead, useReplyToMessage } from '@/features/content';
 
 export default function AdminMessagesPage() {
-  const { params, page, setFilter } = useListFilters();
+  const { params, page, hasActiveFilters, setFilter, clearFilters } = useListFilters();
 
   const subject = (params.get('konu') ?? undefined) as ContactSubject | undefined;
 
@@ -79,8 +79,19 @@ export default function AdminMessagesPage() {
       ) : data === undefined || data.items.length === 0 ? (
         <EmptyState
           icon={Mail}
-          title="Mesaj yok"
-          description="Bu süzgeçle eşleşen mesaj bulunmuyor."
+          title={hasActiveFilters ? 'Sonuç bulunamadı' : 'Mesaj yok'}
+          description={
+            hasActiveFilters
+              ? 'Bu süzgeçle eşleşen mesaj bulunmuyor.'
+              : 'İletişim formundan gelen mesajlar burada toplanır.'
+          }
+          action={
+            hasActiveFilters ? (
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Süzgeçleri temizle
+              </Button>
+            ) : undefined
+          }
           className="mt-4"
         />
       ) : (
