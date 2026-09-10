@@ -27,6 +27,16 @@ export interface ListFilters {
   readonly params: URLSearchParams;
   /** 1'den küçük olmayan geçerli sayfa numarası. */
   readonly page: number;
+  /**
+   * Sayfa numarası DIŞINDA en az bir süzgeç etkin mi?
+   *
+   * Boş durum metni buna bağlıdır: süzgeç yokken liste gerçekten boştur
+   * ("Henüz talep yok"), süzgeç varken liste süzülmüş olabilir ("Bu süzgeçle
+   * eşleşen talep yok"). Ekranlar bunu yalnızca arama kutusuna bakarak
+   * kestiriyordu; durum çipiyle boşalan listede "Talep yok" yazıyor, hiç kayıt
+   * yokken de olmayan bir süzgeç suçlanıyordu.
+   */
+  readonly hasActiveFilters: boolean;
   /** Süzgeci yazar; boş değer süzgeci kaldırır. */
   readonly setFilter: (key: string, value: string | undefined) => void;
   /** Tüm süzgeçleri ve sayfa numarasını kaldırır. */
@@ -63,16 +73,22 @@ export function useListFilters(): ListFilters {
     if (key !== PAGE_PARAM) next.delete(PAGE_PARAM);
 
     /*
-      Süzgeç değişimi geçmişe kayıt EKLEMEZ, mevcut kaydı değiştirir. Aksi
+      SÜZGEÇ değişimi geçmişe kayıt EKLEMEZ, mevcut kaydı değiştirir. Aksi
       halde her süzgeç dokunuşu bir geçmiş adımı olur ve geri tuşu kullanıcıyı
       sayfadan çıkarmak yerine süzgeçler arasında gezdirirdi.
+
+      SAYFA değişimi ise EKLER. Süzgeç aynı listeyi daraltır, sayfa başka bir
+      kümeye gider; ikisi aynı sayılınca 2. sayfadaki müşteri geri tuşuna
+      bastığında 1. sayfaya değil, listeden tamamen dışarı çıkıyordu.
     */
-    setSearchParams(next, { replace: true });
+    setSearchParams(next, { replace: key !== PAGE_PARAM });
   }
 
   function clearFilters(): void {
     setSearchParams(new URLSearchParams(), { replace: true });
   }
 
-  return { params, page, setFilter, clearFilters };
+  const hasActiveFilters = [...params.keys()].some((key) => key !== PAGE_PARAM);
+
+  return { params, page, hasActiveFilters, setFilter, clearFilters };
 }
