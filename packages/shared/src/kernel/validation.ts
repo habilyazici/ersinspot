@@ -21,10 +21,17 @@ export const uuidSchema = z.string().uuid({ message: 'Geçersiz kayıt kimliği.
 /**
  * İnsan tarafından okunabilen belge numarası: "SIP-2026-0001" gibi.
  * Ön ek, yıl ve sıra numarasından oluşur.
+ *
+ * Girdi önce NORMALLEŞTİRİLİR: kırpılır ve büyük harfe çevrilir. Numara
+ * müşteriye e-postayla gider ve müşteri onu kopyalayıp yapıştırır; başında
+ * boşluk kalması ya da küçük harfe düşmesi bir yazım hatası değildir, ama
+ * doğrudan desene sokulduğunda "Geçersiz takip numarası" cevabı veriyordu —
+ * hem sipariş takip sayfasında hem doğrudan API'ye yapılan çağrıda.
  */
 export const referenceNumberSchema = z
   .string()
-  .regex(/^[A-Z]{2,4}-\d{4}-\d{4,6}$/, { message: 'Geçersiz takip numarası.' });
+  .transform((value) => value.trim().toUpperCase())
+  .pipe(z.string().regex(/^[A-Z]{2,4}-\d{4}-\d{4,6}$/, { message: 'Geçersiz takip numarası.' }));
 
 // ---------------------------------------------------------------------------
 // Metin

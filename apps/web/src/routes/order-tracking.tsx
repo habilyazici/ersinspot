@@ -1,7 +1,13 @@
 import { useState } from 'react';
-import type { FormEvent } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { PackageSearch } from 'lucide-react';
-import { ORDER_STATUS_LABELS, phone as phoneUtils } from '@ersinspot/shared';
+import {
+  ORDER_STATUS_LABELS,
+  orderTrackingQuerySchema,
+  phone as phoneUtils,
+} from '@ersinspot/shared';
+import type { z } from 'zod';
 import { Card, Timeline } from '@/components/ui/card.tsx';
 import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
 import { Button } from '@/components/ui/button.tsx';
@@ -24,11 +30,27 @@ import { useOrderTracking } from '@/features/ordering';
  *
  * Oturum gerektirmez; bu yüzden dönen bilgi ayrıca dardır: ad, telefon, adres
  * ve fiyat yer almaz.
+ *
+ * Doğrulama, sunucunun kullandığı ŞEMANIN AYNISIYLA yapılır. Sayfa eskiden
+ * alanları kendi durumunda tutuyor ve hiç denetlemiyordu: boş formda "Sorgula"
+ * düğmesine basmak istek bile üretmiyordu (sorgu boş değerlerde kapalı) ve
+ * ekranda tek bir açıklama çıkmıyordu. Kullanıcı düğmeye basıyor, hiçbir şey
+ * olmuyordu.
  */
+
+type TrackingFormValues = z.input<typeof orderTrackingQuerySchema>;
+
 export default function OrderTrackingPage() {
-  const [reference, setReference] = useState('');
-  const [phone, setPhone] = useState('');
   const [submitted, setSubmitted] = useState<{ reference: string; phone: string } | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<TrackingFormValues>({
+    resolver: zodResolver(orderTrackingQuerySchema),
+    defaultValues: { reference: '', phone: '' },
+  });
 
   const { data, isLoading, isError } = useOrderTracking(
     submitted?.reference ?? '',
@@ -36,9 +58,13 @@ export default function OrderTrackingPage() {
     submitted !== null,
   );
 
-  function handleSubmit(event: FormEvent): void {
-    event.preventDefault();
-    setSubmitted({ reference: reference.trim().toUpperCase(), phone: phone.trim() });
+  /*
+    Sorguya ŞEMANIN ÇIKTISI gider: takip numarası kırpılıp büyük harfe,
+    telefon E.164 biçimine çevrilmiş hâlde. Normalleştirme şemanın kendi işi
+    olduğu için sayfa ikinci bir kopyasını tutmaz.
+  */
+  function onSubmit(values: TrackingFormValues): void {
+    setSubmitted(orderTrackingQuerySchema.parse(values));
   }
 
   return (
@@ -50,31 +76,31 @@ export default function OrderTrackingPage() {
         description="Sipariş onayında size ilettiğimiz takip numarasını ve siparişteki telefon numarasını girin."
       />
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+      <form
+        onSubmit={(event) => void handleSubmit(onSubmit)(event)}
+        className="mt-8 space-y-4"
+        noValidate
+      >
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
             label="Takip numarası"
             required
-            value={reference}
-            onChange={(event) => {
-              setReference(event.target.value);
-            }}
+            error={errors.reference?.message}
             placeholder="SIP-2026-000123"
             autoComplete="off"
             inputMode="text"
+            {...register('reference')}
           />
 
           <TextField
             label="Telefon"
             required
             type="tel"
-            value={phone}
-            onChange={(event) => {
-              setPhone(event.target.value);
-            }}
+            error={errors.phone?.message}
             placeholder={phoneUtils.PLACEHOLDER}
             hint="Siparişi verirken bildirdiğiniz numara."
             autoComplete="tel"
+            {...register('phone')}
           />
         </div>
 

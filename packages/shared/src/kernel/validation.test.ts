@@ -15,6 +15,7 @@ import {
   businessDayStart,
   dateAfterDays,
   dateOnlySchema,
+  referenceNumberSchema,
   timeSlotSchema,
   today,
 } from './validation.ts';
@@ -150,5 +151,30 @@ describe('timeSlotSchema', () => {
 
   it('geçerli aralığı kabul eder', () => {
     expect(timeSlotSchema.safeParse({ startTime: '09:00', endTime: '11:00' }).success).toBe(true);
+  });
+});
+
+describe('referenceNumberSchema', () => {
+  /*
+    Numara müşteriye e-postayla gider ve kopyalanıp yapıştırılır. Başında
+    boşluk kalması ya da küçük harfe düşmesi yazım hatası değildir; desen
+    doğrudan uygulandığında ikisi de "Geçersiz takip numarası" cevabı alıyordu.
+  */
+  it('geçerli numarayı kabul eder', () => {
+    expect(referenceNumberSchema.parse('SIP-2026-000123')).toBe('SIP-2026-000123');
+  });
+
+  it('küçük harfi büyütür', () => {
+    expect(referenceNumberSchema.parse('sip-2026-000123')).toBe('SIP-2026-000123');
+  });
+
+  it('baştaki ve sondaki boşluğu kırpar', () => {
+    expect(referenceNumberSchema.parse('  SIP-2026-000123  ')).toBe('SIP-2026-000123');
+  });
+
+  it('desene uymayanı reddeder', () => {
+    expect(() => referenceNumberSchema.parse('SIP-26-123')).toThrow();
+    expect(() => referenceNumberSchema.parse('')).toThrow();
+    expect(() => referenceNumberSchema.parse('SIP 2026 000123')).toThrow();
   });
 });
