@@ -226,12 +226,16 @@ export default function AdminRequestDetailPage() {
     setConversion({
       title: request.title,
       description: request.description,
-      // Müşterinin istediği fiyat bir talep, teklif değil: yalnızca öneri
-      // olarak doldurulur ve personel üzerine yazar.
-      price:
-        request.askingPrice === null
-          ? ''
-          : money.toInputValue(money.fromKurus(request.askingPrice)),
+      /*
+        Satış fiyatı ÖN DOLDURULMAZ.
+
+        Buradaki tutarların hiçbiri satış fiyatı değildir: müşterinin istediği
+        bir talep, kabul edilen teklif ise dükkânın ÖDEDİĞİ tutardır. İkisinden
+        biri alana yazılınca, üzerine yazılmadığı takdirde ürün maliyetine —
+        hatta altına — satılığa çıkardı. Alan boş bırakılır; personel neyi
+        ödediğini ipucunda görür ve fiyatı bilerek koyar.
+      */
+      price: '',
       categoryId: request.category.id,
       brandId: '',
       condition: request.condition,
@@ -578,9 +582,16 @@ export default function AdminRequestDetailPage() {
                     label="Satış fiyatı (₺)"
                     inputMode="decimal"
                     hint={
-                      request.askingPrice === null
-                        ? 'Müşteri fiyat belirtmedi.'
-                        : `Müşterinin istediği: ${formatPrice(request.askingPrice)}`
+                      [
+                        request.quote === null
+                          ? null
+                          : `Ödenen: ${formatPrice(request.quote.amount)}`,
+                        request.askingPrice === null
+                          ? null
+                          : `müşterinin istediği: ${formatPrice(request.askingPrice)}`,
+                      ]
+                        .filter((parca) => parca !== null)
+                        .join(' · ') || undefined
                     }
                     value={conversion.price}
                     onChange={(event) => {
