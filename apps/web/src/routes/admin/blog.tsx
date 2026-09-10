@@ -11,7 +11,6 @@
  */
 
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Newspaper, Pencil, Plus } from 'lucide-react';
 // Bağlantı adı, sunucunun kullandığı AYNI fonksiyonla üretilir; ekranda
@@ -26,6 +25,7 @@ import { ErrorState } from '@/components/ui/error-state.tsx';
 import { SelectField, TextAreaField, TextField } from '@/components/ui/form-field.tsx';
 import { Markdown } from '@/components/ui/markdown.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
+import { useListFilters } from '@/lib/list-filters.ts';
 import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
 import { SearchField } from '@/components/ui/search-field.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
@@ -60,31 +60,16 @@ const EMPTY: FormState = {
 };
 
 export default function AdminBlogPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params, page, setFilter } = useListFilters();
 
-  const category = (searchParams.get('kategori') ?? undefined) as BlogCategory | undefined;
-  const search = searchParams.get('ara') ?? '';
-  const page = Number(searchParams.get('sayfa') ?? '1');
+  const category = (params.get('kategori') ?? undefined) as BlogCategory | undefined;
+  const search = params.get('ara') ?? '';
 
   const { data, isLoading, isError, error, refetch } = useAdminBlogPosts({
     page,
     ...(category === undefined ? {} : { category }),
     ...(search === '' ? {} : { search }),
   });
-
-  function setFilter(key: string, value: string | undefined): void {
-    const next = new URLSearchParams(searchParams);
-
-    if (value === undefined || value === '') next.delete(key);
-    else next.set(key, value);
-
-    // Süzgeç değişince ilk sayfaya dönülür; ikinci sayfada boş liste kalmasın.
-    if (key !== 'sayfa') next.delete('sayfa');
-
-    // Süzgeç değişimi geçmişe kayıt eklemez; geri tuşu listede değil,
-    // sayfalar arasında gezinmelidir.
-    setSearchParams(next, { replace: true });
-  }
 
   const createPost = useCreateBlogPost();
   const updatePost = useUpdateBlogPost();

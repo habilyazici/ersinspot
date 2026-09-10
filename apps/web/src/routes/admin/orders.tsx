@@ -7,7 +7,7 @@
  * görünmemelidir.
  */
 
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ImageOff, Search, ShoppingBag } from 'lucide-react';
 import { ORDER_STATUSES, ORDER_STATUS_LABELS } from '@ersinspot/shared';
 import type { OrderStatus } from '@ersinspot/shared';
@@ -15,6 +15,7 @@ import { Card } from '@/components/ui/card.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
+import { useListFilters } from '@/lib/list-filters.ts';
 import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
 import { SearchField } from '@/components/ui/search-field.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
@@ -23,11 +24,10 @@ import { formatDate, formatPrice } from '@/lib/format.ts';
 import { useAdminOrders } from '@/features/ordering';
 
 export default function AdminOrdersPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params, page, setFilter } = useListFilters();
 
-  const status = (searchParams.get('durum') ?? undefined) as OrderStatus | undefined;
-  const search = searchParams.get('ara') ?? '';
-  const page = Number(searchParams.get('sayfa') ?? '1');
+  const status = (params.get('durum') ?? undefined) as OrderStatus | undefined;
+  const search = params.get('ara') ?? '';
 
   const { data, isLoading, isError, error, refetch } = useAdminOrders({
     page,
@@ -36,18 +36,6 @@ export default function AdminOrdersPage() {
   });
 
   /** Süzgeci adres çubuğuna yazar. Sayfa numarası daima sıfırlanır. */
-  function setFilter(key: string, value: string | undefined): void {
-    const next = new URLSearchParams(searchParams);
-
-    if (value === undefined || value === '') next.delete(key);
-    else next.set(key, value);
-
-    if (key !== 'sayfa') next.delete('sayfa');
-
-    // Süzgeç değişimi geçmişe kayıt eklemez; geri tuşu listede değil,
-    // sayfalar arasında gezinmelidir.
-    setSearchParams(next, { replace: true });
-  }
 
   return (
     <>

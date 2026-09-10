@@ -7,7 +7,7 @@
  * süzgeci önce gelir.
  */
 
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ClipboardList, Home, Package, Search, Wrench } from 'lucide-react';
 import {
   REQUEST_STATUSES,
@@ -20,6 +20,7 @@ import { Card } from '@/components/ui/card.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
+import { useListFilters } from '@/lib/list-filters.ts';
 import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
 import { SearchField } from '@/components/ui/search-field.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
@@ -34,12 +35,11 @@ const KIND_ICONS: Readonly<Record<ServiceKind, typeof Home>> = {
 };
 
 export default function AdminRequestsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params, page, setFilter } = useListFilters();
 
-  const status = (searchParams.get('durum') ?? undefined) as RequestStatus | undefined;
-  const kind = (searchParams.get('tur') ?? undefined) as ServiceKind | undefined;
-  const search = searchParams.get('ara') ?? '';
-  const page = Number(searchParams.get('sayfa') ?? '1');
+  const status = (params.get('durum') ?? undefined) as RequestStatus | undefined;
+  const kind = (params.get('tur') ?? undefined) as ServiceKind | undefined;
+  const search = params.get('ara') ?? '';
 
   const { data, isLoading, isError, error, refetch } = useAdminRequests({
     page,
@@ -47,19 +47,6 @@ export default function AdminRequestsPage() {
     ...(kind === undefined ? {} : { kind }),
     ...(search === '' ? {} : { search }),
   });
-
-  function setFilter(key: string, value: string | undefined): void {
-    const next = new URLSearchParams(searchParams);
-
-    if (value === undefined || value === '') next.delete(key);
-    else next.set(key, value);
-
-    if (key !== 'sayfa') next.delete('sayfa');
-
-    // Süzgeç değişimi geçmişe kayıt eklemez; geri tuşu listede değil,
-    // sayfalar arasında gezinmelidir.
-    setSearchParams(next, { replace: true });
-  }
 
   return (
     <>

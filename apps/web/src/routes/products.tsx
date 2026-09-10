@@ -1,4 +1,3 @@
-import { useSearchParams } from 'react-router-dom';
 import { PackageSearch } from 'lucide-react';
 import {
   PRODUCT_CONDITIONS,
@@ -8,6 +7,7 @@ import {
 } from '@ersinspot/shared';
 import type { ProductCondition, ProductSort } from '@ersinspot/shared';
 import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
+import { useListFilters } from '@/lib/list-filters.ts';
 import { fieldControlClass } from '@/components/ui/form-field.tsx';
 import { SearchField } from '@/components/ui/search-field.tsx';
 import { cn } from '@/lib/utils.ts';
@@ -26,14 +26,14 @@ import { FavoriteButton, useFavoriteStatus } from '@/features/ordering';
  * tuşu beklendiği gibi çalışır ve sayfa yenilenince filtreler kaybolmaz.
  */
 export default function ProductsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params, page, setFilter, clearFilters } = useListFilters();
 
   const filters = {
-    page: Number(searchParams.get('sayfa') ?? '1'),
-    categorySlug: searchParams.get('kategori') ?? undefined,
-    condition: (searchParams.get('durum') as ProductCondition | null) ?? undefined,
-    search: searchParams.get('ara') ?? undefined,
-    sort: (searchParams.get('sirala') as ProductSort | null) ?? 'newest',
+    page,
+    categorySlug: params.get('kategori') ?? undefined,
+    condition: (params.get('durum') as ProductCondition | null) ?? undefined,
+    search: params.get('ara') ?? undefined,
+    sort: (params.get('sirala') as ProductSort | null) ?? 'newest',
   };
 
   const { data, isLoading, isError, error, refetch } = useProducts(filters);
@@ -44,38 +44,6 @@ export default function ProductsPage() {
   */
   const { data: favorites } = useFavoriteStatus(data?.items.map((product) => product.id) ?? []);
   const { data: categories } = useCategories();
-
-  function updateFilter(key: string, value: string | undefined): void {
-    const next = new URLSearchParams(searchParams);
-
-    if (value === undefined || value === '') {
-      next.delete(key);
-    } else {
-      next.set(key, value);
-    }
-
-    /*
-      Filtre değişince ilk sayfaya dönülür: üçüncü sayfada filtre daraltılırsa
-      boş sonuç görünürdü.
-
-      Sıfırlama SAYFA DEĞİŞİMİNDE uygulanmaz. Koşulsuz yazıldığında, sayfa
-      numarası yazıldıktan hemen sonra siliniyordu: "2. sayfa" düğmesi
-      `sayfa=2` yazıp aynı fonksiyonun bir alt satırında onu kaldırıyor ve
-      liste birinci sayfada kalıyordu. Yönetim panelindeki üç liste bu
-      korumayı baştan taşıyor; eksik olan vitrindeki listeydi.
-    */
-    if (key !== 'sayfa') {
-      next.delete('sayfa');
-    }
-
-    /*
-      Süzgeç değişimi geçmişe kayıt EKLEMEZ, mevcut kaydı değiştirir.
-
-      Aksi halde her süzgeç dokunuşu bir geçmiş adımı olur ve geri tuşu
-      kullanıcıyı sayfadan çıkarmak yerine süzgeçler arasında gezdirirdi.
-    */
-    setSearchParams(next, { replace: true });
-  }
 
   return (
     <PageContainer width="wide">
@@ -96,7 +64,7 @@ export default function ProductsPage() {
             value={filters.search ?? ''}
             placeholder="Ürün veya marka"
             onSearch={(next) => {
-              updateFilter('ara', next);
+              setFilter('ara', next);
             }}
           />
 
@@ -107,7 +75,7 @@ export default function ProductsPage() {
                 variant={filters.categorySlug === undefined ? 'secondary' : 'ghost'}
                 size="sm"
                 className="w-full justify-start"
-                onClick={() => updateFilter('kategori', undefined)}
+                onClick={() => setFilter('kategori', undefined)}
               >
                 Tümü
               </Button>
@@ -118,7 +86,7 @@ export default function ProductsPage() {
                     variant={filters.categorySlug === category.slug ? 'secondary' : 'ghost'}
                     size="sm"
                     className="w-full justify-between"
-                    onClick={() => updateFilter('kategori', category.slug)}
+                    onClick={() => setFilter('kategori', category.slug)}
                   >
                     <span>{category.name}</span>
                     <span className="text-xs opacity-70">{category.productCount}</span>
@@ -130,7 +98,7 @@ export default function ProductsPage() {
                       variant={filters.categorySlug === child.slug ? 'secondary' : 'ghost'}
                       size="sm"
                       className="w-full justify-between pl-6"
-                      onClick={() => updateFilter('kategori', child.slug)}
+                      onClick={() => setFilter('kategori', child.slug)}
                     >
                       <span>{child.name}</span>
                       <span className="text-xs opacity-70">{child.productCount}</span>
@@ -148,7 +116,7 @@ export default function ProductsPage() {
                 variant={filters.condition === undefined ? 'secondary' : 'ghost'}
                 size="sm"
                 className="w-full justify-start"
-                onClick={() => updateFilter('durum', undefined)}
+                onClick={() => setFilter('durum', undefined)}
               >
                 Tümü
               </Button>
@@ -159,7 +127,7 @@ export default function ProductsPage() {
                   variant={filters.condition === condition ? 'secondary' : 'ghost'}
                   size="sm"
                   className="w-full justify-start"
-                  onClick={() => updateFilter('durum', condition)}
+                  onClick={() => setFilter('durum', condition)}
                 >
                   {PRODUCT_CONDITION_LABELS[condition].label}
                 </Button>
@@ -183,7 +151,7 @@ export default function ProductsPage() {
                 id="siralama"
                 value={filters.sort}
                 onChange={(event) => {
-                  updateFilter('sirala', event.target.value);
+                  setFilter('sirala', event.target.value);
                 }}
                 className={cn(fieldControlClass, 'w-auto py-2')}
               >
@@ -208,7 +176,7 @@ export default function ProductsPage() {
               title="Aradığınız kriterlerde ürün bulunamadı"
               description="Filtreleri değiştirerek tekrar deneyin."
               action={
-                <Button variant="outline" onClick={() => setSearchParams(new URLSearchParams())}>
+                <Button variant="outline" onClick={clearFilters}>
                   Filtreleri temizle
                 </Button>
               }
@@ -236,7 +204,7 @@ export default function ProductsPage() {
                 page={data.page}
                 totalPages={data.totalPages}
                 onPageChange={(next) => {
-                  updateFilter('sayfa', String(next));
+                  setFilter('sayfa', String(next));
                 }}
               />
             </>

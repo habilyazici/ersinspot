@@ -9,7 +9,7 @@
  * girmek gereksiz bir adım olurdu; asıl iş toplu gözden geçirmedir.
  */
 
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Package, Plus, Search } from 'lucide-react';
 import {
@@ -25,6 +25,7 @@ import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { SelectField } from '@/components/ui/form-field.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
+import { useListFilters } from '@/lib/list-filters.ts';
 import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
 import { SearchField } from '@/components/ui/search-field.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
@@ -33,11 +34,10 @@ import { formatPrice } from '@/lib/format.ts';
 import { useAdminProducts, useUpdateProductStatus } from '@/features/catalog';
 
 export default function AdminProductsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params, page, setFilter } = useListFilters();
 
-  const status = (searchParams.get('durum') ?? undefined) as ProductStatus | undefined;
-  const search = searchParams.get('ara') ?? '';
-  const page = Number(searchParams.get('sayfa') ?? '1');
+  const status = (params.get('durum') ?? undefined) as ProductStatus | undefined;
+  const search = params.get('ara') ?? '';
 
   const { data, isLoading, isError, error, refetch } = useAdminProducts({
     page,
@@ -46,19 +46,6 @@ export default function AdminProductsPage() {
   });
 
   const updateStatus = useUpdateProductStatus();
-
-  function setFilter(key: string, value: string | undefined): void {
-    const next = new URLSearchParams(searchParams);
-
-    if (value === undefined || value === '') next.delete(key);
-    else next.set(key, value);
-
-    if (key !== 'sayfa') next.delete('sayfa');
-
-    // Süzgeç değişimi geçmişe kayıt eklemez; geri tuşu listede değil,
-    // sayfalar arasında gezinmelidir.
-    setSearchParams(next, { replace: true });
-  }
 
   return (
     <>
