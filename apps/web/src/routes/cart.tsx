@@ -32,6 +32,12 @@ export default function CartPage() {
       <PageContainer width="prose">
         <EmptyState
           icon={ShoppingCart}
+          /*
+            Bu dalda sayfanın başka içeriği yok: `PageHeader` yalnızca dolu
+            sepette çiziliyor. Varsayılan `h3` bırakılınca sepet, sitedeki tek
+            `h1`siz sayfa oluyordu.
+          */
+          headingLevel={1}
           title="Sepetiniz boş"
           description="Beğendiğiniz ürünleri sepete ekleyerek sipariş verebilirsiniz."
           action={
