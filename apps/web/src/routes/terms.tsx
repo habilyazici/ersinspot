@@ -11,6 +11,13 @@
  * yayına almadan önce bir hukukçu tarafından gözden geçirilmelidir. Özellikle
  * cayma hakkı, ayıplı mal ve garanti maddeleri mevzuata göre
  * biçimlendirilmelidir.
+ *
+ * "Kişisel Veriler" bölümü verinin ne için kullanıldığını anlatır ama KVKK
+ * anlamında bir AYDINLATMA METNİ DEĞİLDİR: veri sorumlusunun kimliği, hukuki
+ * sebep, saklama süresi ve ilgili kişinin başvuru hakları burada yer almaz.
+ * Ayrıca hesap silme akışı henüz yoktur (`users.deletedAt` her okuma yolunda
+ * dikkate alınır ama hiçbir yerde yazılmaz); hangi alanın anonimleştirilip
+ * hangisinin muhasebe için saklanacağı bir ürün ve hukuk kararıdır.
  */
 
 import { Link } from 'react-router-dom';
@@ -159,7 +166,11 @@ export default function TermsPage() {
             <Link to="/sss" className="font-medium text-brand-navy-700 hover:underline">
               sıkça sorulan sorular
             </Link>{' '}
-            sayfasına bakabilir veya bize doğrudan yazabilirsiniz.
+            sayfasına bakabilir veya{' '}
+            <Link to="/iletisim" className="font-medium text-brand-navy-700 hover:underline">
+              bize doğrudan yazabilirsiniz
+            </Link>
+            .
           </p>
         </Section>
       </div>
