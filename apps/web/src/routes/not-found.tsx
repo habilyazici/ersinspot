@@ -3,8 +3,11 @@ import { Home, SearchX } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { PageContainer } from '@/components/ui/page.tsx';
+import { useDocumentTitle } from '@/lib/document-title.ts';
 
 export default function NotFoundPage() {
+  useDocumentTitle('Sayfa bulunamadı');
+
   return (
     <PageContainer width="prose">
       <EmptyState

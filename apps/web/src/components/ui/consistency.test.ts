@@ -197,6 +197,32 @@ describe('Arayüz tutarlılığı', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('her sayfa sekme başlığını belirler', () => {
+    /*
+      Tek sayfalık uygulamada `<title>` yalnızca ilk yüklemede gelir. Sayfa
+      adını `PageHeader` sekmeye yazar; onu kullanmayan sayfa (anasayfa, ürün
+      detayı, 404) kancayı kendisi çağırmak zorundadır. Aksi halde o sayfaya
+      giden kullanıcı bir öncekinin başlığını ya da site varsayılanını görür
+      ve ekran okuyucu yer değiştirdiğini duyurmaz.
+    */
+    /*
+      Anasayfa MUAFTIR: sekmede görünmesi gereken başlık `index.html` içindeki
+      site başlığının kendisidir ("Ersin Spot — İkinci El Beyaz Eşya..."), onu
+      "Anasayfa — Ersin Spot" ile değiştirmek hem arama sonucunu hem yer imini
+      kötüleştirirdi.
+    */
+    const exempt = new Set(['home.tsx']);
+
+    const offenders = pageFiles()
+      .filter(({ name }) => !exempt.has(name))
+      .filter(
+        ({ source }) => !source.includes('PageHeader') && !source.includes('useDocumentTitle'),
+      )
+      .map(({ name }) => name);
+
+    expect(offenders).toEqual([]);
+  });
+
   it('atlama bağlantısının hedefi odaklanabilir', () => {
     /*
       "İçeriğe atla" bağlantısı `#icerik` adresine gider. Hedef odak

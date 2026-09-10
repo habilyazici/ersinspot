@@ -14,6 +14,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils.ts';
+import { useDocumentTitle } from '@/lib/document-title.ts';
 
 /**
  * Sayfa genişlikleri.
@@ -82,6 +83,16 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   const centered = align === 'center';
+
+  /*
+    Sekme başlığı buradan ayarlanır.
+
+    Sayfa adı zaten bu bileşene veriliyor; her sayfanın ayrıca bir başlık
+    çağrısı yazması, otuz dört yerde unutulabilecek ikinci bir adım olurdu.
+    `PageHeader` kullanmayan üç sayfa (anasayfa, ürün detayı, 404) kancayı
+    kendisi çağırır.
+  */
+  useDocumentTitle(title);
 
   return (
     <header className={cn('space-y-4', centered && 'text-center', className)}>

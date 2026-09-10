@@ -12,6 +12,7 @@ import { formatPrice } from '@/lib/format.ts';
 import { cn } from '@/lib/utils.ts';
 import { useAuth } from '@/features/auth';
 import { formatBrandAndCategory, useProduct } from '@/features/catalog';
+import { useDocumentTitle } from '@/lib/document-title.ts';
 import { FavoriteButton, useAddToCart, useFavoriteStatus } from '@/features/ordering';
 
 export default function ProductDetailPage() {
@@ -21,6 +22,13 @@ export default function ProductDetailPage() {
   const addToCart = useAddToCart();
   const { data: favorites } = useFavoriteStatus(product === undefined ? [] : [product.id]);
   const [activeImage, setActiveImage] = useState(0);
+
+  /*
+    Bu sayfa `PageHeader` kullanmaz — başlığı ürün adının kendisidir ve
+    görselin yanında durur. Sekme başlığını bu yüzden doğrudan verir.
+    Kanca koşulsuz çağrılır; ürün yüklenene kadar `undefined` geçilir.
+  */
+  useDocumentTitle(product?.title);
 
   if (isLoading) return <PageSpinner label="Ürün yükleniyor" />;
   if (isError) return <ErrorState error={error} onRetry={() => void refetch()} />;
