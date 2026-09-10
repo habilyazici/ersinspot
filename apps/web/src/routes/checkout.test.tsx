@@ -109,7 +109,7 @@ describe('Ödeme sayfası', () => {
     // Bornova ilçe dışı: 500 TL teslimat ücreti eklenir (8.000 TL < 15.000 TL eşik).
     expect(await screen.findByText(money('₺8.500'))).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /Siparişi Onayla/ }));
+    await user.click(screen.getByRole('button', { name: /Siparişi onayla/ }));
 
     await waitFor(() => expect(mockMutate).toHaveBeenCalled());
 
@@ -138,7 +138,7 @@ describe('Ödeme sayfası', () => {
     expect(screen.getByLabelText(/Tarih/)).toHaveValue(randevuGunu);
     expect(screen.getByLabelText(/Saat Aralığı/)).toHaveValue('13:00');
 
-    await user.click(screen.getByRole('button', { name: /Siparişi Onayla/ }));
+    await user.click(screen.getByRole('button', { name: /Siparişi onayla/ }));
     await waitFor(() => expect(mockMutate).toHaveBeenCalled());
 
     const payload = submittedPayload();
@@ -157,7 +157,7 @@ describe('Ödeme sayfası', () => {
     renderPage();
 
     expect(screen.getByText(/satışta olmayan ürün var/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Siparişi Onayla/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Siparişi onayla/ })).not.toBeInTheDocument();
 
     cart.current = { ...cart.current, hasUnavailableItems: false };
   });

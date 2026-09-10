@@ -146,7 +146,7 @@ export default function ProductDetailPage() {
                   isLoading={addToCart.isPending}
                 >
                   <ShoppingCart aria-hidden="true" />
-                  Sepete Ekle
+                  Sepete ekle
                 </Button>
               ) : (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -154,7 +154,7 @@ export default function ProductDetailPage() {
                     Sepete eklemek için giriş yapmanız gerekiyor.
                   </p>
                   <Button asChild size="sm" className="mt-3">
-                    <Link to="/giris">Giriş Yap</Link>
+                    <Link to="/giris">Giriş yap</Link>
                   </Button>
                 </div>
               )

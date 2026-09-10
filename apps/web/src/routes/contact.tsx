@@ -164,7 +164,7 @@ export default function ContactPage() {
           <HoneypotField {...register('website')} />
 
           <Button type="submit" size="lg" isLoading={isSubmitting || submitMessage.isPending}>
-            Mesajı Gönder
+            Mesajı gönder
           </Button>
         </form>
 

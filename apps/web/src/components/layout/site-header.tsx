@@ -128,7 +128,7 @@ export function SiteHeader() {
             <Button asChild size="sm" className="hidden sm:inline-flex">
               <Link to="/giris">
                 <User aria-hidden="true" />
-                Giriş Yap
+                Giriş yap
               </Link>
             </Button>
           )}
@@ -219,7 +219,7 @@ export function SiteHeader() {
                 </>
               ) : (
                 <NavLink to="/giris" className={navLinkClass} onClick={() => setIsMenuOpen(false)}>
-                  Giriş Yap
+                  Giriş yap
                 </NavLink>
               )}
             </li>

@@ -25,7 +25,7 @@ const buttonVariants = cva(
 
           Beyaz metin `brand-orange-500` üzerinde 2.8:1 kontrast veriyordu;
           WCAG AA normal metin için 4.5:1 ister. Sitedeki her birincil
-          eylem — "Sepete ekle", "Siparişi Onayla", "Giriş Yap" — eşiğin
+          eylem — "Sepete ekle", "Siparişi onayla", "Giriş yap" — eşiğin
           altındaydı. 700 tonu her iki yönde de 5.18:1 verir ve marka
           rengini terk etmez.
         */

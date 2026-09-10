@@ -296,7 +296,7 @@ export default function TechnicalServicePage() {
             className="w-full"
             isLoading={isSubmitting || createRequest.isPending}
           >
-            Talep Oluştur
+            Talep oluştur
           </Button>
         </Card>
       </form>

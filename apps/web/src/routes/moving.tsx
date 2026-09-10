@@ -467,7 +467,7 @@ export default function MovingPage() {
             className="w-full"
             isLoading={isSubmitting || createRequest.isPending}
           >
-            Talep Oluştur
+            Talep oluştur
           </Button>
         </Card>
       </form>

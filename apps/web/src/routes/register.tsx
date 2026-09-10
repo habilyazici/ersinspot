@@ -146,7 +146,7 @@ export default function RegisterPage() {
           className="w-full"
           isLoading={isSubmitting || registerMutation.isPending}
         >
-          Hesap Oluştur
+          Hesap oluştur
         </Button>
       </form>
     </PageContainer>

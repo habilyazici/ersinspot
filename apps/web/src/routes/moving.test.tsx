@@ -129,7 +129,7 @@ describe('aynı adres kuralı', () => {
     }
 
     await user.selectOptions(screen.getByLabelText(/Ev Büyüklüğü/), '2+1');
-    await user.click(screen.getByRole('button', { name: 'Talep Oluştur' }));
+    await user.click(screen.getByRole('button', { name: 'Talep oluştur' }));
 
     expect(await screen.findByText('Çıkış ve varış adresi aynı olamaz.')).toBeInTheDocument();
   });

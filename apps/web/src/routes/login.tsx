@@ -58,7 +58,7 @@ export default function LoginPage() {
   return (
     <PageContainer width="narrow">
       <PageHeader
-        title="Giriş Yap"
+        title="Giriş yap"
         description={
           <>
             Hesabınız yok mu?{' '}
@@ -114,7 +114,7 @@ export default function LoginPage() {
           className="w-full"
           isLoading={isSubmitting || login.isPending}
         >
-          Giriş Yap
+          Giriş yap
         </Button>
       </form>
     </PageContainer>

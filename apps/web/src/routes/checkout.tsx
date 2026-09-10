@@ -422,7 +422,7 @@ export default function CheckoutPage() {
             className="w-full"
             isLoading={isSubmitting || createOrder.isPending}
           >
-            Siparişi Onayla
+            Siparişi onayla
           </Button>
 
           <p className="text-xs text-slate-500">

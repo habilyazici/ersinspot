@@ -281,6 +281,30 @@ describe('Arayüz tutarlılığı', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('düğme etiketleri cümle düzeninde yazılır', () => {
+    /*
+      Yirmi düğme cümle düzeniyle, altısı Başlık Düzeniyle yazılıydı ve
+      aralarında bir kural yoktu: aynı sipariş ekranında "Siparişi Onayla"
+      ile "Siparişi iptal et" yan yana duruyordu. Türkçe arayüz yazımında
+      olağan biçim cümle düzenidir ve çoğunluk da oydu.
+
+      Sayfa başlıkları bu kuralın dışındadır: onlar başlıktır, eylem değil.
+    */
+    const offenders = [...pageFiles(), ...componentFiles()]
+      .flatMap(({ name, source }) =>
+        [...source.matchAll(/<Button\b[\s\S]{0,500}?>\s*([^<>{][^<>]{2,40}?)\s*<\/Button>/g)].map(
+          (match) => ({ name, label: (match[1] ?? '').replace(/\s+/g, ' ').trim() }),
+        ),
+      )
+      .filter(({ label }) => {
+        const words = label.split(' ').filter((word) => /^\p{L}/u.test(word));
+        return words.length > 1 && words.slice(1).every((word) => /^\p{Lu}/u.test(word));
+      })
+      .map(({ name, label }) => `${name}: ${label}`);
+
+    expect(offenders).toEqual([]);
+  });
+
   it('atlama bağlantısının hedefi odaklanabilir', () => {
     /*
       "İçeriğe atla" bağlantısı `#icerik` adresine gider. Hedef odak
