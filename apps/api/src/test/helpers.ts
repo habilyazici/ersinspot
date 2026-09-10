@@ -114,7 +114,15 @@ export async function request(
 ): Promise<Response> {
   const headers = new Headers(init?.headers);
   headers.set('Origin', 'http://localhost:3001');
-  if (init?.body !== undefined && !headers.has('Content-Type')) {
+  /*
+    İçerik türü yalnızca METİN gövdelerde varsayılır.
+
+    Koşulsuz yazıldığında `FormData` gövdeli bir istek de JSON ilan ediliyor ve
+    çok parçalı gövdenin sınır (boundary) bilgisi kayboluyordu: sunucu dosyayı
+    hiç göremiyor, test "Dosya gönderilmedi" alıyordu. `fetch` gövde nesnesine
+    uygun başlığı kendisi üretir; ona karışılmaz.
+  */
+  if (typeof init?.body === 'string' && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
   if (init?.cookie !== undefined) {

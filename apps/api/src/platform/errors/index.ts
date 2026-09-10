@@ -130,6 +130,25 @@ export function accountLocked(retryAfterSeconds: number): AppError {
   return new AppError('account_locked', { retryAfterSeconds });
 }
 
+/**
+ * İstek gövdesi üst sınırı aşıldı.
+ *
+ * `fileTooLarge` ile aynı HTTP durumunu paylaşır ama ayrı bir koddur: istemci
+ * "dosya çok büyük" ile "istek çok büyük" arasında ayrım yapabilmelidir, ikisi
+ * farklı şeyleri düzeltmeyi gerektirir.
+ */
+export function requestTooLarge(maxBytes: number): AppError {
+  // Birim büyüklüğe göre seçilir: "8256 KB" doğru ama kimse öyle okumaz.
+  const limit =
+    maxBytes >= 1024 * 1024
+      ? `${String(Math.round((maxBytes / (1024 * 1024)) * 10) / 10)} MB`
+      : `${String(Math.floor(maxBytes / 1024))} KB`;
+
+  return new AppError('request_too_large', {
+    message: `İstek gövdesi ${limit} sınırını aşıyor.`,
+  });
+}
+
 export function fileTooLarge(maxBytes: number): AppError {
   const maxMegabytes = Math.floor(maxBytes / (1024 * 1024));
   return new AppError('file_too_large', {

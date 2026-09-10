@@ -13,6 +13,10 @@
  */
 
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
+import { MAX_IMAGE_BYTES } from '@ersinspot/shared';
+import { requestTooLarge } from './platform/errors/index.ts';
+import type { MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './platform/http/auth.ts';
 import type { ValidatedVariables } from './platform/http/validate.ts';
 import { errorHandler, notFoundHandler } from './platform/http/error-handler.ts';
@@ -32,6 +36,27 @@ import { filesRoutes, localFileRoutes } from './modules/files/index.ts';
 
 export type AppVariables = AuthVariables & ValidatedVariables;
 
+/** Metin gövdeleri için üst sınır. Yükleme ucu kendi sınırını kullanır. */
+const MAX_TEXT_BODY_BYTES = 512 * 1024;
+
+/**
+ * Yola göre gövde sınırı.
+ *
+ * Yükleme ucu görselin kendisini taşır; geri kalan her şey metindir. En büyük
+ * meşru metin gövdesi blog yazısıdır (50.000 karakter) ve 512 KB onun birkaç
+ * katıdır.
+ */
+const bodyLimitForPath: MiddlewareHandler = async (c, next) => {
+  const maxSize = c.req.path === '/api/uploads' ? MAX_IMAGE_BYTES + 64 * 1024 : MAX_TEXT_BODY_BYTES;
+
+  return bodyLimit({
+    maxSize,
+    onError: () => {
+      throw requestTooLarge(maxSize);
+    },
+  })(c, next);
+};
+
 export function createApp() {
   const app = new Hono<{ Variables: AppVariables }>();
 
@@ -41,6 +66,26 @@ export function createApp() {
 
   app.onError(errorHandler);
   app.notFound(notFoundHandler);
+
+  /*
+    İstek gövdesi ÜST SINIRI.
+
+    Sınır yokken herkese açık bir uca (iletişim formu gibi) yirmi megabaytlık
+    bir JSON gönderilebiliyor ve sunucu onu tamponlayıp ayrıştırıyordu:
+    doğrulama gövdeyi okuduktan SONRA çalışır, dolayısıyla reddedilen istek de
+    belleği bir kez ödemiş oluyordu. Birkaç eşzamanlı istek yeter.
+
+    Vekil sunucunun `client_max_body_size` ayarına güvenilmez — dosya
+    yüklemesine izin vermek için o değer zaten yükseltilmek zorunda ve
+    yükseltildiğinde JSON uçları da aynı sınırı devralır. Savunma katmanları
+    birbirine güvenmez.
+
+    Sınır TEK middleware'de seçilir, yol başına iki ayrı `use` ile değil: Hono
+    eşleşen middleware'lerin HEPSİNİ çalıştırır, dolayısıyla `/api/uploads`
+    hem kendi sınırından hem küresel sınırdan geçiyor ve 1 MB'lık bir görsel
+    metin sınırına takılıyordu.
+  */
+  app.use('*', bodyLimitForPath);
 
   app.use('*', securityHeaders);
   app.use('*', corsMiddleware);

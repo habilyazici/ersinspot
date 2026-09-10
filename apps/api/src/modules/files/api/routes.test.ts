@@ -5,6 +5,8 @@
  * hiçbir rota yoktu: yerel sürücüyle yüklenen her görsel 404 veriyordu.
  */
 
+import { randomBytes } from 'node:crypto';
+import { deflateSync } from 'node:zlib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { db } from '../../../platform/db/client.ts';
 import { createTestUser, loginAs, request, resetDatabase } from '../../../test/helpers.ts';
@@ -152,3 +154,86 @@ describe('Kişisel dosyalarda erişim denetimi', () => {
     expect(response.headers.get('Cache-Control')).not.toContain('immutable');
   });
 });
+
+describe('İstek gövdesi üst sınırı', () => {
+  /*
+    Sınır yokken herkese açık bir uca yirmi megabaytlık bir JSON gönderilip
+    ayrıştırılabiliyordu: doğrulama gövdeyi okuduktan SONRA çalışır, yani
+    reddedilen istek de belleği bir kez ödemiş oluyordu.
+
+    Sınır İKİ KADEMELİDİR ve tek middleware'de seçilir. Yol başına ayrı `use`
+    çağrılarıyla kurulduğunda Hono ikisini de çalıştırıyor ve 1 MB'lık bir
+    görsel metin sınırına takılıyordu; testin asıl işi o ayrımı korumak.
+  */
+  it('büyük metin gövdesini reddeder', async () => {
+    const response = await request('/api/contact', {
+      method: 'POST',
+      body: JSON.stringify({ message: 'a'.repeat(600 * 1024) }),
+    });
+
+    expect(response.status).toBe(413);
+
+    const body = (await response.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('request_too_large');
+  });
+
+  it('metin sınırından büyük bir görsel yüklenebilir', async () => {
+    const staff = await createTestUser({ role: 'staff', emailVerified: true });
+    const cookie = await loginAs(staff.email, staff.password);
+
+    // Metin sınırının (512 KB) üstünde, yükleme sınırının (8 MB) altında.
+    const form = new FormData();
+    form.append('file', new Blob([buyukPng(700)], { type: 'image/png' }), 'buyuk.png');
+    form.append('purpose', 'product_image');
+
+    const response = await request('/api/uploads', { method: 'POST', cookie, body: form });
+
+    expect(response.status).toBe(201);
+  });
+});
+
+/**
+ * Sıkışmayan içerikli geçerli bir PNG üretir.
+ *
+ * Düz renk ya da desenli bir görsel zlib altında birkaç kilobayta iner ve
+ * sınırı hiç sınamaz; baytlar rastgele olmalıdır.
+ */
+function buyukPng(size: number): Uint8Array {
+  const raw = Buffer.concat(
+    Array.from({ length: size }, () => Buffer.concat([Buffer.from([0]), randomBytes(size * 3)])),
+  );
+
+  const chunk = (type: string, data: Buffer): Buffer => {
+    const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([length, body, crc]);
+  };
+
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(size, 0);
+  header.writeUInt32BE(size, 4);
+  header[8] = 8;
+  header[9] = 2;
+
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', header),
+    chunk('IDAT', deflateSync(raw, { level: 1 })),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+/** PNG parça sağlama toplamı. */
+function crc32(data: Buffer): number {
+  let crc = 0xffffffff;
+  for (const byte of data) {
+    crc ^= byte;
+    for (let i = 0; i < 8; i += 1) {
+      crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
