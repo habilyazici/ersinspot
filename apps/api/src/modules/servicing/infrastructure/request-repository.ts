@@ -239,16 +239,19 @@ export async function findAddresses(requestId: string): Promise<AddressRow[]> {
 }
 
 export async function findPhotos(requestId: string): Promise<PhotoRow[]> {
-  return db
-    .select({
-      id: requestPhotos.id,
-      storageKey: requestPhotos.storageKey,
-      caption: requestPhotos.caption,
-      displayOrder: requestPhotos.displayOrder,
-    })
-    .from(requestPhotos)
-    .where(eq(requestPhotos.requestId, requestId))
-    .orderBy(requestPhotos.displayOrder);
+  return (
+    db
+      .select({
+        id: requestPhotos.id,
+        storageKey: requestPhotos.storageKey,
+        caption: requestPhotos.caption,
+        displayOrder: requestPhotos.displayOrder,
+      })
+      .from(requestPhotos)
+      .where(eq(requestPhotos.requestId, requestId))
+      // `displayOrder` benzersiz değil; eşitlikte sıra sabit kalsın.
+      .orderBy(asc(requestPhotos.displayOrder), asc(requestPhotos.id))
+  );
 }
 
 /** Geçerli teklif: yerine yenisi verilmemiş en son teklif. */

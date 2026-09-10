@@ -33,27 +33,10 @@ import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
 import { PhotoUpload } from '@/components/ui/photo-upload.tsx';
 import { findError } from '@/lib/form.ts';
 import { useAuth } from '@/features/auth';
-import { useCategories } from '@/features/catalog';
-import type { CategoryNode } from '@/features/catalog';
+import { flattenCategories, useCategories } from '@/features/catalog';
 import { useCreateSellRequest } from '@/features/servicing';
 
 type SellValues = CreateSellRequestInput;
-
-/**
- * Kategori ağacını düz listeye çevirir.
- *
- * Seçim kutusunda hiyerarşi girinti ile gösterilir; iç içe `optgroup`
- * kullanılamaz çünkü ağaç ikiden derin olabilir.
- */
-function flattenCategories(
-  nodes: readonly CategoryNode[],
-  depth = 0,
-): { id: string; label: string }[] {
-  return nodes.flatMap((node) => [
-    { id: node.id, label: `${'— '.repeat(depth)}${node.name}` },
-    ...flattenCategories(node.children, depth + 1),
-  ]);
-}
 
 export default function SellPage() {
   const navigate = useNavigate();

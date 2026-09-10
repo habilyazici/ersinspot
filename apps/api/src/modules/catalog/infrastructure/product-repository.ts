@@ -357,7 +357,9 @@ export async function findImagesForProducts(
     })
     .from(productImages)
     .where(inArray(productImages.productId, [...productIds]))
-    .orderBy(asc(productImages.productId), asc(productImages.displayOrder));
+    // `id` kararlı son anahtar: `displayOrder` benzersiz değildir ve eşitlik
+    // olduğunda kapak görselinin hangisi olacağı okumadan okumaya değişirdi.
+    .orderBy(asc(productImages.productId), asc(productImages.displayOrder), asc(productImages.id));
 
   const grouped = new Map<string, ProductImageRow[]>();
 
@@ -374,16 +376,20 @@ export async function findImagesForProducts(
 }
 
 export async function findSpecsForProduct(productId: string): Promise<ProductSpecRow[]> {
-  return db
-    .select({
-      productId: productSpecs.productId,
-      key: productSpecs.key,
-      value: productSpecs.value,
-      displayOrder: productSpecs.displayOrder,
-    })
-    .from(productSpecs)
-    .where(eq(productSpecs.productId, productId))
-    .orderBy(asc(productSpecs.displayOrder));
+  return (
+    db
+      .select({
+        productId: productSpecs.productId,
+        key: productSpecs.key,
+        value: productSpecs.value,
+        displayOrder: productSpecs.displayOrder,
+      })
+      .from(productSpecs)
+      .where(eq(productSpecs.productId, productId))
+      // Aynı gerekçe: `displayOrder` eşit olduğunda özellik satırlarının sırası
+      // sabit kalmalı.
+      .orderBy(asc(productSpecs.displayOrder), asc(productSpecs.key))
+  );
 }
 
 // ---------------------------------------------------------------------------
