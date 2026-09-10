@@ -77,6 +77,17 @@ export function PhotoUpload({
     const selected = [...files].slice(0, remaining);
     setUploadError(null);
 
+    /*
+      Biriken liste DÖNGÜ İÇİNDE tutulur.
+
+      `value` render sırasında yakalanmış diziyi gösterir ve bu döngü `await`
+      ile bekler; her turda `[...value, yeni]` yazmak, bir önceki turun eklediği
+      fotoğrafı siliyordu. Kullanıcı tek seferde üç fotoğraf seçtiğinde üçü de
+      sunucuya yükleniyor ama formda yalnızca SONUNCUSU kalıyordu — ve satış
+      talebi üç fotoğraf zorunlu kıldığı için form hiç gönderilemiyordu.
+    */
+    let biriken = [...value];
+
     for (const file of selected) {
       if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
         setUploadError('Yalnızca JPEG, PNG ve WebP fotoğraf yükleyebilirsiniz.');
@@ -96,7 +107,9 @@ export function PhotoUpload({
         const response = await apiUpload<{ file: UploadedFile }>('/api/uploads', file, { purpose });
 
         setPreviews((current) => ({ ...current, [response.file.storageKey]: response.file.url }));
-        onChange([...value, { storageKey: response.file.storageKey }]);
+
+        biriken = [...biriken, { storageKey: response.file.storageKey }];
+        onChange(biriken);
       } catch (uploadFailure) {
         setUploadError(
           uploadFailure instanceof ApiError
@@ -139,14 +152,20 @@ export function PhotoUpload({
 
   return (
     <div className="space-y-2">
-      <p className="block text-sm font-medium text-slate-700">
+      {/*
+        Etiket dosya girdisine BAĞLIDIR (`htmlFor`). Bir `<p>` olarak
+        yazıldığında girdinin erişilebilir adı yoktu: girdi `sr-only` ama gizli
+        değil, erişilebilirlik ağacında "adsız dosya seçici" olarak duruyordu.
+        Formdaki diğer alanlar bu bağı `form-field.tsx` üzerinden zaten kuruyor.
+      */}
+      <label htmlFor={inputId} className="block text-sm font-medium text-slate-700">
         {label}
         {min > 0 ? (
           <span className="ml-0.5 text-red-600" aria-hidden="true">
             *
           </span>
         ) : null}
-      </p>
+      </label>
 
       <ul className="flex flex-wrap gap-3">
         {value.map((photo) => (
