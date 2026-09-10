@@ -133,9 +133,22 @@ export const createMovingRequestSchema = z
     Kuralın amacı, kullanıcının aynı adresi iki kez doldurduğunu yakalamaktır;
     o durum ancak alanların HEPSİ aynıyken vardır.
   */
+  /*
+    Hata VARIŞ İLÇESİNE bağlanır.
+
+    Kural adresin tamamına aittir ama `path` bir yaprak alan olmak ZORUNDADIR:
+    react-hook-form yalnızca kayıtlı alanlara düşen hataları yüzeye çıkarır ve
+    yol bir zamanlar `['toLocation']` idi — kayıtlı olan `toLocation.floor`,
+    `toLocation.address.district` gibi alanlardı, grubun kendisi değil. Sonuç,
+    kuralın görünmeden çalışmasıydı: uzun formu dolduran müşteri düğmeye
+    basıyor, istek gönderilmiyor ve ekranda tek bir açıklama çıkmıyordu.
+
+    İlçe, "Varış Adresi" bloğunun ilk alanıdır; mesaj değiştirilmesi gereken
+    yerin başında görünür.
+  */
   .refine((data) => addressKey(data.fromLocation.address) !== addressKey(data.toLocation.address), {
     message: 'Çıkış ve varış adresi aynı olamaz.',
-    path: ['toLocation'],
+    path: ['toLocation', 'address', 'district'],
   });
 
 /**

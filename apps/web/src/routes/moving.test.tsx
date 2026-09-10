@@ -102,3 +102,35 @@ describe('nakliye tahmini', () => {
     expect(shownTotal()).toBe(normalize(serverEstimate(0)));
   });
 });
+
+describe('aynı adres kuralı', () => {
+  /**
+   * Kural şemada tanımlı ve formu göndermeyi engelliyor. Engellemek yetmez:
+   * uzun bir formu dolduran kullanıcı düğmeye bastığında hiçbir şey olmuyorsa,
+   * neyi düzelteceğini bilemez.
+   */
+  it('çıkış ile varış aynı olduğunda sebebini yazar', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const ilceler = screen.getAllByLabelText(/İlçe/);
+    const mahalleler = screen.getAllByLabelText(/Mahalle/);
+    const sokaklar = screen.getAllByLabelText(/Sokak/);
+    const binalar = screen.getAllByLabelText(/Bina No/);
+    const katlar = screen.getAllByLabelText(/^Kat/);
+
+    for (let i = 0; i < 2; i += 1) {
+      await user.selectOptions(ilceler[i] as HTMLSelectElement, 'Buca');
+      await user.type(mahalleler[i] as HTMLElement, 'Menderes');
+      await user.type(sokaklar[i] as HTMLElement, '1234 Sokak');
+      await user.type(binalar[i] as HTMLElement, '7');
+      await user.clear(katlar[i] as HTMLElement);
+      await user.type(katlar[i] as HTMLElement, '2');
+    }
+
+    await user.selectOptions(screen.getByLabelText(/Ev Büyüklüğü/), '2+1');
+    await user.click(screen.getByRole('button', { name: 'Talep Oluştur' }));
+
+    expect(await screen.findByText('Çıkış ve varış adresi aynı olamaz.')).toBeInTheDocument();
+  });
+});

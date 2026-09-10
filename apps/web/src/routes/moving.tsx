@@ -271,11 +271,6 @@ export default function MovingPage() {
               legend="Varış Adresi"
             />
 
-            {/* Çıkış ve varış adresinin aynı olamayacağı kuralı buraya raporlanır. */}
-            {findError(errors, 'toLocation') === undefined ? null : (
-              <p className="text-sm text-red-600">{findError(errors, 'toLocation')}</p>
-            )}
-
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField
                 label="Kat"
