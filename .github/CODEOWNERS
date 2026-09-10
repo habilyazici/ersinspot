@@ -1,8 +1,27 @@
 # Varsayılan olarak tüm değişiklikler depo sahibinin incelemesine düşer.
 *  @habilyazici
 
-# Güvenlik açısından kritik alanlar — bu dosyalarda inceleme zorunlu.
-/apps/api/src/auth/         @habilyazici
-/apps/api/src/middleware/   @habilyazici
-/apps/api/src/db/migrations/ @habilyazici
-/.github/workflows/         @habilyazici
+# Güvenlik açısından kritik alanlar.
+#
+# Bu bloktaki yollar VAR OLAN dizinleri göstermelidir; GitHub eşleşmeyen bir
+# kuralı sessizce yok sayar. Önceki hâli katman öncelikli eski yapıdan kalmıştı
+# (`src/auth/`, `src/middleware/`, `src/db/migrations/`) ve üçü de modüler
+# monolite geçişte taşınmıştı — yani "inceleme zorunlu" diyen satırların hiçbiri
+# hiçbir dosyayı kapsamıyordu.
+
+# Kimlik doğrulama, yetkilendirme, CORS/CSRF, doğrulama ve hata işleme.
+/apps/api/src/platform/http/            @habilyazici
+
+# Kaynak sahipliği (IDOR) kararlarının tek noktası.
+/apps/api/src/platform/authorization.ts @habilyazici
+
+# Oturum, şifre özeti, tek kullanımlık jetonlar ve giriş denemesi sınırı.
+/apps/api/src/modules/identity/         @habilyazici
+
+# Yapılandırma doğrulaması: oturum anahtarı, vekil güveni, depolama sürücüsü.
+/apps/api/src/platform/config/          @habilyazici
+
+# Şema, kısıtlar ve tetikleyiciler — son savunma hattı.
+/apps/api/src/platform/db/migrations/   @habilyazici
+
+/.github/workflows/                     @habilyazici
