@@ -39,15 +39,6 @@ const TURKISH_TO_ASCII: Readonly<Record<string, string>> = {
 export const MAX_SLUG_LENGTH = 80;
 
 /**
- * Metinden bağlantı adı üretir.
- *
- *   "Arçelik 9 Kg Çamaşır Makinesi"  →  "arcelik-9-kg-camasir-makinesi"
- *
- * Benzersizlik burada SAĞLANMAZ; çağıran taraf çakışma durumunda sonuna ayırt
- * edici bir ek koyar. Boş veya yalnızca noktalama içeren bir girdide boş dize
- * döner — çağıran bunu bir hata olarak ele almalıdır.
- */
-/**
  * Metni ASCII küçük harfe indirger: "Yılmaz" → "yilmaz", "Café" → "cafe".
  *
  * Bağlantı adı üretiminin ilk adımıdır ama tek başına da işe yarar: iki metnin
@@ -67,6 +58,15 @@ export function toAsciiLower(text: string): string {
   );
 }
 
+/**
+ * Metinden bağlantı adı üretir.
+ *
+ *   "Arçelik 9 Kg Çamaşır Makinesi"  →  "arcelik-9-kg-camasir-makinesi"
+ *
+ * Benzersizlik burada SAĞLANMAZ; çağıran taraf çakışma durumunda sonuna ayırt
+ * edici bir ek koyar. Boş veya yalnızca noktalama içeren bir girdide boş dize
+ * döner — çağıran bunu bir hata olarak ele almalıdır.
+ */
 export function slugify(text: string): string {
   return (
     toAsciiLower(text)
