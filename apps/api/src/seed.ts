@@ -613,7 +613,6 @@ async function seed(): Promise<void> {
         key,
         value: setting.value,
         valueType: setting.valueType,
-        description: setting.description,
         updatedByUserId: admin.id,
       })
       .onConflictDoNothing({ target: siteSettings.key });

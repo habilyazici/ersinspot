@@ -34,7 +34,10 @@ export interface Setting {
   readonly key: string;
   readonly value: string;
   readonly valueType: SettingValueType;
-  readonly description: string | null;
+  /** Yönetim ekranındaki alan adı: kısa, isim gibi. */
+  readonly label: string;
+  /** Alanın altındaki açıklama; söylenecek fazladan bir şey yoksa `null`. */
+  readonly hint: string | null;
 }
 
 /**
@@ -49,7 +52,8 @@ export const DEFAULT_SETTINGS: Readonly<
     {
       value: string;
       valueType: SettingValueType;
-      description: string;
+      label: string;
+      hint?: string;
       audience: SettingAudience;
     }
   >
@@ -57,67 +61,71 @@ export const DEFAULT_SETTINGS: Readonly<
   'contact.phone': {
     value: '+905071940550',
     valueType: 'string',
-    description: 'Sitede gösterilen iletişim telefonu (E.164 biçiminde).',
+    label: 'İletişim telefonu',
+    hint: 'Sitenin alt bilgisinde ve iletişim sayfasında görünür. E.164 biçiminde yazın: +905071940550.',
     audience: 'storefront',
   },
   'contact.email': {
     value: 'bilgi@ersinspot.com',
     valueType: 'string',
-    description: 'Sitede gösterilen iletişim e-postası.',
+    label: 'İletişim e-postası',
+    hint: 'Sitenin alt bilgisinde ve iletişim sayfasında görünür.',
     audience: 'storefront',
   },
   'contact.address': {
     value: 'Menderes Mahallesi, Buca / İzmir',
     valueType: 'string',
-    description: 'Mağaza adresi.',
+    label: 'Mağaza adresi',
     audience: 'storefront',
   },
   'hours.weekday.open': {
     value: '09:00',
     valueType: 'time',
-    description: 'Hafta içi açılış.',
+    label: 'Hafta içi açılış',
     audience: 'storefront',
   },
   'hours.weekday.close': {
     value: '18:00',
     valueType: 'time',
-    description: 'Hafta içi kapanış.',
+    label: 'Hafta içi kapanış',
     audience: 'storefront',
   },
   'hours.saturday.open': {
     value: '09:00',
     valueType: 'time',
-    description: 'Cumartesi açılış.',
+    label: 'Cumartesi açılış',
     audience: 'storefront',
   },
   'hours.saturday.close': {
     value: '17:00',
     valueType: 'time',
-    description: 'Cumartesi kapanış.',
+    label: 'Cumartesi kapanış',
     audience: 'storefront',
   },
   'hours.sunday.closed': {
     value: 'true',
     valueType: 'boolean',
-    description: 'Pazar günü kapalı mı? Kapalıysa alt bilgide "Pazar kapalı" yazar.',
+    label: 'Pazar günü kapalı mı?',
+    hint: 'Evet seçilirse alt bilgide "Pazar kapalı" yazar ve aşağıdaki pazar saatleri gösterilmez.',
     audience: 'storefront',
   },
   'hours.sunday.open': {
     value: '10:00',
     valueType: 'time',
-    description: 'Pazar açılış.',
+    label: 'Pazar açılış',
     audience: 'storefront',
   },
   'hours.sunday.close': {
     value: '16:00',
     valueType: 'time',
-    description: 'Pazar kapanış.',
+    label: 'Pazar kapanış',
     audience: 'storefront',
   },
   'banner.text': {
     value: '',
     valueType: 'string',
-    description: 'Sitenin üstünde gösterilen duyuru. Boşsa gösterilmez.',
+    label: 'Duyuru metni',
+    hint: 'Sitenin en üstünde her sayfada görünür. Boş bırakırsanız duyuru şeridi hiç çizilmez.',
     audience: 'storefront',
   },
 
@@ -142,19 +150,22 @@ export const DEFAULT_SETTINGS: Readonly<
   'payment.bank.name': {
     value: '',
     valueType: 'string',
-    description: 'Havale/EFT için banka adı. Boşsa ödeme bilgisi gösterilmez.',
+    label: 'Banka adı',
+    hint: 'Boş bırakırsanız müşteriye hiçbir ödeme bilgisi gösterilmez.',
     audience: 'customer',
   },
   'payment.bank.account_holder': {
     value: '',
     valueType: 'string',
-    description: 'Hesap sahibinin adı (havale açıklamasında aranan isim).',
+    label: 'Hesap sahibi',
+    hint: 'Havale açıklamasında aranan isim.',
     audience: 'customer',
   },
   'payment.bank.iban': {
     value: '',
     valueType: 'string',
-    description: 'IBAN. Müşteriye sipariş detayında gösterilir.',
+    label: 'IBAN',
+    hint: 'Yalnızca oturum açmış müşteriye, sipariş detayında gösterilir.',
     audience: 'customer',
   },
 };
@@ -192,11 +203,21 @@ async function readSettings(
     .map(([key, fallback]) => {
       const row = storedByKey.get(key);
 
+      /*
+        Etiket ve açıklama SATIRDAN DEĞİL, buradaki tanımdan okunur.
+
+        Eskiden metin hem burada hem `site_settings.description` sütununda
+        duruyor ve okuma sütunu tercih ediyordu — ama güncelleme sorgusu o
+        sütunu hiç yazmıyordu. Koddaki metni düzelten biri, kaydı önceden
+        oluşmuş kurulumlarda eski metnin sonsuza kadar görünmeye devam
+        ettiğini fark edemezdi. Sütun kaldırıldı (0009); metin tektir.
+      */
       return {
         key,
         value: row?.value ?? fallback.value,
         valueType: row?.valueType ?? fallback.valueType,
-        description: row?.description ?? fallback.description,
+        label: fallback.label,
+        hint: fallback.hint ?? null,
       };
     });
 }
@@ -243,7 +264,6 @@ export async function updateSetting(
       key,
       value,
       valueType: known.valueType,
-      description: known.description,
       updatedByUserId: staffUserId,
     })
     .onConflictDoUpdate({

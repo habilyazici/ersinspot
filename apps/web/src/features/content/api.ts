@@ -353,13 +353,19 @@ export function useReplyToMessage() {
 // Yönetim — site ayarları
 // ---------------------------------------------------------------------------
 
-/** Ayarların tam listesi: değer, tür ve açıklamasıyla. Yönetici yetkisi ister. */
+/** Ayarların tam listesi: değer, tür, alan adı ve açıklamasıyla. Yönetici yetkisi ister. */
 export function useAdminSettings() {
   return useQuery({
     queryKey: contentKeys.adminSettings,
     queryFn: async () => {
       const response = await apiRequest<{
-        settings: { key: string; value: string; valueType: string; description: string }[];
+        settings: {
+          key: string;
+          value: string;
+          valueType: string;
+          label: string;
+          hint: string | null;
+        }[];
       }>('/api/admin/settings');
       return response.settings;
     },

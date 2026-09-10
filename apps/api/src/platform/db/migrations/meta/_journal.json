@@ -64,6 +64,13 @@
       "when": 1788457966656,
       "tag": "0008_olay_saati",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789058460685,
+      "tag": "0009_ayar_aciklamasini_kaldir",
+      "breakpoints": true
     }
   ]
 }

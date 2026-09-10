@@ -160,7 +160,12 @@ export const siteSettings = pgTable('site_settings', {
   value: text().notNull(),
   valueType: settingValueTypeEnum().notNull().default('string'),
 
-  description: text(),
+  /*
+    Ayarın ne anlama geldiğini anlatan metin BURADA DEĞİL, `settings-service`
+    içindeki tanımda durur. Bir zamanlar `description` sütunu vardı ve okuma
+    yolu onu tercih ediyordu; güncelleme sorgusu ise yazmıyordu. Metin kodda
+    düzeltildiğinde eski kurulumlar eski metni göstermeye devam ediyordu.
+  */
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   updatedByUserId: uuid().references(() => users.id, { onDelete: 'set null' }),
 });
