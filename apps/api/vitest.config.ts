@@ -27,9 +27,6 @@ process.env.DATABASE_URL =
   'postgresql://ersinspot:ersinspot_dev@localhost:5432/ersinspot_test';
 
 export default defineConfig({
-  resolve: {
-    alias: { '@': path.resolve(import.meta.dirname, './src') },
-  },
   test: {
     globals: true,
     environment: 'node',
