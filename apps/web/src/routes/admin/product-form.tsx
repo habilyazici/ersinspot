@@ -218,7 +218,7 @@ export default function AdminProductFormPage() {
       >
         <FormSection legend="Temel Bilgiler">
           <TextField
-            label="Ürün Başlığı"
+            label="Ürün başlığı"
             required
             placeholder="Örn. Arçelik No Frost Buzdolabı 520 L"
             error={errors.title?.message}
@@ -246,7 +246,7 @@ export default function AdminProductFormPage() {
             />
 
             <SelectField
-              label="Ürün Durumu"
+              label="Ürün durumu"
               required
               error={errors.condition?.message}
               {...register('condition')}
@@ -295,7 +295,7 @@ export default function AdminProductFormPage() {
 
         <FormSection legend="Fotoğraflar">
           <PhotoUpload
-            label="Ürün Fotoğrafları"
+            label="Ürün fotoğrafları"
             purpose="product_image"
             value={photos}
             onChange={(next) => {

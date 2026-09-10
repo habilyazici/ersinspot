@@ -12,7 +12,7 @@ const NAV_LINKS = [
   { to: '/teknik-servis', label: 'Teknik Servis' },
   { to: '/nakliye', label: 'Nakliye' },
   { to: '/urun-sat', label: 'Ürününüzü Satın' },
-  { to: '/siparis-takip', label: 'Sipariş Takip' },
+  { to: '/siparis-takip', label: 'Sipariş Takibi' },
 ] as const;
 
 export function SiteHeader() {

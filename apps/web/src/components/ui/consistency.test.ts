@@ -252,6 +252,35 @@ describe('Arayüz tutarlılığı', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('yönetim panelindeki alan etiketleri tek biçimde yazılır', () => {
+    /*
+      Panel CÜMLE DÜZENİ kullanır: yalnızca ilk harf büyük ("Bağlantı adı",
+      "Geçerlilik tarihi"). Ürün formu Başlık Düzeni yazıyordu ve sonuç, AYNI
+      alanın iki komşu ekranda iki farklı yazılışıydı — ürün formunda "Ürün
+      Başlığı", talep detayındaki dönüştürme kartında "Ürün başlığı".
+
+      Vitrin formları Başlık Düzeni kullanır ve bu kural onları kapsamaz:
+      müşteriye giden yüzey ile personelin aleti ayrı seslerdir.
+    */
+    const labels = readdirSync(path.resolve(ROUTES, 'admin'))
+      .filter((name) => name.endsWith('.tsx') && !name.includes('.test.'))
+      .flatMap((name) => {
+        const source = readFileSync(path.resolve(ROUTES, 'admin', name), 'utf8');
+        return [
+          ...source.matchAll(/<(?:Text|Select|TextArea)Field\b[\s\S]{0,400}?label="([^"]+)"/g),
+        ].map((match) => ({ name, label: match[1] ?? '' }));
+      });
+
+    const offenders = labels
+      .filter(({ label }) => {
+        const words = label.split(' ').filter((word) => /^\p{L}/u.test(word));
+        return words.length > 1 && words.slice(1).every((word) => /^\p{Lu}/u.test(word));
+      })
+      .map(({ name, label }) => `${name}: ${label}`);
+
+    expect(offenders).toEqual([]);
+  });
+
   it('atlama bağlantısının hedefi odaklanabilir', () => {
     /*
       "İçeriğe atla" bağlantısı `#icerik` adresine gider. Hedef odak
