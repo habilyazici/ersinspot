@@ -28,6 +28,7 @@ import { blogPostTags, blogPosts, contactMessages, faqs, tags } from '../infrast
 
 let staffCookie: string;
 let customerCookie: string;
+let adminCookie: string;
 
 /** Geçerli bir blog yazısı gövdesi. Alan sınırları şemadan gelir. */
 function postBody(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -61,6 +62,14 @@ beforeEach(async () => {
     emailVerified: true,
   });
   customerCookie = await loginAs(customer.email, customer.password);
+
+  const admin = await createTestUser({
+    email: 'yonetici@ersinspot.com',
+    phone: '+905321112244',
+    role: 'admin',
+    emailVerified: true,
+  });
+  adminCookie = await loginAs(admin.email, admin.password);
 });
 
 describe('Blog yazma yetkisi', () => {
@@ -668,5 +677,56 @@ describe('Site ayarları', () => {
 
     // Ayarlar personel değil YÖNETİCİ yetkisi ister.
     expect(asStaff.status).toBe(403);
+  });
+
+  /*
+    Ayarın TÜRÜ ("metin", "saat") yalnızca girdinin nasıl çizileceğini söyler.
+    Anlamı denetlenmediğinde yöneticinin telefon alanına yazdığı bir yazım
+    hatası doğrudan alt bilgiye ve `tel:` bağlantısına düşüyor, IBAN'daki bir
+    hane hatası ise parayı hiçbir yere göndermiyordu.
+  */
+  async function ayarla(key: string, value: string) {
+    return request(`/api/admin/settings/${key}`, {
+      method: 'PUT',
+      cookie: adminCookie,
+      body: JSON.stringify({ value }),
+    });
+  }
+
+  it('geçersiz telefonu reddeder', async () => {
+    expect((await ayarla('contact.phone', 'bu-telefon-degil')).status).toBe(400);
+  });
+
+  it('telefonu kanonik biçimde saklar', async () => {
+    expect((await ayarla('contact.phone', '0507 194 05 50')).status).toBe(200);
+
+    const response = await request('/api/settings');
+    const body = (await response.json()) as { settings: Record<string, string> };
+
+    expect(body.settings['contact.phone']).toBe('+905071940550');
+  });
+
+  it('geçersiz e-postayı reddeder', async () => {
+    expect((await ayarla('contact.email', 'bu-eposta-degil')).status).toBe(400);
+  });
+
+  it('sağlama toplamı tutmayan IBAN reddedilir', async () => {
+    expect((await ayarla('payment.bank.iban', 'TR330006100519786457841327')).status).toBe(400);
+  });
+
+  it('gruplu yazılmış IBAN kabul edilir ve sadeleştirilir', async () => {
+    expect((await ayarla('payment.bank.iban', 'tr33 0006 1005 1978 6457 8413 26')).status).toBe(
+      200,
+    );
+
+    const response = await request('/api/settings/payment', { cookie: customerCookie });
+    const body = (await response.json()) as { settings: Record<string, string> };
+
+    expect(body.settings['payment.bank.iban']).toBe('TR330006100519786457841326');
+  });
+
+  it('isteğe bağlı ayar boşaltılabilir', async () => {
+    // "Boşsa ödeme bilgisi gösterilmez" diye tanımlı; boş bırakmak bir hata değil.
+    expect((await ayarla('payment.bank.iban', '')).status).toBe(200);
   });
 });

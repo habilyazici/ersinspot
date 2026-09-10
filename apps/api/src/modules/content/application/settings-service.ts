@@ -10,6 +10,8 @@
  * yer kendi ayrıştırmasını yazar.
  */
 
+import type { z } from 'zod';
+import { emailSchema, ibanSchema, phoneSchema } from '@ersinspot/shared';
 import { db } from '../../../platform/db/client.ts';
 import { businessRule } from '../../../platform/errors/index.ts';
 import { logger } from '../../../platform/observability/logger.ts';
@@ -55,12 +57,23 @@ export const DEFAULT_SETTINGS: Readonly<
       label: string;
       hint?: string;
       audience: SettingAudience;
+      /**
+       * Türün ötesinde bir kural varsa buraya konur; değeri doğrular ve
+       * KANONİK biçimine çevirir.
+       *
+       * `valueType` yalnızca girdinin nasıl çizileceğini söyler ("metin",
+       * "saat"); "metin" olan her şey serbestti. Telefon alanına yazılan bir
+       * yazım hatası doğrudan alt bilgiye ve `tel:` bağlantısına düşüyor,
+       * IBAN'daki bir hane hatası ise parayı hiçbir yere göndermiyordu.
+       */
+      schema?: z.ZodType<string, z.ZodTypeDef, unknown>;
     }
   >
 > = {
   'contact.phone': {
     value: '+905071940550',
     valueType: 'string',
+    schema: phoneSchema,
     label: 'İletişim telefonu',
     hint: 'Sitenin alt bilgisinde ve iletişim sayfasında görünür. E.164 biçiminde yazın: +905071940550.',
     audience: 'storefront',
@@ -68,6 +81,7 @@ export const DEFAULT_SETTINGS: Readonly<
   'contact.email': {
     value: 'bilgi@ersinspot.com',
     valueType: 'string',
+    schema: emailSchema,
     label: 'İletişim e-postası',
     hint: 'Sitenin alt bilgisinde ve iletişim sayfasında görünür.',
     audience: 'storefront',
@@ -164,6 +178,7 @@ export const DEFAULT_SETTINGS: Readonly<
   'payment.bank.iban': {
     value: '',
     valueType: 'string',
+    schema: ibanSchema,
     label: 'IBAN',
     hint: 'Yalnızca oturum açmış müşteriye, sipariş detayında gösterilir.',
     audience: 'customer',
@@ -258,17 +273,40 @@ export async function updateSetting(
 
   validateValue(value, known.valueType, key);
 
+  /*
+    Kanonik değer YAZILIR, kullanıcının yazdığı değil.
+
+    Yönetici telefonu "0507 194 05 50" diye girebilir; vitrin ise E.164
+    bekliyor. IBAN da bankadan dörtlü gruplar hâlinde kopyalanır. Normalleştirme
+    burada yapılmazsa her okuyan yerin kendi ayrıştırmasını yazması gerekirdi.
+
+    Boş değer, VARSAYILANI DA BOŞ OLAN ayarlarda serbesttir: duyuru metni ve
+    havale bilgileri "boşsa gösterilmez" diye tanımlıdır, doldurulmaları zorunlu
+    değildir.
+  */
+  let canonical = value;
+
+  if (known.schema !== undefined && !(value === '' && known.value === '')) {
+    const result = known.schema.safeParse(value);
+
+    if (!result.success) {
+      throw businessRule(result.error.issues[0]?.message ?? `"${key}" ayarı geçersiz.`);
+    }
+
+    canonical = result.data;
+  }
+
   await db
     .insert(siteSettings)
     .values({
       key,
-      value,
+      value: canonical,
       valueType: known.valueType,
       updatedByUserId: staffUserId,
     })
     .onConflictDoUpdate({
       target: siteSettings.key,
-      set: { value, updatedAt: new Date(), updatedByUserId: staffUserId },
+      set: { value: canonical, updatedAt: new Date(), updatedByUserId: staffUserId },
     });
 
   logger.info('Site ayarı güncellendi', { key, staffUserId });

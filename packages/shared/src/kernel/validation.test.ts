@@ -15,6 +15,7 @@ import {
   businessDayStart,
   dateAfterDays,
   dateOnlySchema,
+  ibanSchema,
   referenceNumberSchema,
   timeSlotSchema,
   today,
@@ -176,5 +177,31 @@ describe('referenceNumberSchema', () => {
     expect(() => referenceNumberSchema.parse('SIP-26-123')).toThrow();
     expect(() => referenceNumberSchema.parse('')).toThrow();
     expect(() => referenceNumberSchema.parse('SIP 2026 000123')).toThrow();
+  });
+});
+
+describe('ibanSchema', () => {
+  /*
+    Sağlama toplamı, tek hane hatasını yakalayan tek denetimdir; biçim doğru
+    ama hane yanlışsa para gitmez ya da başkasına gider.
+  */
+  const gecerli = 'TR330006100519786457841326';
+
+  it('geçerli IBAN kabul eder', () => {
+    expect(ibanSchema.parse(gecerli)).toBe(gecerli);
+  });
+
+  it('boşlukları atar ve büyütür', () => {
+    expect(ibanSchema.parse('tr33 0006 1005 1978 6457 8413 26')).toBe(gecerli);
+  });
+
+  it('tek hane değişince reddeder', () => {
+    const bozuk = `${gecerli.slice(0, 25)}7`;
+    expect(() => ibanSchema.parse(bozuk)).toThrow();
+  });
+
+  it('yanlış uzunluğu ve ülkeyi reddeder', () => {
+    expect(() => ibanSchema.parse('TR3300061005197864578413')).toThrow();
+    expect(() => ibanSchema.parse('DE89370400440532013000')).toThrow();
   });
 });

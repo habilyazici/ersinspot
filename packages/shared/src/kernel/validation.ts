@@ -125,6 +125,53 @@ export const emailSchema = z
       .max(254, { message: 'E-posta adresi çok uzun.' }),
   );
 
+/**
+ * Türkiye IBAN'ı.
+ *
+ * Havale bilgisi yönetim panelinden girilir ve müşteriye sipariş detayında
+ * gösterilir: yanlış yazılmış bir hane, paranın gitmemesi ya da başka bir
+ * hesaba gitmesi demektir. Bu yüzden yalnızca biçim değil, ISO 13616'nın
+ * MOD-97 sağlama toplamı da denetlenir — tek hane hatasını yakalayan şey odur.
+ *
+ * Girdi normalleştirilir: boşluklar atılır, harfler büyütülür. Kullanıcı IBAN'ı
+ * bankadan dört haneli gruplar hâlinde kopyalar.
+ */
+export const ibanSchema = z
+  .string({ required_error: 'IBAN zorunludur.' })
+  .transform((value) => value.replace(/\s+/g, '').toUpperCase())
+  .pipe(
+    z
+      .string()
+      .regex(/^TR\d{24}$/, { message: "IBAN 'TR' ile başlamalı ve 26 karakter olmalıdır." })
+      .refine(hasValidIbanChecksum, {
+        message: 'IBAN sağlama toplamı tutmuyor; haneleri kontrol edin.',
+      }),
+  );
+
+/**
+ * IBAN sağlama toplamı (ISO 13616 / MOD-97-10).
+ *
+ * İlk dört karakter sona alınır, harfler sayıya çevrilir (A=10 … Z=35) ve elde
+ * edilen büyük sayının 97'ye bölümünden kalan 1 olmalıdır. Sayı `Number`
+ * sınırlarını aştığı için bölme parça parça yapılır.
+ */
+function hasValidIbanChecksum(iban: string): boolean {
+  const yeniden = iban.slice(4) + iban.slice(0, 4);
+
+  let kalan = 0;
+  for (const karakter of yeniden) {
+    const basamaklar = /\d/.test(karakter)
+      ? karakter
+      : String(karakter.charCodeAt(0) - 'A'.charCodeAt(0) + 10);
+
+    for (const basamak of basamaklar) {
+      kalan = (kalan * 10 + Number(basamak)) % 97;
+    }
+  }
+
+  return kalan === 1;
+}
+
 export const fullNameSchema = z
   .string({ required_error: 'Ad soyad zorunludur.' })
   .transform((value) => cleanText(value).replace(/\s+/g, ' '))
