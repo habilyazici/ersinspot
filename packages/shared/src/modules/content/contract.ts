@@ -164,6 +164,20 @@ export const blogPostSummarySchema = blogPostSchema.pick({
 
 export type BlogPostSummary = z.infer<typeof blogPostSummarySchema>;
 
+/**
+ * Yönetim listesindeki özet: vitrinde işi olmayan alanları da taşır.
+ *
+ * Görüntülenme sayısı VİTRİNE GÖNDERİLMEZ. Sayaç her yazı okunuşunda artıyor
+ * ama hiçbir yerde okunmuyordu — yazılıp hiç bakılmayan veriydi. Yazının kaç
+ * kez okunduğunu bilmesi gereken tek kişi yazıyı yöneten personeldir; ürün
+ * ekranında aynı sayaç zaten böyle gösteriliyor.
+ */
+export const adminBlogPostSummarySchema = blogPostSummarySchema.extend({
+  viewCount: z.number().int().nonnegative(),
+});
+
+export type AdminBlogPostSummary = z.infer<typeof adminBlogPostSummarySchema>;
+
 export const createBlogPostSchema = z.object({
   slug: slugSchema,
   title: requiredText('Başlık', 5, 160),

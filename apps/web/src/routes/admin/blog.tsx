@@ -387,7 +387,13 @@ export default function AdminBlogPage() {
                   <p className="mt-1 text-xs text-slate-500">
                     {BLOG_CATEGORY_LABELS[post.category]}
                     {post.publishedAt === null ? '' : ` · ${formatDate(post.publishedAt)}`} ·{' '}
-                    {post.readingMinutes} dk
+                    {post.readingMinutes} dk ·{' '}
+                    {/*
+                      Görüntülenme sayısı yalnızca burada gösterilir. Sayaç her
+                      okunuşta artıyordu ama hiçbir ekran okumuyordu; ürün
+                      ekranında aynı bilgi zaten personele gösteriliyor.
+                    */}
+                    {post.viewCount} görüntülenme
                   </p>
                 </div>
 

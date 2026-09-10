@@ -12,6 +12,7 @@ import type {
   ReplyToContactMessageInput,
   UpdateBlogPostInput,
   BlogPost,
+  AdminBlogPostSummary,
   BlogPostSummary,
   CreateContactMessageInput,
   Faq,
@@ -159,7 +160,7 @@ export function useAdminBlogPosts(filters: Partial<BlogListQuery> = {}) {
   return useQuery({
     queryKey: contentKeys.adminBlog(filters),
     queryFn: () =>
-      apiRequest<Paginated<BlogPostSummary>>('/api/admin/blog', {
+      apiRequest<Paginated<AdminBlogPostSummary>>('/api/admin/blog', {
         query: {
           page: filters.page,
           pageSize: filters.pageSize,

@@ -13,6 +13,7 @@
 import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type {
+  AdminBlogPostSummary,
   BlogListQuery,
   BlogPost,
   BlogPostSummary,
@@ -44,6 +45,17 @@ const summarySelection = {
   authorName: blogPosts.authorName,
   readingMinutes: blogPosts.readingMinutes,
   publishedAt: blogPosts.publishedAt,
+} as const;
+
+/**
+ * Yönetim listesi seçimi.
+ *
+ * Görüntülenme sayısı yalnızca burada okunur; vitrin listesi onu istemez ve
+ * almamalıdır. Sayaç her okunuşta artıyor ama hiçbir sorgu okumuyordu.
+ */
+const adminSummarySelection = {
+  ...summarySelection,
+  viewCount: blogPosts.viewCount,
 } as const;
 
 function toSummary(row: {
@@ -154,7 +166,7 @@ export async function listPublishedPosts(
  * yok sayılıyorlardı: panelde filtre seçilebiliyor ama liste değişmiyordu ve
  * kullanıcı filtrenin çalışmadığını ancak sonuçları sayarak anlıyordu.
  */
-export async function listAllPosts(query: BlogListQuery): Promise<Paginated<BlogPostSummary>> {
+export async function listAllPosts(query: BlogListQuery): Promise<Paginated<AdminBlogPostSummary>> {
   const conditions: SQL[] = [];
 
   if (query.category !== undefined) {
@@ -176,7 +188,7 @@ export async function listAllPosts(query: BlogListQuery): Promise<Paginated<Blog
   const offset = (query.page - 1) * query.pageSize;
 
   const rows = await db
-    .select(summarySelection)
+    .select(adminSummarySelection)
     .from(blogPosts)
     .where(where)
     // Kimlik, eşit sıralama anahtarlarını bozan kararlı ikinci anahtardır:
@@ -190,7 +202,11 @@ export async function listAllPosts(query: BlogListQuery): Promise<Paginated<Blog
     .from(blogPosts)
     .where(where);
 
-  return paginate(rows.map(toSummary), countRow?.value ?? 0, query);
+  return paginate(
+    rows.map((row) => ({ ...toSummary(row), viewCount: row.viewCount })),
+    countRow?.value ?? 0,
+    query,
+  );
 }
 
 async function loadTags(postId: string): Promise<string[]> {
