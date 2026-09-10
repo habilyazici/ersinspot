@@ -138,7 +138,16 @@ export function Timeline({ events, formatTime, className }: TimelineProps) {
         const isCurrent = index === events.length - 1;
 
         return (
-          <li key={`${event.label}-${event.occurredAt}`} className="relative">
+          /*
+            Anahtar SIRA numarasıdır.
+
+            Etiket ve zaman damgasından üretilen anahtar benzersiz değildi: bir
+            durum tekrar edebilir (revize teklif ikinci bir "teklif verildi"
+            olayı yazar) ve `now()` döneminden kalan kayıtlar aynı damgayı
+            taşır. Liste yalnızca gösterim amaçlıdır; sıralanmaz, süzülmez ve
+            öğe eklenip çıkarılmaz — sıra numarası burada doğru anahtardır.
+          */
+          <li key={index} className="relative">
             <span
               className={
                 isCurrent

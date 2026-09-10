@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { PackageSearch } from 'lucide-react';
 import { ORDER_STATUS_LABELS } from '@ersinspot/shared';
-import { Card } from '@/components/ui/card.tsx';
+import { Card, Timeline } from '@/components/ui/card.tsx';
 import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
 import { Button } from '@/components/ui/button.tsx';
 import { TextField } from '@/components/ui/form-field.tsx';
@@ -115,42 +115,23 @@ export default function OrderTrackingPage() {
                 Sipariş Geçmişi
               </h2>
 
-              <ol className="mt-3 space-y-3">
-                {data.timeline.map((event, index) => (
-                  /*
-                    Anahtar SIRA numarasıdır.
+              {/*
+                Zaman çizelgesi ORTAK bileşendir.
 
-                    Durum ve zaman damgasından üretilen anahtar benzersiz
-                    değildi: aynı işlemde yazılan olaylar aynı damgayı taşıyor
-                    ve bir durum tekrar ettiğinde iki kardeş aynı anahtarı
-                    alıyordu. Liste yalnızca gösterim amaçlıdır; sıralanmaz,
-                    süzülmez ve öğe eklenip çıkarılmaz, bu yüzden sıra
-                    numarası burada doğru anahtardır.
-                  */
-                  <li key={index} className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <span
-                        className={
-                          index === data.timeline.length - 1
-                            ? 'size-2.5 rounded-full bg-brand-orange-500'
-                            : 'size-2.5 rounded-full bg-slate-300'
-                        }
-                        aria-hidden="true"
-                      />
-                      {index < data.timeline.length - 1 ? (
-                        <span className="w-px flex-1 bg-slate-200" aria-hidden="true" />
-                      ) : null}
-                    </div>
-
-                    <div className="pb-3">
-                      <p className="text-sm font-medium text-slate-900">
-                        {ORDER_STATUS_LABELS[event.status].label}
-                      </p>
-                      <p className="text-xs text-slate-500">{formatDateTime(event.occurredAt)}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
+                Burada elle yazılmış ikinci bir çizelge duruyordu: sipariş ve
+                talep detaylarında `Timeline` kullanılırken takip sayfası kendi
+                noktalarını, çizgilerini ve aralıklarını tanımlıyordu. Aynı
+                bilgiyi gösteren iki çizelge zamanla ayrışır — nitekim liste
+                anahtarındaki hata yalnızca birinde düzeltilmişti.
+              */}
+              <Timeline
+                className="mt-3"
+                formatTime={formatDateTime}
+                events={data.timeline.map((event) => ({
+                  label: ORDER_STATUS_LABELS[event.status].label,
+                  occurredAt: event.occurredAt,
+                }))}
+              />
             </section>
           </Card>
         )}
