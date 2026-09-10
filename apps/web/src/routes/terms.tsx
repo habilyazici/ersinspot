@@ -25,7 +25,9 @@ import {
   DELIVERY_FEE_OTHER_DISTRICT,
   FREE_DELIVERY_THRESHOLD,
   INSPECTION_FEE,
+  IZMIR_DISTRICTS,
   SERVICED_DISTRICTS,
+  UNSERVICED_DISTRICTS,
 } from '@ersinspot/shared';
 import { PageContainer, PageHeader, Section } from '@/components/ui/page.tsx';
 import { formatPrice } from '@/lib/format.ts';
@@ -43,6 +45,11 @@ export default function TermsPage() {
           <p>
             Bu koşullar, ersinspot.com üzerinden yapılan ürün siparişleri ile nakliye, teknik servis
             ve ürün satma taleplerini kapsar. Siteyi kullanarak bu koşulları kabul etmiş olursunuz.
+          </p>
+          <p>
+            Nakliye, teknik servis ve ürün satma hizmetleri İzmir&apos;in{' '}
+            {SERVICED_DISTRICTS.length} ilçesinde verilir; {UNSERVICED_DISTRICTS.join(', ')}{' '}
+            ilçelerinde bu üç hizmet verilmez. Ürün teslimatı bu kısıtlamaya tabi değildir.
           </p>
         </Section>
 
@@ -77,8 +84,9 @@ export default function TermsPage() {
 
         <Section title="Teslimat">
           <p>
-            Teslimat, {SERVICED_DISTRICTS.length} ilçede yapılır: {SERVICED_DISTRICTS.join(', ')}.
-            Mağazadan teslim alma seçeneğinde teslimat ücreti alınmaz.
+            Sipariş ettiğiniz ürün İzmir&apos;in {IZMIR_DISTRICTS.length} ilçesinin tamamına teslim
+            edilir; hizmet bölgesi kısıtı yalnızca nakliye, teknik servis ve ürün satma taleplerinde
+            geçerlidir. Mağazadan teslim alma seçeneğinde teslimat ücreti alınmaz.
           </p>
           <p>
             Buca dışındaki ilçelere teslimat ücreti {formatPrice(DELIVERY_FEE_OTHER_DISTRICT)}
