@@ -18,6 +18,19 @@ import { describe, expect, it } from 'vitest';
 const ROUTES = path.resolve(import.meta.dirname, '../../routes');
 const COMPONENTS = path.resolve(import.meta.dirname, '..');
 const FEATURES = path.resolve(import.meta.dirname, '../../features');
+const SRC = path.resolve(import.meta.dirname, '../..');
+
+/** `src/` altındaki tüm kaynak dosyalar; testler hariç. */
+function sourceFiles(dir: string = SRC, prefix = ''): { name: string; source: string }[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) return sourceFiles(full, `${prefix}${entry.name}/`);
+    if (!/\.tsx?$/.test(entry.name) || entry.name.includes('.test.')) return [];
+
+    return [{ name: `${prefix}${entry.name}`, source: readFileSync(full, 'utf8') }];
+  });
+}
 
 /**
  * Tüm sayfa dosyaları, ALT DİZİNLER DAHİL.
@@ -218,6 +231,22 @@ describe('Arayüz tutarlılığı', () => {
       .filter(
         ({ source }) => !source.includes('PageHeader') && !source.includes('useDocumentTitle'),
       )
+      .map(({ name }) => name);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('uygulama kodu Node API kullanmaz', () => {
+    /*
+      Bu paketin `tsconfig` dosyası `node` tiplerini yükler: iki denetim testi
+      (`routing`, `consistency`) kaynak ağacını diskten okur ve testler Node'da
+      koşar. Bedeli, tarayıcıda çalışan kodun `node:fs` yazıp tip kontrolünden
+      geçebilmesi — Vite bunu ancak paketleme sırasında, uyarı olarak bildirir.
+
+      Kural bu yüzden burada: testler Node'a erişir, uygulama kodu erişemez.
+    */
+    const offenders = sourceFiles()
+      .filter(({ source }) => /from 'node:|require\('node:/.test(source))
       .map(({ name }) => name);
 
     expect(offenders).toEqual([]);
