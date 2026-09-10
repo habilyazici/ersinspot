@@ -242,6 +242,42 @@ ettiği ile formun izin verdiği ayrışamaz.
 
 ---
 
+## Kural 7: Arayüzün SÖYLEDİĞİ kural, paylaşılan pakette durur
+
+Bir kuralı yalnızca sunucuda uygulamak yetmez; arayüz o kuralı kullanıcıya
+anlatıyorsa aynı yerden okumalıdır. Aksi halde iki taraf ayrışır ve kullanıcı
+sınırı ancak bir hata mesajıyla öğrenir.
+
+Denetimde bulunan örnekler:
+
+| Kural                    | Nerede uygulanıyordu      | Arayüzde nasıl duruyordu               |
+| ------------------------ | ------------------------- | -------------------------------------- |
+| Şifrenin asgari uzunluğu | `passwordSchema`          | Üç formda elle yazılmış "10 karakter"  |
+| Ödeme süresi             | `RESERVATION_DURATION_MS` | Sipariş sayfasında elle "üç gün"       |
+| Teklifin geçerlilik sonu | `isQuoteExpired` (sunucu) | Hiç bilinmiyordu; kabul düğmesi açıktı |
+
+Üçü de artık `@ersinspot/shared` içindedir ve iki taraf aynı değeri okur.
+
+---
+
+## Kural 8: Her ucun bir çağıranı, her çağrının bir ucu vardır
+
+Sunucuda uç yazmak bir özelliği bitirmez. Denetimde DÖRT özellik sunucusu tam,
+arayüzü hiç yazılmamış hâlde bulundu: nakliye talebi fotoğrafları, satış
+talebinin ürüne dönüştürülmesi, iletişim formu ve taslak blog yazısının
+okunması. Hepsi tip denetiminden, linten ve testlerden geçiyordu — çünkü hiçbir
+şey iki tarafı karşılaştırmıyordu.
+
+`apps/web/src/routing.test.ts` artık iki yönü de denetler:
+
+- Her `apiRequest('/api/...')` adresi sunucuda tanımlı bir uca çözülmelidir.
+  Yolu yanlış yazmak düz bir dize hatasıdır; yalnızca o ekran açıldığında 404
+  olarak görünür.
+- Sunucudaki her uç bir ekrandan çağrılmalıdır. Çağrılmayanlar testin içindeki
+  kısa listede GEREKÇESİYLE bildirilir; liste bilinçli olarak dardır.
+
+---
+
 ## Paylaşılan paket (`@ersinspot/shared`)
 
 Sunucu ve tarayıcının paylaştığı sözleşme. İki bölümden oluşur:
