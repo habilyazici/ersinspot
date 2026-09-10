@@ -69,7 +69,7 @@ export default function MyOrdersPage() {
                     <p className="mt-1 text-xs text-slate-500">{formatDate(order.createdAt)}</p>
                   </div>
 
-                  <p className="shrink-0 self-center font-semibold text-brand-orange-600">
+                  <p className="shrink-0 self-center font-semibold text-brand-orange-700">
                     {formatPrice(order.total)}
                   </p>
                 </Link>

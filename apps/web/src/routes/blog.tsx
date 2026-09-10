@@ -71,7 +71,7 @@ export default function BlogPage() {
 
       {tags === undefined || tags.length === 0 ? null : (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
             Etiketler
           </span>
 
@@ -134,7 +134,7 @@ export default function BlogPage() {
                   </div>
 
                   <div className="flex flex-1 flex-col gap-2 p-4">
-                    <p className="text-xs font-medium uppercase tracking-wide text-brand-orange-600">
+                    <p className="text-xs font-medium uppercase tracking-wide text-brand-orange-700">
                       {BLOG_CATEGORY_LABELS[post.category]}
                     </p>
 

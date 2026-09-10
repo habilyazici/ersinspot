@@ -447,7 +447,7 @@ export default function MovingPage() {
 
             <div className="flex justify-between gap-4 border-t border-slate-200 pt-2 text-base">
               <dt className="font-semibold text-slate-900">Tahmin</dt>
-              <dd className="font-bold text-brand-orange-600">{formatPrice(estimate.total)}</dd>
+              <dd className="font-bold text-brand-orange-700">{formatPrice(estimate.total)}</dd>
             </div>
           </dl>
 

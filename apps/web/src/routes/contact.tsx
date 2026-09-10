@@ -178,7 +178,7 @@ export default function ContactPage() {
                 value: (
                   <a
                     href={phoneUtils.toTelHref(contactPhone)}
-                    className="flex items-center gap-2 hover:text-brand-orange-600"
+                    className="flex items-center gap-2 hover:text-brand-orange-700"
                   >
                     <Phone className="size-4 shrink-0" aria-hidden="true" />
                     {phoneUtils.format(contactPhone)}
@@ -191,7 +191,7 @@ export default function ContactPage() {
                 value: (
                   <a
                     href={`mailto:${contactEmail}`}
-                    className="flex items-center gap-2 hover:text-brand-orange-600"
+                    className="flex items-center gap-2 hover:text-brand-orange-700"
                   >
                     <Mail className="size-4 shrink-0" aria-hidden="true" />
                     {contactEmail}

@@ -167,7 +167,7 @@ export default function RequestDetailPage() {
             </p>
           ) : (
             <>
-              <p className="text-2xl font-bold text-brand-orange-600">
+              <p className="text-2xl font-bold text-brand-orange-700">
                 {formatPrice(request.quote.amount)}
               </p>
 

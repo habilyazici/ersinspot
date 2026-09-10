@@ -265,7 +265,7 @@ export default function TechnicalServicePage() {
             Keşif Ücreti
           </h2>
 
-          <p className="text-2xl font-bold text-brand-orange-600">{formatPrice(INSPECTION_FEE)}</p>
+          <p className="text-2xl font-bold text-brand-orange-700">{formatPrice(INSPECTION_FEE)}</p>
 
           <p className="text-sm text-slate-600">
             Teknisyenimizin adresinize gelip arızayı yerinde incelemesinin ücretidir. Onarımı bize

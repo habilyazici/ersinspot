@@ -26,7 +26,7 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
       <p className="max-w-md text-sm text-slate-600">{message}</p>
 
       {isApi && error.traceId !== undefined ? (
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-slate-500">
           Destek kodu: <span className="font-mono">{error.traceId}</span>
         </p>
       ) : null}

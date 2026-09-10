@@ -104,7 +104,7 @@ export default function CartPage() {
                 {/* Kalemden ürün sayfasına dönüş: fiyat veya durum değiştiyse
                     kullanıcı ayrıntıyı oradan görür. */}
                 <h2 className="truncate font-medium text-slate-900">
-                  <Link to={`/urun/${item.slug}`} className="hover:text-brand-orange-600">
+                  <Link to={`/urun/${item.slug}`} className="hover:text-brand-orange-700">
                     {item.title}
                   </Link>
                 </h2>
@@ -117,7 +117,7 @@ export default function CartPage() {
                   )}
                 </div>
 
-                <p className="mt-2 font-semibold text-brand-orange-600">
+                <p className="mt-2 font-semibold text-brand-orange-700">
                   {formatPrice(item.price)}
                 </p>
               </div>

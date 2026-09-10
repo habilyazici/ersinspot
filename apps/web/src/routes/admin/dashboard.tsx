@@ -50,7 +50,7 @@ function StatCard({
         <span
           className={
             tone === 'attention' && value !== undefined && value > 0
-              ? 'flex size-11 shrink-0 items-center justify-center rounded-lg bg-brand-orange-50 text-brand-orange-600'
+              ? 'flex size-11 shrink-0 items-center justify-center rounded-lg bg-brand-orange-50 text-brand-orange-700'
               : 'flex size-11 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500'
           }
         >

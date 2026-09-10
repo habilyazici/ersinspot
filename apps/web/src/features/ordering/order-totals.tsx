@@ -38,7 +38,7 @@ export function OrderTotals({ subtotal, deliveryFee, total }: OrderTotalsProps) 
 
       <div className="flex justify-between gap-4 border-t border-slate-200 pt-2 text-base">
         <dt className="font-semibold text-slate-900">Toplam</dt>
-        <dd className="font-bold text-brand-orange-600">{formatPrice(total)}</dd>
+        <dd className="font-bold text-brand-orange-700">{formatPrice(total)}</dd>
       </div>
     </dl>
   );

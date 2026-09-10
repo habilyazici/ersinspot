@@ -20,7 +20,16 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-brand-orange-500 text-white hover:bg-brand-orange-600 shadow-sm',
+        /*
+          Zemin 700, 500 DEĞİL.
+
+          Beyaz metin `brand-orange-500` üzerinde 2.8:1 kontrast veriyordu;
+          WCAG AA normal metin için 4.5:1 ister. Sitedeki her birincil
+          eylem — "Sepete ekle", "Siparişi Onayla", "Giriş Yap" — eşiğin
+          altındaydı. 700 tonu her iki yönde de 5.18:1 verir ve marka
+          rengini terk etmez.
+        */
+        primary: 'bg-brand-orange-700 text-white hover:bg-brand-orange-800 shadow-sm',
         secondary: 'bg-brand-navy-800 text-white hover:bg-brand-navy-700 shadow-sm',
         outline: 'border border-slate-300 bg-white text-slate-900 hover:bg-slate-50',
         ghost: 'text-slate-700 hover:bg-slate-100',

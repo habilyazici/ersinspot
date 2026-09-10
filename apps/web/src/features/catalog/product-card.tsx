@@ -89,13 +89,13 @@ export function ProductCard({
           */}
           <Link
             to={`/urun/${product.slug}`}
-            className="after:absolute after:inset-0 after:content-[''] hover:text-brand-orange-600"
+            className="after:absolute after:inset-0 after:content-[''] hover:text-brand-orange-700"
           >
             {product.title}
           </Link>
         </h3>
 
-        <p className="mt-auto pt-2 text-lg font-bold text-brand-orange-600">
+        <p className="mt-auto pt-2 text-lg font-bold text-brand-orange-700">
           {formatPrice(product.price)}
         </p>
       </div>

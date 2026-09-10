@@ -123,7 +123,7 @@ export default function ProductDetailPage() {
 
           <p className="mt-1 text-sm text-slate-600">{formatBrandAndCategory(product)}</p>
 
-          <p className="mt-6 text-3xl font-bold text-brand-orange-600">
+          <p className="mt-6 text-3xl font-bold text-brand-orange-700">
             {formatPrice(product.price)}
           </p>
 

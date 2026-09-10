@@ -131,7 +131,7 @@ export default function AdminOrdersPage() {
                     </p>
                   </div>
 
-                  <p className="shrink-0 self-center font-semibold tabular-nums text-brand-orange-600">
+                  <p className="shrink-0 self-center font-semibold tabular-nums text-brand-orange-700">
                     {formatPrice(order.total)}
                   </p>
                 </Link>

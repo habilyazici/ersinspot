@@ -132,7 +132,7 @@ export default function AdminProductsPage() {
                 <div className="min-w-0 flex-1">
                   <Link
                     to={`/yonetim/urunler/${product.id}`}
-                    className="text-sm font-medium text-slate-900 hover:text-brand-orange-600"
+                    className="text-sm font-medium text-slate-900 hover:text-brand-orange-700"
                   >
                     {product.title}
                   </Link>
@@ -150,7 +150,7 @@ export default function AdminProductsPage() {
                   </p>
                 </div>
 
-                <p className="shrink-0 font-semibold tabular-nums text-brand-orange-600">
+                <p className="shrink-0 font-semibold tabular-nums text-brand-orange-700">
                   {formatPrice(product.price)}
                 </p>
 

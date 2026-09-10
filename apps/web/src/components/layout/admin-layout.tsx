@@ -62,7 +62,7 @@ export function AdminLayout() {
   return (
     <PageContainer width="wide" className="grid gap-6 lg:grid-cols-[15rem_1fr]">
       <nav aria-label="Yönetim menüsü" className="lg:sticky lg:top-20 lg:h-fit">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Yönetim</p>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Yönetim</p>
 
         <ul className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
           {visibleLinks.map((link) => (
