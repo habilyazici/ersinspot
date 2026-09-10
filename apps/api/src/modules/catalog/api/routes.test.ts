@@ -324,6 +324,60 @@ describe('markalar', () => {
 
     expect(payload.brands.map((brand) => brand.slug)).toEqual(['arcelik']);
   });
+
+  it('Türkçe alfabeye göre sıralar', async () => {
+    /*
+      Veritabanının harmanlaması bu işi yapmıyor: imaj alpine, musl yerel ayar
+      tablolarını uygulamıyor ve karşılaştırma bayt sırasına düşüyor. Türkçe
+      harfler UTF-8'de iki bayt olduğu için ASCII ile başlayan HER ad öne
+      geçiyor — "Çağrı" ve "Öztiryakiler" listede "Zebra"dan sonra görünüyordu.
+      Sıralamayı sorgu, ICU harmanlamasını isteyerek kendisi sağlar.
+    */
+    const [category] = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(eq(categories.slug, 'buzdolabi'));
+
+    if (category === undefined) throw new Error('Kategori bulunamadı.');
+
+    const eklenecek = [
+      { name: 'Zebra', slug: 'zebra' },
+      { name: 'Öztiryakiler', slug: 'oztiryakiler' },
+      { name: 'Çağrı', slug: 'cagri' },
+      { name: 'Şahin', slug: 'sahin' },
+      { name: 'Islak', slug: 'islak' },
+    ];
+
+    for (const [index, marka] of eklenecek.entries()) {
+      const [row] = await db.insert(brands).values(marka).returning({ id: brands.id });
+      if (row === undefined) throw new Error('Marka oluşturulamadı.');
+
+      // Marka listesi yalnızca ÜRÜNÜ OLAN markaları döndürür.
+      await db.insert(products).values({
+        title: `${marka.name} ürünü`,
+        slug: `${marka.slug}-urunu`,
+        description: 'Sıralama denetimi için eklenen kayıt. Ürün açıklaması alanı doldurulmuştur.',
+        priceKurus: 100_000 + index,
+        condition: 'good',
+        status: 'for_sale',
+        warrantyMonths: 0,
+        categoryId: category.id,
+        brandId: row.id,
+      });
+    }
+
+    const response = await request('/api/brands');
+    const payload = (await response.json()) as { brands: { name: string }[] };
+
+    expect(payload.brands.map((brand) => brand.name)).toEqual([
+      'Arçelik',
+      'Çağrı',
+      'Islak',
+      'Öztiryakiler',
+      'Şahin',
+      'Zebra',
+    ]);
+  });
 });
 
 // ---------------------------------------------------------------------------

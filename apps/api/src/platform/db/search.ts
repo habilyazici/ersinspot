@@ -1,5 +1,5 @@
 /**
- * Metin arama desenleri.
+ * Metin arama desenleri ve Türkçe sıralama.
  *
  * Liste ekranlarındaki arama kutuları `ILIKE` ile kısmi eşleşme yapar. Desen
  * parametreli gönderilir, yani SQL enjeksiyonu söz konusu değildir — ama
@@ -44,4 +44,29 @@ function escapePattern(value: string): string {
  */
 export function contains(column: PgColumn, search: string): SQL {
   return sql`${column} ILIKE ${`%${escapePattern(search)}%`} ESCAPE ${ESCAPE_CHARACTER}`;
+}
+
+/**
+ * Türkçe alfabetik sıralama.
+ *
+ * Veritabanının kendi harmanlaması bu işi YAPMIYOR. `docker-compose.yml`
+ * `LANG=tr_TR.utf8` veriyor ve PostgreSQL bunu `datcollate` olarak kaydediyor,
+ * ama imaj alpine (musl libc) ve musl yerel ayar tablolarını uygulamaz:
+ * karşılaştırma bayt sırasına düşer. Sonuç, Türkçe harfle başlayan her adın
+ * listenin sonuna atılmasıdır —
+ *
+ *   bayt sırası : iğne < zebra < çilek < ördek < ıhlamur < şeker
+ *   Türkçe      : çilek < ıhlamur < iğne < ördek < şeker < zebra
+ *
+ * — çünkü ASCII harfler tek bayt, Türkçe harfler iki bayttır. "Çağrı" ve
+ * "Öztiryakiler" marka listesinde Z'den sonra görünür.
+ *
+ * PostgreSQL 16 ICU ile derlenir ve `tr-TR-x-icu` harmanlaması hazırdır; onu
+ * sorguda İSTEMEK, veritabanının nasıl kurulduğundan bağımsız olarak doğru
+ * sırayı verir. Alternatifi veritabanını farklı bir yerel ayarla yeniden
+ * kurmaktı; o da mevcut kurulumları migration gerektirir ve üretimdeki imajın
+ * hangi libc'yi taşıdığına bağlı kalırdı.
+ */
+export function turkishAsc(column: PgColumn): SQL {
+  return sql`${column} COLLATE "tr-TR-x-icu" ASC`;
 }

@@ -22,7 +22,7 @@ import type {
   UpdateBlogPostInput,
 } from '@ersinspot/shared';
 import { paginate } from '@ersinspot/shared';
-import { contains } from '../../../platform/db/search.ts';
+import { contains, turkishAsc } from '../../../platform/db/search.ts';
 import { db } from '../../../platform/db/client.ts';
 import type { Transaction } from '../../../platform/db/client.ts';
 import { alreadyExists, notFound } from '../../../platform/errors/index.ts';
@@ -502,7 +502,7 @@ export async function listTags(): Promise<{ name: string; slug: string; postCoun
       and(eq(blogPostTags.postId, blogPosts.id), eq(blogPosts.isPublished, true)),
     )
     .groupBy(tags.id, tags.name, tags.slug)
-    .orderBy(desc(publishedPostCount), asc(tags.name));
+    .orderBy(desc(publishedPostCount), turkishAsc(tags.name));
 
   return rows.filter((row) => row.postCount > 0);
 }

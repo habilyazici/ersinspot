@@ -10,6 +10,7 @@ import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { PUBLICLY_VISIBLE_PRODUCT_STATUSES } from '@ersinspot/shared';
 import type { BrandSummary, CategoryNode } from '@ersinspot/shared';
 import { db } from '../../../platform/db/client.ts';
+import { turkishAsc } from '../../../platform/db/search.ts';
 import { resolveStorageUrl } from '../../../platform/storage.ts';
 import { brands, categories, products } from '../infrastructure/schema.ts';
 
@@ -110,7 +111,7 @@ export async function listBrands(): Promise<BrandSummary[]> {
     .from(brands)
     .leftJoin(products, eq(products.brandId, brands.id))
     .groupBy(brands.id, brands.name, brands.slug, brands.logoStorageKey)
-    .orderBy(asc(brands.name));
+    .orderBy(turkishAsc(brands.name));
 
   return rows
     .filter((row) => row.productCount > 0)

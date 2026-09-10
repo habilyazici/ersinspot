@@ -7,7 +7,12 @@ services:
       POSTGRES_USER: ersinspot
       POSTGRES_PASSWORD: ersinspot_dev
       POSTGRES_DB: ersinspot
-      # Türkçe sıralama ve arama için gerekli
+      # NOT: alpine imajı musl libc taşır ve yerel ayar tablolarını uygulamaz.
+      # PostgreSQL bu değeri `datcollate` olarak kaydeder ama karşılaştırma
+      # bayt sırasına düşer — "Çağrı" marka listesinde Z'den sonra gelir.
+      # Türkçe sıralamayı gereken sorgular ICU harmanlamasını kendisi ister
+      # (`turkishAsc`, apps/api/src/platform/db/search.ts). Değer yine de
+      # veriliyor: hata mesajları ve tarih biçimleri bundan etkilenir.
       LANG: tr_TR.utf8
     ports:
       - '5432:5432'
