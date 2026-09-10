@@ -127,7 +127,7 @@ export default function ContactPage() {
                 label="Telefon"
                 type="tel"
                 autoComplete="tel"
-                placeholder="0507 194 05 50"
+                placeholder={phoneUtils.PLACEHOLDER}
                 hint="İsteğe bağlı. Yazarsanız telefonla da dönebiliriz."
                 error={errors.phone?.message}
                 {...register('phone', {

@@ -24,6 +24,7 @@ import {
   WARRANTY_STATUS_LABELS,
   createTechnicalServiceRequestSchema,
   dateAfterDays,
+  phone,
 } from '@ersinspot/shared';
 import type { CreateTechnicalServiceRequestInput } from '@ersinspot/shared';
 import { AddressFields } from '@/components/ui/address-fields.tsx';
@@ -130,7 +131,7 @@ export default function TechnicalServicePage() {
                 required
                 type="tel"
                 autoComplete="tel"
-                placeholder="0507 194 05 50"
+                placeholder={phone.PLACEHOLDER}
                 hint="Keşif randevusu için sizi bu numaradan arayacağız."
                 error={errors.contact?.phone?.message}
                 {...register('contact.phone')}

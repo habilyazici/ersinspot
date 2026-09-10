@@ -47,6 +47,17 @@ export function normalize(input: string): PhoneNumber | null {
 }
 
 /**
+ * Form alanlarında gösterilen biçim ipucu.
+ *
+ * Gerçek bir numara DEĞİLDİR ve olmamalıdır: alanlar müşterinin kendi numarasını
+ * ister, işletmenin numarası ise aynı ekranda "Bize ulaşın" kartında yazar.
+ * Oraya örnek olarak işletme numarası yazılınca alan doldurulmuş gibi okunuyordu.
+ *
+ * Maske `format` çıktısıyla aynı şekildedir; ikisi birlikte değişmelidir.
+ */
+export const PLACEHOLDER = '05XX XXX XX XX';
+
+/**
  * Kanonik numarayı okunabilir biçime çevirir: "0507 194 05 50".
  * Geçersiz bir değer verilirse olduğu gibi döndürür — ekranda hiçbir zaman boş görünmez.
  */

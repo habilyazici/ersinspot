@@ -28,6 +28,7 @@ import {
   createMovingRequestSchema,
   dateAfterDays,
   estimateMoving,
+  phone,
 } from '@ersinspot/shared';
 import type { CreateMovingRequestInput } from '@ersinspot/shared';
 import { AddressFields } from '@/components/ui/address-fields.tsx';
@@ -190,7 +191,7 @@ export default function MovingPage() {
                 required
                 type="tel"
                 autoComplete="tel"
-                placeholder="0507 194 05 50"
+                placeholder={phone.PLACEHOLDER}
                 hint="Keşif ve teklif için sizi bu numaradan arayacağız."
                 error={errors.contact?.phone?.message}
                 {...register('contact.phone')}

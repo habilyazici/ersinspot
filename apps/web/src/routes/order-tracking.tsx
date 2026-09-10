@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { PackageSearch } from 'lucide-react';
-import { ORDER_STATUS_LABELS } from '@ersinspot/shared';
+import { ORDER_STATUS_LABELS, phone as phoneUtils } from '@ersinspot/shared';
 import { Card, Timeline } from '@/components/ui/card.tsx';
 import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
 import { Button } from '@/components/ui/button.tsx';
@@ -72,7 +72,7 @@ export default function OrderTrackingPage() {
             onChange={(event) => {
               setPhone(event.target.value);
             }}
-            placeholder="0507 194 05 50"
+            placeholder={phoneUtils.PLACEHOLDER}
             hint="Siparişi verirken bildirdiğiniz numara."
             autoComplete="tel"
           />

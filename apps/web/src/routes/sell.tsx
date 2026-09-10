@@ -22,6 +22,7 @@ import {
   PRODUCT_CONDITION_LABELS,
   createSellRequestSchema,
   money,
+  phone,
 } from '@ersinspot/shared';
 import type { CreateSellRequestInput } from '@ersinspot/shared';
 import { AddressFields } from '@/components/ui/address-fields.tsx';
@@ -129,7 +130,7 @@ export default function SellPage() {
                 required
                 type="tel"
                 autoComplete="tel"
-                placeholder="0507 194 05 50"
+                placeholder={phone.PLACEHOLDER}
                 hint="Değerlendirme sonrası sizi bu numaradan arayacağız."
                 error={errors.contact?.phone?.message}
                 {...register('contact.phone')}

@@ -29,6 +29,7 @@ import {
   createOrderSchema,
   dateAfterDays,
   money,
+  phone,
 } from '@ersinspot/shared';
 import type { CreateOrderInput, IzmirDistrict } from '@ersinspot/shared';
 import { AddressFields } from '@/components/ui/address-fields.tsx';
@@ -276,7 +277,7 @@ export default function CheckoutPage() {
                 required
                 type="tel"
                 autoComplete="tel"
-                placeholder="0507 194 05 50"
+                placeholder={phone.PLACEHOLDER}
                 hint="Teslimat öncesi sizi bu numaradan arayacağız."
                 error={errors.contact?.phone?.message}
                 {...register('contact.phone')}

@@ -2,7 +2,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ApiError, PASSWORD_HINT, registerSchema } from '@ersinspot/shared';
+import { ApiError, PASSWORD_HINT, registerSchema, phone } from '@ersinspot/shared';
 import type { RegisterInput } from '@ersinspot/shared';
 
 type RegisterFormValues = RegisterInput;
@@ -122,7 +122,7 @@ export default function RegisterPage() {
             type={field.type}
             required
             autoComplete={field.autoComplete}
-            placeholder={field.name === 'phone' ? '0507 194 05 50' : undefined}
+            placeholder={field.name === 'phone' ? phone.PLACEHOLDER : undefined}
             hint={'hint' in field ? field.hint : undefined}
             error={errors[field.name]?.message}
             {...register(field.name)}
