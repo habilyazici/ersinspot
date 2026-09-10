@@ -28,6 +28,19 @@ interface FieldWrapperProps {
     inputId: string;
     describedBy: string | undefined;
     invalid: boolean;
+    /**
+     * `aria-required` değeri.
+     *
+     * `required` özelliği yalnızca kırmızı yıldızı çiziyordu ve o yıldız
+     * `aria-hidden` — yani ekran okuyucu kullanıcısı bir alanın zorunlu
+     * olduğunu ancak formu gönderip hata aldıktan sonra öğreniyordu.
+     *
+     * Yerel `required` ÖZNİTELİĞİ verilmez: tarayıcı kendi doğrulamasını
+     * devreye sokar, gönderimi keser ve kendi dilinde bir baloncuk gösterir.
+     * Uygulamanın Türkçe mesajları ve tek doğrulama kaynağı (zod) o noktada
+     * devre dışı kalırdı. `aria-required` bilgiyi verir, davranışı değiştirmez.
+     */
+    ariaRequired: true | undefined;
   }) => ReactNode;
   className?: string;
 }
@@ -62,7 +75,12 @@ export function FormField({
         ) : null}
       </label>
 
-      {children({ inputId, describedBy, invalid: error !== undefined })}
+      {children({
+        inputId,
+        describedBy,
+        invalid: error !== undefined,
+        ariaRequired: required ? true : undefined,
+      })}
 
       {error === undefined ? (
         hint === undefined ? null : (
@@ -100,12 +118,13 @@ export const TextField = forwardRef<
 >(function TextField({ label, hint, error, required, className, ...props }, ref) {
   return (
     <FormField label={label} hint={hint} error={error} required={required} className={className}>
-      {({ inputId, describedBy, invalid }) => (
+      {({ inputId, describedBy, invalid, ariaRequired }) => (
         <input
           ref={ref}
           id={inputId}
           aria-describedby={describedBy}
           aria-invalid={invalid}
+          aria-required={ariaRequired}
           className={inputClass}
           {...props}
         />
@@ -121,12 +140,13 @@ export const SelectField = forwardRef<
 >(function SelectField({ label, hint, error, required, className, children, ...props }, ref) {
   return (
     <FormField label={label} hint={hint} error={error} required={required} className={className}>
-      {({ inputId, describedBy, invalid }) => (
+      {({ inputId, describedBy, invalid, ariaRequired }) => (
         <select
           ref={ref}
           id={inputId}
           aria-describedby={describedBy}
           aria-invalid={invalid}
+          aria-required={ariaRequired}
           className={inputClass}
           {...props}
         >
@@ -144,13 +164,14 @@ export const TextAreaField = forwardRef<
 >(function TextAreaField({ label, hint, error, required, className, ...props }, ref) {
   return (
     <FormField label={label} hint={hint} error={error} required={required} className={className}>
-      {({ inputId, describedBy, invalid }) => (
+      {({ inputId, describedBy, invalid, ariaRequired }) => (
         <textarea
           ref={ref}
           id={inputId}
           rows={4}
           aria-describedby={describedBy}
           aria-invalid={invalid}
+          aria-required={ariaRequired}
           className={inputClass}
           {...props}
         />
