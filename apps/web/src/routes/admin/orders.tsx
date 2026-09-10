@@ -10,13 +10,12 @@
 import { Link } from 'react-router-dom';
 import { ImageOff, Search, ShoppingBag } from 'lucide-react';
 import { ORDER_STATUSES, ORDER_STATUS_LABELS } from '@ersinspot/shared';
-import type { OrderStatus } from '@ersinspot/shared';
 import { Card } from '@/components/ui/card.tsx';
 import { Button } from '@/components/ui/button.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
-import { useListFilters } from '@/lib/list-filters.ts';
+import { enumParam, useListFilters } from '@/lib/list-filters.ts';
 import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
 import { SearchField } from '@/components/ui/search-field.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
@@ -27,7 +26,7 @@ import { useAdminOrders } from '@/features/ordering';
 export default function AdminOrdersPage() {
   const { params, page, hasActiveFilters, setFilter, clearFilters } = useListFilters();
 
-  const status = (params.get('durum') ?? undefined) as OrderStatus | undefined;
+  const status = enumParam(params.get('durum'), ORDER_STATUSES);
   const search = params.get('ara') ?? '';
 
   const { data, isLoading, isError, error, refetch } = useAdminOrders({

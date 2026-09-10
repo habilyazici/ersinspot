@@ -25,7 +25,7 @@ import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { SelectField } from '@/components/ui/form-field.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
-import { useListFilters } from '@/lib/list-filters.ts';
+import { enumParam, useListFilters } from '@/lib/list-filters.ts';
 import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
 import { SearchField } from '@/components/ui/search-field.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
@@ -36,7 +36,7 @@ import { useAdminProducts, useUpdateProductStatus } from '@/features/catalog';
 export default function AdminProductsPage() {
   const { params, page, hasActiveFilters, setFilter, clearFilters } = useListFilters();
 
-  const status = (params.get('durum') ?? undefined) as ProductStatus | undefined;
+  const status = enumParam(params.get('durum'), PRODUCT_STATUSES);
   const search = params.get('ara') ?? '';
 
   const { data, isLoading, isError, error, refetch } = useAdminProducts({

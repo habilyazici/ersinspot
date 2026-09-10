@@ -15,13 +15,13 @@ import {
   SERVICE_KINDS,
   SERVICE_KIND_LABELS,
 } from '@ersinspot/shared';
-import type { RequestStatus, ServiceKind } from '@ersinspot/shared';
+import type { ServiceKind } from '@ersinspot/shared';
 import { Card } from '@/components/ui/card.tsx';
 import { Button } from '@/components/ui/button.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
-import { useListFilters } from '@/lib/list-filters.ts';
+import { enumParam, useListFilters } from '@/lib/list-filters.ts';
 import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
 import { SearchField } from '@/components/ui/search-field.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
@@ -38,8 +38,8 @@ const KIND_ICONS: Readonly<Record<ServiceKind, typeof Home>> = {
 export default function AdminRequestsPage() {
   const { params, page, hasActiveFilters, setFilter, clearFilters } = useListFilters();
 
-  const status = (params.get('durum') ?? undefined) as RequestStatus | undefined;
-  const kind = (params.get('tur') ?? undefined) as ServiceKind | undefined;
+  const status = enumParam(params.get('durum'), REQUEST_STATUSES);
+  const kind = enumParam(params.get('tur'), SERVICE_KINDS);
   const search = params.get('ara') ?? '';
 
   const { data, isLoading, isError, error, refetch } = useAdminRequests({

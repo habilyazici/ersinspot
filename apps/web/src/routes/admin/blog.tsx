@@ -25,7 +25,7 @@ import { ErrorState } from '@/components/ui/error-state.tsx';
 import { SelectField, TextAreaField, TextField } from '@/components/ui/form-field.tsx';
 import { Markdown } from '@/components/ui/markdown.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
-import { useListFilters } from '@/lib/list-filters.ts';
+import { enumParam, useListFilters } from '@/lib/list-filters.ts';
 import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
 import { SearchField } from '@/components/ui/search-field.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
@@ -62,7 +62,7 @@ const EMPTY: FormState = {
 export default function AdminBlogPage() {
   const { params, page, hasActiveFilters, setFilter, clearFilters } = useListFilters();
 
-  const category = (params.get('kategori') ?? undefined) as BlogCategory | undefined;
+  const category = enumParam(params.get('kategori'), BLOG_CATEGORIES);
   const search = params.get('ara') ?? '';
 
   const { data, isLoading, isError, error, refetch } = useAdminBlogPosts({

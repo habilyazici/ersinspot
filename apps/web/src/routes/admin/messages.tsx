@@ -14,14 +14,13 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Mail, MailOpen } from 'lucide-react';
 import { ApiError, CONTACT_SUBJECTS, CONTACT_SUBJECT_LABELS } from '@ersinspot/shared';
-import type { ContactSubject } from '@ersinspot/shared';
 import { Button } from '@/components/ui/button.tsx';
 import { Card, DetailList } from '@/components/ui/card.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { TextAreaField } from '@/components/ui/form-field.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
-import { useListFilters } from '@/lib/list-filters.ts';
+import { enumParam, useListFilters } from '@/lib/list-filters.ts';
 import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { formatDateTime } from '@/lib/format.ts';
@@ -30,7 +29,7 @@ import { useContactMessages, useMarkMessageRead, useReplyToMessage } from '@/fea
 export default function AdminMessagesPage() {
   const { params, page, hasActiveFilters, setFilter, clearFilters } = useListFilters();
 
-  const subject = (params.get('konu') ?? undefined) as ContactSubject | undefined;
+  const subject = enumParam(params.get('konu'), CONTACT_SUBJECTS);
 
   const { data, isLoading, isError, error, refetch } = useContactMessages({
     page,
