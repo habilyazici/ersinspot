@@ -59,10 +59,18 @@ export const createContactMessageSchema = z.object({
   }),
   message: requiredText('Mesaj', 20, 3000),
   /**
-   * Bot tuzağı: gerçek kullanıcıya görünmeyen alan. Doldurulmuşsa istek sessizce
-   * başarılı gibi yanıtlanır ama kaydedilmez.
+   * Bot tuzağı: gerçek kullanıcıya görünmeyen alan.
+   *
+   * Alan DOLU OLSA DA doğrulamayı geçer; kararı sunucu verir ve isteği sessizce
+   * yok sayıp başarılı yanıt döner (`isLikelyBot`). Amaç, otomatik aracın
+   * engellendiğini anlamaması ve yeni bir yöntem denememesidir.
+   *
+   * Şema burada `.max(0)` diyordu: tuzağa düşen istek doğrulamada 400 alıyor ve
+   * yanıt HANGİ ALANIN ele verdiğini yazıyordu. Handler'a hiç ulaşılmadığı için
+   * `isLikelyBot` de hiçbir zaman çalışmıyordu — sessiz yoksayma diye anlatılan
+   * davranış ulaşılamaz koddu. Üst sınır yalnızca gövdeyi makul tutmak için.
    */
-  website: z.string().max(0).optional(),
+  website: z.string().max(200).optional(),
 });
 
 export type CreateContactMessageInput = z.infer<typeof createContactMessageSchema>;

@@ -24,7 +24,7 @@ import { blogPostSchema, blogPostSummarySchema, faqSchema } from '@ersinspot/sha
 import { eq } from 'drizzle-orm';
 import { db } from '../../../platform/db/client.ts';
 import { createTestUser, loginAs, request, resetDatabase } from '../../../test/helpers.ts';
-import { blogPostTags, blogPosts, faqs, tags } from '../infrastructure/schema.ts';
+import { blogPostTags, blogPosts, contactMessages, faqs, tags } from '../infrastructure/schema.ts';
 
 let staffCookie: string;
 let customerCookie: string;
@@ -485,6 +485,50 @@ describe('İletişim formu', () => {
     const body = (await response.json()) as { count: number };
 
     expect(body.count).toBe(2);
+  });
+});
+
+describe('iletişim formu bot tuzağı', () => {
+  /** Geçerli bir iletişim mesajı gövdesi. */
+  function contactBody(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      fullName: 'Ayşe Yılmaz',
+      email: 'ayse@ornek.com',
+      subject: 'general',
+      message: 'Buca içinde teslimat yapıyor musunuz? Bir buzdolabı almayı düşünüyorum.',
+      ...overrides,
+    };
+  }
+
+  /**
+   * Tuzağa düşen istek BAŞARILI yanıt alır ama kaydedilmez.
+   *
+   * Şema tuzak alanını `.max(0)` ile reddediyordu: istek doğrulamada 400 alıyor
+   * ve yanıt hangi alanın ele verdiğini yazıyordu. Handler'a hiç ulaşılmadığı
+   * için sessiz yoksayma kuralı (`isLikelyBot`) ulaşılamaz koddu.
+   */
+  it('tuzak doluyken başarı döner ama mesajı kaydetmez', async () => {
+    const response = await request('/api/contact', {
+      method: 'POST',
+      body: JSON.stringify(contactBody({ website: 'http://spam.example' })),
+    });
+
+    expect(response.status).toBe(201);
+
+    const rows = await db.select({ id: contactMessages.id }).from(contactMessages);
+    expect(rows).toHaveLength(0);
+  });
+
+  it('tuzak boşken mesaj kaydedilir', async () => {
+    const response = await request('/api/contact', {
+      method: 'POST',
+      body: JSON.stringify(contactBody()),
+    });
+
+    expect(response.status).toBe(201);
+
+    const rows = await db.select({ id: contactMessages.id }).from(contactMessages);
+    expect(rows).toHaveLength(1);
   });
 });
 

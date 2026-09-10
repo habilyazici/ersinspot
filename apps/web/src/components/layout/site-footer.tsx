@@ -68,6 +68,11 @@ export function SiteFooter() {
               </Link>
             </li>
             <li>
+              <Link to="/iletisim" className="hover:text-brand-orange-600">
+                İletişim
+              </Link>
+            </li>
+            <li>
               <Link to="/kullanim-kosullari" className="hover:text-brand-orange-600">
                 Kullanım Koşulları
               </Link>

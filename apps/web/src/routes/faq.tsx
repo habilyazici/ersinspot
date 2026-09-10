@@ -8,9 +8,11 @@
  * üretmek zorunda kalırdı.
  */
 
+import { Link } from 'react-router-dom';
 import { HelpCircle } from 'lucide-react';
 import { FAQ_CATEGORY_LABELS, FAQ_CATEGORIES } from '@ersinspot/shared';
 import type { Faq, FaqCategory } from '@ersinspot/shared';
+import { Button } from '@/components/ui/button.tsx';
 import { Card } from '@/components/ui/card.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
@@ -52,7 +54,12 @@ export default function FaqPage() {
         <EmptyState
           icon={HelpCircle}
           title="Henüz soru eklenmemiş"
-          description="Aklınıza takılan bir şey varsa iletişim formundan bize ulaşabilirsiniz."
+          description="Aklınıza takılan bir şey varsa bize yazın."
+          action={
+            <Button asChild>
+              <Link to="/iletisim">İletişim formu</Link>
+            </Button>
+          }
           className="mt-8"
         />
       ) : (
