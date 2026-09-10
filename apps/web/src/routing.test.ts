@@ -197,6 +197,85 @@ function serverGeneratedLinks(): { link: string; file: string }[] {
   return found;
 }
 
+// ---------------------------------------------------------------------------
+// API yüzeyi
+// ---------------------------------------------------------------------------
+
+/**
+ * Yönlendiricilerin `app.ts` içinde bağlandığı ön ekler.
+ *
+ * Kimlik uçları `/api/auth` altındadır, diğerleri `/api`; yerel dosya sunumu
+ * `STORAGE_PUBLIC_URL` yolundan gelir ve geliştirmede `/files`tır.
+ */
+const ROUTER_PREFIXES: Readonly<Record<string, string>> = {
+  authRoutes: '/api/auth',
+  localFileRoutes: '/files',
+};
+
+/** Sunucudaki uç yolları, bağlandıkları ön ekle birlikte. */
+function serverRoutePaths(): string[] {
+  const modules = path.join(API_SRC, 'modules');
+
+  return readdirSync(modules, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .flatMap((entry) => {
+      const file = path.join(modules, entry.name, 'api/routes.ts');
+
+      let source: string;
+      try {
+        source = readFileSync(file, 'utf8');
+      } catch {
+        return [];
+      }
+
+      return [...source.matchAll(/^(\w+)\.(?:get|post|put|patch|delete)\(\s*'([^']*)'/gm)].map(
+        (match) => `${ROUTER_PREFIXES[match[1] ?? ''] ?? '/api'}${match[2] ?? ''}`,
+      );
+    });
+}
+
+/** Uç yolunu, somut bir adresi sınayan desene çevirir. */
+function routeToPattern(route: string): RegExp {
+  const body = route
+    // `:key{.+}` — eğik çizgi içerebilen yakalama.
+    .replace(/:[A-Za-z_]\w*\{[^}]*\}/g, '.+')
+    .replace(/:[A-Za-z_]\w*/g, '[^/]+');
+
+  return new RegExp(`^${body.replace(/\/$/, '')}$`);
+}
+
+/** Sunucu uçlarının desenleri. */
+function serverRoutes(): RegExp[] {
+  return serverRoutePaths().map(routeToPattern);
+}
+
+/** Şablon değişkenlerini sabitleyip sorgu dizesini atar. */
+function comparablePath(value: string): string {
+  return (value.replace(/\$\{[^}]*\}/g, 'X').split('?')[0] ?? '').replace(/\/$/, '');
+}
+
+/** `apiRequest` / `apiUpload` ile çağrılan adresler. */
+function clientApiCalls(): { path: string; file: string }[] {
+  const found: { path: string; file: string }[] = [];
+
+  for (const file of sourceFiles(SRC)) {
+    const source = readFileSync(file, 'utf8');
+
+    /*
+      Jenerik argüman atlanır: `apiRequest<Paginated<ProductSummary>>(...)`
+      iç içe `>` taşır ve `<[^>]*>` biçiminde bir desen orada kırılır.
+    */
+    for (const match of source.matchAll(
+      /api(?:Request|Upload)\s*(?:<[\s\S]*?>)?\s*\(\s*[`'"]([^`'"]+)/g,
+    )) {
+      const value = match[1];
+      if (value !== undefined) found.push({ path: value, file: path.relative(SRC, file) });
+    }
+  }
+
+  return found;
+}
+
 describe('Yönlendirme bütünlüğü', () => {
   it('sunucunun e-postada verdiği her adresin bir sayfası vardır', () => {
     const routes = definedRoutes();
@@ -237,6 +316,50 @@ describe('Yönlendirme bütünlüğü', () => {
     const alreadyBuilt = PLANNED_PAGES.filter((link) => isReachable(link, routes));
 
     expect(alreadyBuilt).toEqual([]);
+  });
+
+  /*
+    İstemcinin çağırdığı her adresin sunucuda bir karşılığı vardır.
+
+    `apiRequest('/api/...')` düz bir dizedir: yolu yanlış yazmak tip denetiminden
+    de linten de geçer ve hata ancak o akış tarayıcıda denendiğinde, 404 olarak
+    görünür. Nadiren açılan bir ekranda bu uzun süre fark edilmez.
+
+    Denetim ters yönde de çalışır — sunucunun sunduğu ama hiçbir ekranın
+    çağırmadığı uçlar ayrı bir testte listelenir; bu kod tabanında dört ayrı
+    özellik (nakliye fotoğrafı, satış talebi dönüşümü, iletişim formu, taslak
+    yazı okuma) sunucusu tam ama arayüzü hiç yazılmamış hâlde bulundu.
+  */
+  it('istemcinin çağırdığı her adres sunucuda tanımlıdır', () => {
+    const unmatched = clientApiCalls().filter(
+      ({ path }) => !serverRoutes().some((route) => route.test(comparablePath(path))),
+    );
+
+    expect(unmatched.map(({ path, file }) => `${path}  (${file})`)).toEqual([]);
+  });
+
+  it('sunucudaki her uç bir ekrandan çağrılır', () => {
+    /*
+      İstisnalar, çağrılmamaları BİLİNÇLİ olan uçlardır:
+
+        GET /files/:key   dosya sunumu; `<img src>` ile kullanılır, istemci
+                          kodundan `apiRequest` ile çağrılmaz.
+        GET /api/moving/estimate
+                          tarayıcı aynı hesabı paylaşılan `estimateMoving`
+                          fonksiyonuyla yerinde yapar; uç, tarayıcı dışından
+                          (mobil, üçüncü taraf) sorulabilsin diye durur.
+
+      Liste bilinçli olarak kısa: bir uç buraya yazılmadan arayüzsüz kalamaz.
+    */
+    const INTENTIONALLY_UNCALLED: readonly string[] = ['/files/:key{.+}', '/api/moving/estimate'];
+
+    const called = clientApiCalls().map(({ path }) => comparablePath(path));
+
+    const orphaned = serverRoutePaths()
+      .filter((path) => !INTENTIONALLY_UNCALLED.includes(path))
+      .filter((path) => !called.some((call) => routeToPattern(path).test(call)));
+
+    expect(orphaned).toEqual([]);
   });
 
   it('her rota bir sayfa bileşenine bağlıdır', () => {
