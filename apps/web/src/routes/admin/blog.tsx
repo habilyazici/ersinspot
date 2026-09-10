@@ -364,13 +364,13 @@ export default function AdminBlogPage() {
           title={hasActiveFilters ? 'Sonuç bulunamadı' : 'Henüz yazı yok'}
           description={
             hasActiveFilters
-              ? 'Bu süzgeçle eşleşen yazı bulunmuyor.'
+              ? 'Bu filtreyle eşleşen yazı bulunmuyor.'
               : 'İlk yazıyı ekleyerek başlayın.'
           }
           action={
             hasActiveFilters ? (
               <Button variant="outline" size="sm" onClick={clearFilters}>
-                Süzgeçleri temizle
+                Filtreleri temizle
               </Button>
             ) : undefined
           }

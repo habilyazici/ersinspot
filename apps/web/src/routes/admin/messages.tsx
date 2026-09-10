@@ -81,13 +81,13 @@ export default function AdminMessagesPage() {
           title={hasActiveFilters ? 'Sonuç bulunamadı' : 'Mesaj yok'}
           description={
             hasActiveFilters
-              ? 'Bu süzgeçle eşleşen mesaj bulunmuyor.'
+              ? 'Bu filtreyle eşleşen mesaj bulunmuyor.'
               : 'İletişim formundan gelen mesajlar burada toplanır.'
           }
           action={
             hasActiveFilters ? (
               <Button variant="outline" size="sm" onClick={clearFilters}>
-                Süzgeçleri temizle
+                Filtreleri temizle
               </Button>
             ) : undefined
           }

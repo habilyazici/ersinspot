@@ -95,13 +95,13 @@ export default function AdminProductsPage() {
           title={hasActiveFilters ? 'Sonuç bulunamadı' : 'Ürün yok'}
           description={
             hasActiveFilters
-              ? 'Bu süzgeçle eşleşen ürün bulunmuyor.'
+              ? 'Bu filtreyle eşleşen ürün bulunmuyor.'
               : 'İlk ürünü ekleyerek başlayın.'
           }
           action={
             hasActiveFilters ? (
               <Button variant="outline" size="sm" onClick={clearFilters}>
-                Süzgeçleri temizle
+                Filtreleri temizle
               </Button>
             ) : undefined
           }

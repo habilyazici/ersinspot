@@ -102,13 +102,13 @@ export default function AdminRequestsPage() {
           title={hasActiveFilters ? 'Sonuç bulunamadı' : 'Talep yok'}
           description={
             hasActiveFilters
-              ? 'Bu süzgeçle eşleşen talep bulunmuyor.'
+              ? 'Bu filtreyle eşleşen talep bulunmuyor.'
               : 'Nakliye, teknik servis ve satış talepleri buraya düşer.'
           }
           action={
             hasActiveFilters ? (
               <Button variant="outline" size="sm" onClick={clearFilters}>
-                Süzgeçleri temizle
+                Filtreleri temizle
               </Button>
             ) : undefined
           }

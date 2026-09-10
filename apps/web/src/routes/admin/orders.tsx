@@ -77,13 +77,13 @@ export default function AdminOrdersPage() {
           title={hasActiveFilters ? 'Sonuç bulunamadı' : 'Sipariş yok'}
           description={
             hasActiveFilters
-              ? 'Bu süzgeçle eşleşen sipariş bulunmuyor.'
+              ? 'Bu filtreyle eşleşen sipariş bulunmuyor.'
               : 'Vitrinden sipariş verildiğinde burada görünür.'
           }
           action={
             hasActiveFilters ? (
               <Button variant="outline" size="sm" onClick={clearFilters}>
-                Süzgeçleri temizle
+                Filtreleri temizle
               </Button>
             ) : undefined
           }

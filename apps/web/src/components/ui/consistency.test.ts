@@ -305,6 +305,31 @@ describe('Arayüz tutarlılığı', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('aynı kavram için tek terim kullanılır', () => {
+    /*
+      "Filtre" ile "süzgeç" aynı şeyi anlatır ve ekranlarda ikisi birden
+      kullanılıyordu: vitrindeki ürün listesi "Filtreleri temizle", yönetim
+      listeleri "Süzgeçleri temizle" diyordu. Vitrin zaten "filtre" tarafında
+      ve Türkçe e-ticaret arayüzlerinde olağan olan da odur.
+
+      Kural yalnızca KULLANICIYA GÖRÜNEN metni kapsar; kod yorumlarında
+      "süzgeç" kullanılmaya devam eder.
+    */
+    const offenders = [...pageFiles(), ...componentFiles()]
+      .flatMap(({ name, source }) => {
+        const withoutComments = source
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .replace(/^\s*\/\/.*$/gm, '');
+
+        return [...withoutComments.matchAll(/süzge\p{L}*/giu)].map(
+          (match) => `${name}: ${match[0]}`,
+        );
+      })
+      .slice(0, 10);
+
+    expect(offenders).toEqual([]);
+  });
+
   it('atlama bağlantısının hedefi odaklanabilir', () => {
     /*
       "İçeriğe atla" bağlantısı `#icerik` adresine gider. Hedef odak

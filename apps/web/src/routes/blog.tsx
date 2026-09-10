@@ -104,7 +104,7 @@ export default function BlogPage() {
       ) : data === undefined || data.items.length === 0 ? (
         <EmptyState
           icon={Newspaper}
-          title={hasActiveFilters ? 'Bu süzgeçle yazı yok' : 'Henüz yazı yok'}
+          title={hasActiveFilters ? 'Bu filtreyle yazı yok' : 'Henüz yazı yok'}
           description={
             hasActiveFilters
               ? 'Diğer kategorilere göz atabilir veya etiketi kaldırabilirsiniz.'
