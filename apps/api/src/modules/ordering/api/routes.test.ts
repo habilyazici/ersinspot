@@ -9,7 +9,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { today } from '@ersinspot/shared';
+import { today, APPOINTMENT_TIME_SLOTS } from '@ersinspot/shared';
 import { db } from '../../../platform/db/client.ts';
 import { createTestUser, loginAs, request, resetDatabase } from '../../../test/helpers.ts';
 import {
@@ -114,6 +114,41 @@ beforeEach(async () => {
 // ═══════════════════════════════════════════════════════════════════════════
 // FİYAT MANİPÜLASYONU — denetimdeki en ciddi mali açık
 // ═══════════════════════════════════════════════════════════════════════════
+
+describe('teslimat saat aralığı', () => {
+  /*
+    Mağaza beş adet iki saatlik aralık sunar ve bu, arayüz ayrıntısı değil
+    paylaşılan bir iş sabitidir. Sunucu sunulanlardan biri olup olmadığına
+    bakmadığında, arayüzü kullanmayan her istemci — bir betik, eski bir sürüm,
+    ileride yazılacak bir mobil uygulama — "03:00–05:00 arası teslim edilecek"
+    diyen bir sipariş bırakabiliyordu; ekip ekranında da o saatle görünüyordu.
+  */
+  it('sunulmayan aralığı reddeder', async () => {
+    await addToCart(customerCookie, productId);
+
+    const response = await request('/api/orders', {
+      method: 'POST',
+      cookie: customerCookie,
+      body: JSON.stringify(
+        orderPayload({
+          delivery: {
+            method: 'home_delivery',
+            address: {
+              district: 'Buca',
+              neighborhood: 'Menderes',
+              street: '1234 Sokak',
+              buildingNo: '7',
+            },
+            deliveryDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+            deliveryTimeSlot: { startTime: '03:00', endTime: '05:00' },
+          },
+        }),
+      ),
+    });
+
+    expect(response.status).toBe(400);
+  });
+});
 
 describe('veritabanı toplam bütünlüğü', () => {
   /**
@@ -459,7 +494,7 @@ describe('sipariş oluşturma', () => {
         delivery: {
           method: 'store_pickup',
           pickupDate: tomorrow.toISOString().slice(0, 10),
-          pickupTimeSlot: { startTime: '14:00', endTime: '16:00' },
+          pickupTimeSlot: APPOINTMENT_TIME_SLOTS[2],
         },
         paymentMethod: 'cash_on_delivery',
         expectedTotal: PRICE,

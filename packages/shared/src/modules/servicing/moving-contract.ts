@@ -12,6 +12,7 @@ import {
   optionalText,
   requiredText,
   servicedDistrictSchema,
+  appointmentTimeSlotSchema,
   timeSlotSchema,
   uuidSchema,
 } from '../../kernel/validation.ts';
@@ -109,7 +110,7 @@ export const createMovingRequestSchema = z
     toLocation: movingLocationSchema,
     /** Tercih edilen taşınma tarihi. Kesin randevu, teklif onaylandıktan sonra verilir. */
     preferredDate: appointmentDateSchema,
-    preferredTimeSlot: timeSlotSchema.optional(),
+    preferredTimeSlot: appointmentTimeSlotSchema.optional(),
     items: z
       .array(movingItemSchema)
       .min(1, { message: 'En az bir eşya eklemelisiniz.' })

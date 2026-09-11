@@ -12,6 +12,7 @@ import {
   optionalText,
   requiredText,
   servicedDistrictSchema,
+  appointmentTimeSlotSchema,
   timeSlotSchema,
 } from '../../kernel/validation.ts';
 import {
@@ -116,7 +117,7 @@ export const createTechnicalServiceRequestSchema = z
     problemDescription: requiredText('Arıza açıklaması', 15, 2000),
     address: serviceAddressSchema,
     preferredDate: appointmentDateSchema,
-    preferredTimeSlot: timeSlotSchema.optional(),
+    preferredTimeSlot: appointmentTimeSlotSchema.optional(),
     photos: z.array(requestPhotoInputSchema).max(10).default([]),
     customerNote: optionalText(1000),
     /**

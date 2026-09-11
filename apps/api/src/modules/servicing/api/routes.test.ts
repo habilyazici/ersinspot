@@ -18,7 +18,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { serviceRequestSchema } from '@ersinspot/shared';
+import { serviceRequestSchema, APPOINTMENT_TIME_SLOTS } from '@ersinspot/shared';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '../../../platform/db/client.ts';
 import {
@@ -755,7 +755,7 @@ describe('teklif ve randevu akışı', () => {
       cookie: staffCookie,
       body: JSON.stringify({
         date: futureDate(12),
-        timeSlot: { startTime: '09:00', endTime: '13:00' },
+        timeSlot: APPOINTMENT_TIME_SLOTS[0],
       }),
     });
 
@@ -777,7 +777,7 @@ describe('teklif ve randevu akışı', () => {
       cookie: staffCookie,
       body: JSON.stringify({
         date: futureDate(12),
-        timeSlot: { startTime: '09:00', endTime: '13:00' },
+        timeSlot: APPOINTMENT_TIME_SLOTS[0],
       }),
     });
 

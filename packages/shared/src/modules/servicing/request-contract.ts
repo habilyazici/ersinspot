@@ -20,6 +20,7 @@ import {
   paginationSchema,
   phoneSchema,
   referenceNumberSchema,
+  appointmentTimeSlotSchema,
   timeSlotSchema,
   uuidSchema,
 } from '../../kernel/validation.ts';
@@ -153,7 +154,7 @@ export type CreateQuoteInput = z.infer<typeof createQuoteSchema>;
 
 export const scheduleAppointmentSchema = z.object({
   date: appointmentDateSchema,
-  timeSlot: timeSlotSchema,
+  timeSlot: appointmentTimeSlotSchema,
   note: optionalText(500),
 });
 

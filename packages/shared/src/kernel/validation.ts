@@ -335,6 +335,30 @@ export const APPOINTMENT_TIME_SLOTS = [
 ] as const satisfies readonly TimeSlot[];
 
 /**
+ * İSTEMCİDEN gelen saat aralığı.
+ *
+ * `timeSlotSchema` yalnızca biçime ve sıraya bakar: "geçerli saat" ve
+ * "başlangıç bitişten önce". Sunulan aralıklardan biri olup olmadığını
+ * denetlemiyordu ve teslimat, mağazadan alım ile randevu uçları onu doğrudan
+ * kullanıyordu — yani arayüzün beş seçenek sunduğu yerde sunucu her aralığı
+ * kabul ediyordu.
+ *
+ * Ölçüldüğünde sonucu şuydu: `03:00–05:00` teslimat aralığıyla bir sipariş
+ * oluşturulabiliyor ve ekip ekranında o saatle görünüyordu. Arayüzden bu
+ * mümkün değil; şemayı doğrudan çağıran bir betik, eski bir istemci ya da
+ * ileride yazılacak bir mobil uygulama için mümkündü.
+ *
+ * Aralıklar zaten paylaşılan bir iş sabiti; denetim de aynı yerde olmalı.
+ */
+export const appointmentTimeSlotSchema = timeSlotSchema.refine(
+  (slot) =>
+    APPOINTMENT_TIME_SLOTS.some(
+      (offered) => offered.startTime === slot.startTime && offered.endTime === slot.endTime,
+    ),
+  { message: 'Lütfen sunulan saat aralıklarından birini seçin.' },
+);
+
+/**
  * Randevu ve teslimat için asgari hazırlık süreleri (gün).
  *
  * Mağazanın işleyişinden gelir: ürün hazırlanmalı, ekip planlanmalı, nakliyede

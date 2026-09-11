@@ -22,6 +22,7 @@ import {
   paginationSchema,
   phoneSchema,
   referenceNumberSchema,
+  appointmentTimeSlotSchema,
   timeSlotSchema,
   uuidSchema,
 } from '../../kernel/validation.ts';
@@ -97,13 +98,13 @@ export const deliveryInputSchema = z.discriminatedUnion('method', [
     method: z.literal(DELIVERY_METHODS[0]), // store_pickup
     /** Müşterinin mağazaya geleceği gün. */
     pickupDate: appointmentDateSchema,
-    pickupTimeSlot: timeSlotSchema,
+    pickupTimeSlot: appointmentTimeSlotSchema,
   }),
   z.object({
     method: z.literal(DELIVERY_METHODS[1]), // home_delivery
     address: addressSchema,
     deliveryDate: appointmentDateSchema,
-    deliveryTimeSlot: timeSlotSchema,
+    deliveryTimeSlot: appointmentTimeSlotSchema,
   }),
 ]);
 

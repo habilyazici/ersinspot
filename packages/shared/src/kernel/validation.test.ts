@@ -14,6 +14,8 @@ import {
   businessDayEnd,
   businessDayStart,
   dateAfterDays,
+  APPOINTMENT_TIME_SLOTS,
+  appointmentTimeSlotSchema,
   dateOnlySchema,
   ibanSchema,
   referenceNumberSchema,
@@ -203,5 +205,45 @@ describe('ibanSchema', () => {
   it('yanlış uzunluğu ve ülkeyi reddeder', () => {
     expect(() => ibanSchema.parse('TR3300061005197864578413')).toThrow();
     expect(() => ibanSchema.parse('DE89370400440532013000')).toThrow();
+  });
+});
+
+describe('appointmentTimeSlotSchema', () => {
+  /*
+    `timeSlotSchema` yalnızca biçime ve sıraya bakıyordu; sunulan aralıklardan
+    biri olup olmadığına bakmıyordu. Teslimat, mağazadan alım ve randevu uçları
+    onu doğrudan kullandığı için `03:00–05:00` teslimat aralığıyla sipariş
+    oluşturulabiliyordu — arayüzde beş seçenek varken sunucu her aralığı kabul
+    ediyordu.
+  */
+  it('sunulan aralıkların hepsini kabul eder', () => {
+    for (const slot of APPOINTMENT_TIME_SLOTS) {
+      expect(appointmentTimeSlotSchema.parse(slot)).toEqual(slot);
+    }
+  });
+
+  it('mesai dışı aralığı reddeder', () => {
+    expect(() =>
+      appointmentTimeSlotSchema.parse({ startTime: '03:00', endTime: '05:00' }),
+    ).toThrow();
+  });
+
+  it('sunulanlardan biri olmayan geçerli aralığı da reddeder', () => {
+    // Biçim doğru, sıra doğru, süre iki saat — ama sunulan beşten biri değil.
+    expect(() =>
+      appointmentTimeSlotSchema.parse({ startTime: '10:00', endTime: '12:00' }),
+    ).toThrow();
+  });
+
+  it('tüm günü kaplayan aralığı reddeder', () => {
+    expect(() =>
+      appointmentTimeSlotSchema.parse({ startTime: '09:00', endTime: '19:00' }),
+    ).toThrow();
+  });
+
+  it('ters aralığı reddeder', () => {
+    expect(() =>
+      appointmentTimeSlotSchema.parse({ startTime: '11:00', endTime: '09:00' }),
+    ).toThrow();
   });
 });
