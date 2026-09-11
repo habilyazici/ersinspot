@@ -117,6 +117,28 @@ describe('Markdown görüntüleyici', () => {
     expect(container.querySelector('a')).toBeNull();
   });
 
+  it('görünmez karakterle gizlenmiş şemayı da reddeder', () => {
+    /*
+      Büyük harf yazımı denetleniyor ama şemayı bölmenin başka yolları da var:
+      sıfır genişlikli birleştirici, yön değiştirme işareti, yüzde kodlaması.
+      Denetim beyaz liste olduğu için hiçbiri geçmez — "https: değilse hayır"
+      der, "javascript: ise hayır" demez. Test bunu yazılı hâle getirir.
+    */
+    const gizlenmis = [
+      '[t](java\u200bscript:alert(1))',
+      '[t](\u202ejavascript:alert(1))',
+      '[t](%6Aavascript:alert(1))',
+      '[t](   javascript:alert(1))',
+      '[t](vbscript:msgbox(1))',
+      '[t](file:///etc/passwd)',
+      '[t](///kotu-site.com)',
+    ];
+
+    for (const girdi of gizlenmis) {
+      expect(show(girdi).querySelector('a')).toBeNull();
+    }
+  });
+
   it('gömülü kimlik bilgisi taşıyan adresi reddeder', () => {
     /*
       `https://kullanici:sifre@kotu-site.com` bağlantının nereye gittiğini
