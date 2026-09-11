@@ -102,6 +102,17 @@ export async function sendEmail(message: EmailMessage): Promise<void> {
  * ile yükseltilir — `secure: false` bunu kapatmaz, yalnızca başlangıcı
  * bildirir. `requireTLS`, şifrelenmemiş teslimatı reddeder: kimlik bilgisi ve
  * şifre sıfırlama bağlantısı açık ağdan geçmemelidir.
+ *
+ * ZAMAN AŞIMLARI AÇIKÇA VERİLİR. Nodemailer'ın varsayılanları bu kullanım için
+ * fazla cömerttir — soket zaman aşımı on dakikadır. `sendEmail` kayıt, şifre
+ * sıfırlama, e-posta doğrulama ve iletişim formu akışlarında BEKLENİR:
+ * bağlantıyı kabul edip sonra susan bir SMTP sunucusu, kaydolan müşteriyi on
+ * dakika boyunca dönen bir düğmenin karşısında bırakırdı. Havuz üç bağlantıyla
+ * sınırlı olduğu için takılan gönderimler sıradakileri de bekletir.
+ *
+ * Dosyanın başındaki kural hatayı yutmaktı; burada takılmayı da hataya
+ * çeviriyoruz. Yirmi saniye, uzak bir sunucuya TLS el sıkışması artı teslim
+ * için fazlasıyla yeterlidir.
  */
 let transport: Transporter | null = null;
 
@@ -118,6 +129,9 @@ function getTransport(): Transporter {
     auth: { user: env.SMTP_USER, pass: env.SMTP_PASSWORD },
     pool: true,
     maxConnections: 3,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 20_000,
   });
 
   return transport;
