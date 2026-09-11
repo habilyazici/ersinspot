@@ -155,6 +155,17 @@ export interface MovingEstimate {
   readonly total: Kurus;
 }
 
+/**
+ * Bir adresin kat ücreti.
+ *
+ * Zemin kat (0) ve ALTI ücretsizdir. Bodrum, formun açıkça istediği bir
+ * değerdir ("Zemin kat için 0, bodrum için eksi değer") ve şema -3'e kadar
+ * kabul eder; yani bu dal gerçekten kullanılır. Şu hâliyle bodrumdan taşınan
+ * müşteri kat ücreti ödemez, üçüncü kattan taşınan öder.
+ *
+ * Tahmin bağlayıcı değildir — bağlayıcı fiyat, ekip talebi inceledikten sonra
+ * verdiği tekliftir — ama ekranda görünen tutar budur.
+ */
 function floorCost(floor: number, hasElevator: boolean): Kurus {
   if (floor <= 0) return ZERO;
   const raw = MOVING_FLOOR_SURCHARGE * floor;
