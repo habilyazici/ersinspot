@@ -963,6 +963,19 @@ describe('ödeme süresi dolan siparişler', () => {
       .where(eq(products.id, productId));
     expect(product?.status).toBe('for_sale');
     expect(product?.reservedUntil).toBeNull();
+
+    /*
+      Müşteri siparişinin neden kaybolduğunu ZAMAN ÇİZELGESİNDEN öğrenir.
+      Kayıt düşülmezse sipariş geçmişinde açıklamasız bir "İptal Edildi"
+      kalır ve müşteri iptali kimin yaptığını bilemez.
+    */
+    const detail = await request(`/api/orders/${orderId}`, { cookie: customerCookie });
+    const view = (await detail.json()) as {
+      order: { timeline: { status: string; note: string | null }[] };
+    };
+
+    const cancellation = view.order.timeline.find((event) => event.status === 'cancelled');
+    expect(cancellation?.note).toContain('Ödeme süresi');
   });
 
   it('süresi dolmamış siparişe dokunmaz', async () => {
