@@ -10,7 +10,7 @@ import { ErrorState } from '@/components/ui/error-state.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { StatusBadge } from '@/components/ui/status-badge.tsx';
 import { formatPrice } from '@/lib/format.ts';
-import { useCart, useRemoveFromCart } from '@/features/ordering';
+import { useCart, useClearCart, useRemoveFromCart } from '@/features/ordering';
 
 /**
  * Sepet.
@@ -22,6 +22,7 @@ import { useCart, useRemoveFromCart } from '@/features/ordering';
 export default function CartPage() {
   const { data: cart, isLoading, isError, error, refetch } = useCart();
   const removeItem = useRemoveFromCart();
+  const clearCart = useClearCart();
 
   if (isLoading) return <PageSpinner label="Sepet yükleniyor" />;
   if (isError) return <ErrorState error={error} onRetry={() => void refetch()} />;
@@ -56,6 +57,17 @@ export default function CartPage() {
       onError: (mutationError: unknown) => {
         toast.error(
           mutationError instanceof ApiError ? mutationError.message : 'Ürün çıkarılamadı.',
+        );
+      },
+    });
+  }
+
+  function handleClear(): void {
+    clearCart.mutate(undefined, {
+      onSuccess: () => toast.success('Sepetiniz boşaltıldı.'),
+      onError: (mutationError: unknown) => {
+        toast.error(
+          mutationError instanceof ApiError ? mutationError.message : 'Sepet boşaltılamadı.',
         );
       },
     });
@@ -133,6 +145,30 @@ export default function CartPage() {
               </Button>
             </Card>
           ))}
+
+          {/*
+            Sepeti boşaltma yalnızca birden çok kalemde görünür: tek kalemlik
+            sepette satırın kendi çöp kutusu aynı işi yapar ve iki düğme,
+            hangisinin ne yaptığını belirsizleştirir.
+
+            Onay SORULMAZ. Sayfadaki tek tek çıkarma da sormuyor ve sepetten
+            çıkarmak geri alınamaz bir silme değil: ürün kataloğda durur,
+            yeniden eklenebilir. `ConfirmDelete` blog yazısı ve SSS kaydı gibi
+            gerçekten kaybolan kayıtlar içindir.
+          */}
+          {cart.items.length > 1 ? (
+            <li className="flex justify-end">
+              <Button
+                variant="ghost"
+                className="text-slate-600"
+                onClick={handleClear}
+                disabled={clearCart.isPending}
+              >
+                <Trash2 aria-hidden="true" />
+                Sepeti boşalt
+              </Button>
+            </li>
+          ) : null}
         </ul>
 
         <Card as="aside" padding="md" className="h-fit">
