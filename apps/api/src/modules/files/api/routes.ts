@@ -144,12 +144,17 @@ filesRoutes.delete(
  */
 export const localFileRoutes = new Hono<{ Variables: Variables }>();
 
-/** Uzantıdan içerik türü. Kullanıcının bildirdiği türe güvenilmez. */
+/**
+ * Uzantıdan içerik türü. Kullanıcının bildirdiği türe güvenilmez.
+ *
+ * Depolama anahtarının uzantısı yüklemede İÇERİĞE bakılarak konur; burada
+ * yalnızca o üç tür karşılanır. Tanınmayan uzantı `application/octet-stream`
+ * alır, yani tarayıcı onu çalıştırılabilir bir şey gibi yorumlamaz.
+ */
 const CONTENT_TYPE_BY_EXTENSION: Readonly<Record<string, string>> = {
   jpg: 'image/jpeg',
   png: 'image/png',
   webp: 'image/webp',
-  pdf: 'application/pdf',
 };
 
 localFileRoutes.get('/:key{.+}', attachSession, async (c) => {
