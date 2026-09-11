@@ -12,6 +12,7 @@
  * `publicApi` grubuna eklemek bilinçli bir tercihtir; unutmakla olmaz.
  */
 
+import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { MAX_IMAGE_BYTES } from '@ersinspot/shared';
@@ -20,7 +21,9 @@ import type { MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './platform/http/auth.ts';
 import type { ValidatedVariables } from './platform/http/validate.ts';
 import { errorHandler, notFoundHandler } from './platform/http/error-handler.ts';
+import { db } from './platform/db/client.ts';
 import { env } from './platform/config/env.ts';
+import { logger } from './platform/observability/logger.ts';
 import {
   corsMiddleware,
   csrfProtection,
@@ -100,11 +103,42 @@ export function createApp() {
   // -------------------------------------------------------------------------
 
   /**
-   * Yük dengeleyici ve izleme için. Bilinçli olarak hiçbir sistem bilgisi
-   * (sürüm, veritabanı durumu, ortam) döndürmez — bu bilgiler saldırgana
-   * yardımcı olur ve dışarıya açık bir uçta yeri yoktur.
+   * CANLILIK: süreç ayakta mı?
+   *
+   * Süreç yöneticisinin (systemd, pm2) yeniden başlatma kararı buna bakar ve
+   * bu yüzden BAĞIMLILIKLARA BAKMAZ. Veritabanı erişilemez olduğunda API'yi
+   * yeniden başlatmak veritabanını geri getirmez; yalnızca bir yeniden
+   * başlatma döngüsü üretir ve gerçek arızayı gizler.
+   *
+   * Bilinçli olarak hiçbir sistem bilgisi (sürüm, ortam) döndürmez — bu
+   * bilgiler saldırgana yardımcı olur ve dışarıya açık bir uçta yeri yoktur.
    */
   app.get('/health', (c) => c.json({ status: 'ok' }));
+
+  /**
+   * HAZIRLIK: istek karşılayabilir mi?
+   *
+   * İzleme ve trafik yönlendirme buna bakmalıdır. `/health` tek başına
+   * yeterliydi sanılıyordu ama veritabanı düştüğünde de 200 döndürüyor: site
+   * her isteğe 500 verirken izleme yemyeşil görünüyor ve arızayı ilk fark eden
+   * müşteri oluyordu.
+   *
+   * Sorgu en ucuz olanıdır (`select 1`) ve sonucu yalnızca "hazır / değil"
+   * olarak bildirilir; hata metni, sürücü ayrıntısı ya da bağlantı bilgisi
+   * dışarı çıkmaz.
+   */
+  app.get('/ready', async (c) => {
+    try {
+      await db.execute(sql`select 1`);
+      return c.json({ status: 'ready' });
+    } catch (error) {
+      logger.error('Hazırlık denetimi başarısız', {
+        error: error instanceof Error ? error : String(error),
+      });
+
+      return c.json({ status: 'unavailable' }, 503);
+    }
+  });
 
   // -------------------------------------------------------------------------
   // Kimlik doğrulama

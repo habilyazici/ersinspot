@@ -106,6 +106,17 @@ dosya bağlıyorsanız `attachFiles` çağrısını atlamayın — Kural 5.
 | `VITE_API_URL`              | Tarayıcı uygulamasının API'yi nerede arayacağı. Boşsa istekler kendi kaynağına gider (`/api/...`) ve web sunucusunun onları API'ye vekillemesi gerekir; geliştirmede bunu Vite yapar. DERLEME ZAMANI değişkenidir — Vite değeri pakete gömer, sunucu ortamında tanımlamak işe yaramaz.                                                                                                                        |
 | `WEB_ORIGIN` / `API_ORIGIN` | İkisi AYNI SİTEDEN olmalıdır: `ersinspot.com` + `api.ersinspot.com` çalışır, `ersinspot.com.tr` + `api-ersinspot.com` çalışmaz. Oturum çerezi `SameSite=Lax` yazılır ve tarayıcı onu ayrı siteye giden isteklerde göndermez; arıza sessizdir — giriş 200 döner, sonraki her istek oturumsuz görünür. Üretimde ikisi de `https` olmalıdır.                                                                     |
 
+İki denetim ucu vardır ve farklı sorulara bakarlar:
+
+| Uç        | Soru                    | Kim kullanır                                          |
+| --------- | ----------------------- | ----------------------------------------------------- |
+| `/health` | Süreç ayakta mı?        | Süreç yöneticisi — yeniden başlatma kararı            |
+| `/ready`  | İstek karşılayabilir mi | İzleme ve trafik yönlendirme — veritabanını da yoklar |
+
+İzlemeyi `/health`'e bağlamayın: veritabanı düştüğünde de 200 döner, çünkü
+API'yi yeniden başlatmak veritabanını geri getirmez. `/ready` o durumda 503
+verir.
+
 Sunucu TypeScript'i **derlemeden** çalıştırır (`pnpm start`, `node --import
 tsx`); `pnpm build` yalnızca tip kontrolü yapar, çıktı üretmez. Bu yüzden
 `tsx` bir çalışma zamanı bağımlılığıdır — geliştirme bağımlılıklarını budayan
