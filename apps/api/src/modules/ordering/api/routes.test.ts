@@ -115,6 +115,48 @@ beforeEach(async () => {
 // FİYAT MANİPÜLASYONU — denetimdeki en ciddi mali açık
 // ═══════════════════════════════════════════════════════════════════════════
 
+describe('veritabanı toplam bütünlüğü', () => {
+  /**
+   * Son savunma hattı: toplam, bileşenleriyle uyuşmayan bir sipariş satırı
+   * veritabanına YAZILAMAZ.
+   *
+   * Uygulama katmanı tutarı zaten sunucuda hesaplıyor ve istemcinin gördüğü
+   * tutarla karşılaştırıyor. Bu kısıt, o iki denetimin de atlandığı bir yolun
+   * — yeni bir servis, bir bakım betiği, elle atılan bir sorgu — tutarsız bir
+   * sipariş bırakmasını engeller. Muhasebe tarafında toplamı parçalarına
+   * uymayan bir sipariş, sonradan hangi rakamın doğru olduğu bilinemeyen bir
+   * kayıttır.
+   */
+  async function insertOrder(subtotal: number, fee: number, total: number): Promise<void> {
+    await db.insert(orders).values({
+      referenceNumber: `SIP-2026-${String(Math.floor(Math.random() * 900000) + 100000)}`,
+      userId: customerId,
+      status: 'received',
+      contactName: 'Deneme Kişi',
+      contactPhone: '+905071940550',
+      deliveryMethod: 'store_pickup',
+      paymentMethod: 'cash_on_delivery',
+      subtotalKurus: subtotal,
+      deliveryFeeKurus: fee,
+      totalKurus: total,
+    });
+  }
+
+  it('tutarlı toplamı kabul eder', async () => {
+    // Karşılaştırma noktası: aşağıdaki iki reddin kısıttan geldiğini gösterir.
+    await expect(insertOrder(100_000, 50_000, 150_000)).resolves.not.toThrow();
+  });
+
+  it('tutarsız toplamı reddeder', async () => {
+    await expect(insertOrder(100_000, 0, 999_999)).rejects.toThrow();
+  });
+
+  it('eksik hesaplanmış toplamı da reddeder', async () => {
+    // Teslimat ücretinin unutulması, fazladan eklenmesi kadar yanlıştır.
+    await expect(insertOrder(100_000, 50_000, 100_000)).rejects.toThrow();
+  });
+});
+
 describe('fiyat manipülasyonu', () => {
   it('sipariş şeması hiçbir fiyat alanı kabul etmez', async () => {
     await addToCart(customerCookie, productId);
