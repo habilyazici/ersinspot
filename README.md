@@ -104,6 +104,18 @@ dosya bağlıyorsanız `attachFiles` çağrısını atlamayın — Kural 5.
 | `VITE_API_URL`              | Tarayıcı uygulamasının API'yi nerede arayacağı. Boşsa istekler kendi kaynağına gider (`/api/...`) ve web sunucusunun onları API'ye vekillemesi gerekir; geliştirmede bunu Vite yapar. DERLEME ZAMANI değişkenidir — Vite değeri pakete gömer, sunucu ortamında tanımlamak işe yaramaz.                                                                                                                        |
 | `WEB_ORIGIN` / `API_ORIGIN` | İkisi AYNI SİTEDEN olmalıdır: `ersinspot.com` + `api.ersinspot.com` çalışır, `ersinspot.com.tr` + `api-ersinspot.com` çalışmaz. Oturum çerezi `SameSite=Lax` yazılır ve tarayıcı onu ayrı siteye giden isteklerde göndermez; arıza sessizdir — giriş 200 döner, sonraki her istek oturumsuz görünür. Üretimde ikisi de `https` olmalıdır.                                                                     |
 
+Arayüz tek sayfalık bir uygulamadır: yönlendirme tarayıcıda yapılır ve
+`/urunler`, `/urun/bir-slug` gibi yolların diskte karşılığı yoktur. Web
+sunucusu **bulamadığı her yolu `index.html`'e düşürmelidir**; aksi halde site
+gezinirken çalışır ama paylaşılan bir bağlantı, yenilenen bir sayfa ve arama
+sonucundan gelen her ziyaretçi 404 alır. nginx'te:
+
+```nginx
+location / {
+  try_files $uri $uri/ /index.html;
+}
+```
+
 Bakım görevleri sunucu sürecinin içinde çalışır. Birden çok örneğe geçildiğinde
 her örnek aynı görevi çalıştırır; ayrıntı için [docs/MIMARI.md](docs/MIMARI.md).
 
