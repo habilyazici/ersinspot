@@ -347,11 +347,12 @@ geçildiğinde her örnek aynı görevi çalıştırır; o noktada bir danışma
 
 ## Test yaklaşımı
 
-| Katman         | Test türü        | Veritabanı             |
-| -------------- | ---------------- | ---------------------- |
-| `domain/`      | Birim            | Yok — saf fonksiyonlar |
-| `application/` | Entegrasyon      | Gerçek PostgreSQL      |
-| `api/`         | Uçtan uca (HTTP) | Gerçek PostgreSQL      |
+| Katman         | Test türü        | Veritabanı                       |
+| -------------- | ---------------- | -------------------------------- |
+| `domain/`      | Birim            | Yok — saf fonksiyonlar           |
+| `application/` | Entegrasyon      | Gerçek PostgreSQL                |
+| `api/`         | Uçtan uca (HTTP) | Gerçek PostgreSQL                |
+| `platform/`    | Birim            | Yalnızca veritabanına dokunanlar |
 
 Sahte veritabanı kullanılmaz. Denetimde bulunan hataların çoğu — kısıt ihlalleri,
 tetikleyici davranışı, işlem geri alma, eşzamanlılık — ancak gerçek veritabanında
@@ -359,3 +360,22 @@ görünür.
 
 Testler `pnpm db:up` ile ayağa kalkan yerel PostgreSQL'e karşı çalışır ve CI'da
 aynı sürüm kullanılır.
+
+`platform/` testleri, altyapının ANLATTIĞI şeyi gerçekten yaptığını denetler:
+log maskelemesinin şifreyi gizlediğini, hata işleyicisinin veritabanı kodunu
+bulduğunu, vekil başlığından okunan adresin doğrulandığını, aramanın Türkçe
+harf duyarsız olduğunu. Bu davranışların ortak yanı, yanlış çalıştıklarında
+sessiz kalmalarıdır — maskelenmemiş bir log satırı da, eşleşmeyen bir hata
+kodu da kimseye hata vermez.
+
+### Kaynak ağacını denetleyen testler
+
+Arayüz tarafında iki paket kod ÇALIŞTIRMAZ, kaynağı okur:
+
+| Dosya                               | Ne denetler                                                                                         |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `components/ui/consistency.test.ts` | Sayfaların ortak bileşenleri kullanması, etiket ve terim yazımı, atlama bağlantısının hedefi        |
+| `routing.test.ts`                   | Her bağlantının bir rotaya, her rotanın bir bağlantıya, her API çağrısının bir uca karşılık geldiği |
+
+İkisi de Kural 8'in arayüz tarafındaki karşılığıdır: bir kural yazılıp
+uygulanmıyorsa kural değildir. Bu testler o kuralların kendisini korur.
