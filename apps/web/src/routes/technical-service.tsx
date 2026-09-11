@@ -25,6 +25,7 @@ import {
   createTechnicalServiceRequestSchema,
   dateAfterDays,
   phone,
+  MAX_APPOINTMENT_LEAD_DAYS,
 } from '@ersinspot/shared';
 import type { CreateTechnicalServiceRequestInput } from '@ersinspot/shared';
 import { AddressFields } from '@/components/ui/address-fields.tsx';
@@ -245,6 +246,7 @@ export default function TechnicalServicePage() {
               required
               type="date"
               min={dateAfterDays(LEAD_TIME_DAYS.technicalService)}
+              max={dateAfterDays(MAX_APPOINTMENT_LEAD_DAYS)}
               hint="Kesin randevu, talebiniz incelendikten sonra size bildirilir."
               error={errors.preferredDate?.message}
               {...register('preferredDate')}

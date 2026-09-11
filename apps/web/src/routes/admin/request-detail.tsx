@@ -34,6 +34,7 @@ import {
   dateAfterDays,
   money,
   today,
+  MAX_APPOINTMENT_LEAD_DAYS,
 } from '@ersinspot/shared';
 import type { ProductCondition, RequestStatus } from '@ersinspot/shared';
 import { Button } from '@/components/ui/button.tsx';
@@ -399,6 +400,7 @@ export default function AdminRequestDetailPage() {
               label="Geçerlilik tarihi"
               type="date"
               min={today()}
+              max={dateAfterDays(MAX_APPOINTMENT_LEAD_DAYS)}
               value={quoteValidUntil}
               onChange={(event) => {
                 setQuoteValidUntil(event.target.value);
@@ -439,6 +441,7 @@ export default function AdminRequestDetailPage() {
                 label="Tarih"
                 type="date"
                 min={dateAfterDays(LEAD_TIME_DAYS.appointment)}
+                max={dateAfterDays(MAX_APPOINTMENT_LEAD_DAYS)}
                 value={appointmentDate}
                 onChange={(event) => {
                   setAppointmentDate(event.target.value);

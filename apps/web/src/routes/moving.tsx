@@ -29,6 +29,7 @@ import {
   dateAfterDays,
   estimateMoving,
   phone,
+  MAX_APPOINTMENT_LEAD_DAYS,
 } from '@ersinspot/shared';
 import type { CreateMovingRequestInput } from '@ersinspot/shared';
 import { AddressFields } from '@/components/ui/address-fields.tsx';
@@ -220,6 +221,7 @@ export default function MovingPage() {
                 required
                 type="date"
                 min={dateAfterDays(LEAD_TIME_DAYS.moving)}
+                max={dateAfterDays(MAX_APPOINTMENT_LEAD_DAYS)}
                 hint="Kesin randevu, teklifi onayladıktan sonra verilir."
                 error={errors.preferredDate?.message}
                 {...register('preferredDate')}

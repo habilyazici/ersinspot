@@ -30,6 +30,7 @@ import {
   dateAfterDays,
   money,
   phone,
+  MAX_APPOINTMENT_LEAD_DAYS,
 } from '@ersinspot/shared';
 import type { CreateOrderInput, IzmirDistrict } from '@ersinspot/shared';
 import { AddressFields } from '@/components/ui/address-fields.tsx';
@@ -323,6 +324,7 @@ export default function CheckoutPage() {
                 required
                 type="date"
                 min={dateAfterDays(LEAD_TIME_DAYS.delivery)}
+                max={dateAfterDays(MAX_APPOINTMENT_LEAD_DAYS)}
                 hint={`En erken ${String(LEAD_TIME_DAYS.delivery)} gün sonrasına randevu verilebilir.`}
                 error={findError(
                   errors,

@@ -330,6 +330,26 @@ describe('Arayüz tutarlılığı', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('tarih alanları iki sınırı da bildirir', () => {
+    /*
+      Şema hem en erken hem en geç tarihi kısıtlar: randevu en fazla altmış gün
+      sonrasına verilebilir. Girdide yalnızca `min` vardı, `max` yoktu — takvim
+      2030'u seçtiriyor, kullanıcı sınırı ancak formu gönderip hata alınca
+      öğreniyordu. Kural 7'nin tam karşılığı: arayüzün SÖYLEDİĞİ kural ile
+      sunucunun uyguladığı kural aynı olmalı.
+    */
+    const offenders = pageFiles()
+      .flatMap(({ name, source }) =>
+        [...source.matchAll(/<(?:Text)Field\b[\s\S]{0,600}?\/>/g)]
+          .filter((match) => match[0].includes('type="date"'))
+          .map((match) => ({ name, field: match[0] })),
+      )
+      .filter(({ field }) => !(field.includes('min=') && field.includes('max=')))
+      .map(({ name }) => name);
+
+    expect([...new Set(offenders)]).toEqual([]);
+  });
+
   it('atlama bağlantısının hedefi odaklanabilir', () => {
     /*
       "İçeriğe atla" bağlantısı `#icerik` adresine gider. Hedef odak
