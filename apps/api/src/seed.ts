@@ -136,22 +136,29 @@ function solidPng(width: number, height: number, rgb: [number, number, number]):
   );
 }
 
-/** Ürün için bir yer tutucu görsel yükler ve depolama anahtarını döndürür. */
+/**
+ * Yer tutucu bir görsel yükler ve depolama anahtarını döndürür.
+ *
+ * Amaç, dosyanın nereye ait olduğunu belirler: ürün görselleri ve blog
+ * kapakları farklı yetki kurallarına tabidir ve `purpose` bunu taşır.
+ */
 async function seedImage(
   uploaderId: string,
   rgb: [number, number, number],
+  purpose: 'product_image' | 'blog_cover' = 'product_image',
+  size: [number, number] = [800, 600],
 ): Promise<{ storageKey: string }> {
-  const data = solidPng(800, 600, rgb);
-  const stored = await store('product_image', 'image/png', data);
+  const data = solidPng(size[0], size[1], rgb);
+  const stored = await store(purpose, 'image/png', data);
 
   await db.insert(uploadedFiles).values({
     storageKey: stored.key,
     uploadedByUserId: uploaderId,
-    purpose: 'product_image',
+    purpose,
     contentType: stored.contentType,
     sizeBytes: stored.sizeBytes,
     originalName: 'yer-tutucu.png',
-    // Ürüne bağlanmış sayılır; yetim temizliği bu dosyaları silmemeli.
+    // Kayda bağlanmış sayılır; yetim temizliği bu dosyaları silmemeli.
     attachedAt: new Date(),
   });
 
@@ -456,6 +463,7 @@ const FAQS: { question: string; answer: string; category: (typeof FAQ_CATEGORIES
 const BLOG_POSTS = [
   {
     slug: 'ikinci-el-buzdolabi-alirken',
+    coverRgb: [0x3f, 0x5c, 0x70] as [number, number, number],
     title: 'İkinci El Buzdolabı Alırken Nelere Dikkat Etmeli',
     excerpt:
       'İkinci el bir buzdolabı iyi bir tasarruf olabilir ya da pahalı bir hata. Farkı yaratan, ' +
@@ -494,6 +502,7 @@ Satın almadan önce ürünün etiketini görmek isteyin. Bizim ilanlarımızda 
   },
   {
     slug: 'camasir-makinesi-bakim-ipuclari',
+    coverRgb: [0x5a, 0x6b, 0x52] as [number, number, number],
     title: 'Çamaşır Makinesinin Ömrünü Uzatan Beş Alışkanlık',
     excerpt:
       'Servise gelen çamaşır makinelerinin çoğunda arızanın sebebi bakım eksikliği. Beşi de ' +
@@ -531,6 +540,7 @@ Bu adımlar sorunu çözmüyorsa arıza gerçek olabilir. [Teknik servis talebi]
   },
   {
     slug: 'tasinma-oncesi-hazirlik-listesi',
+    coverRgb: [0x7a, 0x5c, 0x4a] as [number, number, number],
     title: 'Taşınmadan Önce Yapılacaklar Listesi',
     excerpt:
       'Taşınma gününün sorunsuz geçmesi, bir gün önce yaptıklarınıza bağlı. İşte sırayla ' +
@@ -798,6 +808,16 @@ async function seed(): Promise<void> {
         category: post.category,
         authorName: 'Ersin Spot',
         authorUserId: admin.id,
+        /*
+          Kapak görseli de tohumlanır.
+
+          Yazılar kapaksız bırakıldığında blog listesi üç boş gri kutu
+          gösteriyordu: arayüz doğru davranıyor (kapak yoksa yer tutucu simge
+          çizer) ama tohumlanmış site yarım kalmış görünüyordu. Ürün görselleri
+          zaten aynı üreteçle üretiliyor.
+        */
+        coverImageStorageKey: (await seedImage(admin.id, post.coverRgb, 'blog_cover', [1200, 630]))
+          .storageKey,
         /*
           Okuma süresi, uygulamanın kullandığı AYNI fonksiyonla hesaplanır.
 
