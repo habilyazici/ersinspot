@@ -31,6 +31,29 @@ const queryClient = postgres(env.DATABASE_URL, {
   // Bağlantı kurma zaman aşımı (saniye).
   connect_timeout: 10,
 
+  /*
+    KİLİT BEKLEME ÜST SINIRI.
+
+    Sipariş akışı tekil ürünleri `SELECT ... FOR UPDATE` ile kilitler; iki
+    müşterinin aynı ürünü almasını bu engeller ve kısa bekleme tasarımın
+    parçasıdır. Sınırsız olan, kilidi TUTANIN takılması durumu: yarı açık bir
+    TCP bağlantısı ya da düşmüş bir süreç, kilidi sunucu onu toplayana kadar
+    bırakmaz. O sırada aynı ürünü isteyen her istek süresiz bekler ve havuzdan
+    bir bağlantı tutar; yirmi istek havuzu tüketip API'yi durdurur.
+
+    `statement_timeout` KONULMADI: sorguların yürütme süresini de keserdi ve
+    bakım görevlerinin toplu silmeleri (giriş denemesi temizliği ilk çalışmada
+    otuz günlük birikimi siler) meşru biçimde uzun sürebilir. `lock_timeout`
+    yalnızca BEKLEMEYİ sınırlar, ilerleyen bir sorguyu kesmez.
+
+    Aşıldığında PostgreSQL 55P03 döndürür; hata işleyici bunu "işlem çakıştı,
+    tekrar deneyin" mesajına çevirir.
+  */
+  connection: {
+    // Milisaniye; sürücünün tipi sayı bekler.
+    lock_timeout: 5_000,
+  },
+
   // Üretimde sorgu metinlerini loglamayız; hassas veri içerebilir.
   onnotice: isProduction ? () => undefined : undefined,
 

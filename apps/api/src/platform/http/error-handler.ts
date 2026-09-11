@@ -24,12 +24,33 @@ import { AppError, isAppError } from '../errors/index.ts';
 import { generateTraceId, logger } from '../observability/logger.ts';
 import { isProduction } from '../config/env.ts';
 
+/**
+ * PostgreSQL hata kodunu bulur.
+ *
+ * Kod, hatanın KENDİSİNDE olmayabilir: Drizzle sürücünün hatasını sarar ve
+ * özgün hatayı `cause` altına koyar. Yalnızca üst düzey `code` okunduğunda
+ * aşağıdaki eşlemelerin HİÇBİRİ çalışmıyordu — benzersizlik ihlali, yabancı
+ * anahtar ihlali, kontrol kısıtı ve kilitlenme, hepsi genel 500'e düşüyordu.
+ * Kullanıcı, anlaşılır bir iş kuralı mesajı yerine izleme koduyla birlikte
+ * "beklenmeyen bir hata" görüyordu.
+ *
+ * Her iki yere de bakılır: ham sürücü çağrılarında kod üst düzeydedir.
+ */
+function databaseErrorCode(error: unknown): string | null {
+  for (const aday of [error, (error as { cause?: unknown } | null)?.cause]) {
+    if (typeof aday !== 'object' || aday === null) continue;
+
+    const code = (aday as { code?: unknown }).code;
+    if (typeof code === 'string') return code;
+  }
+
+  return null;
+}
+
 /** PostgreSQL hata kodlarından bazıları kullanıcıya anlamlı bir mesaja çevrilebilir. */
 function mapDatabaseError(error: unknown): AppError | null {
-  if (typeof error !== 'object' || error === null) return null;
-
-  const code = (error as { code?: unknown }).code;
-  if (typeof code !== 'string') return null;
+  const code = databaseErrorCode(error);
+  if (code === null) return null;
 
   switch (code) {
     case '23505': // unique_violation
@@ -42,8 +63,15 @@ function mapDatabaseError(error: unknown): AppError | null {
       return new AppError('business_rule_violated', {
         message: 'Gönderilen değerler iş kurallarına uymuyor.',
       });
+    /*
+      Çakışma: üçü de "tekrar denemek çözer" anlamına gelir.
+
+      55P03 (lock_not_available) `lock_timeout` aşıldığında gelir; kilidi tutan
+      işlem takılmış demektir. Müşteri için sonuç kilitlenmeyle aynıdır.
+    */
     case '40001': // serialization_failure
     case '40P01': // deadlock_detected
+    case '55P03': // lock_not_available
       return new AppError('resource_conflict', {
         message: 'İşlem başka bir işlemle çakıştı. Lütfen tekrar deneyin.',
       });
