@@ -173,9 +173,22 @@ export class ApiError extends Error {
     return this.code === 'unauthenticated';
   }
 
-  /** Kullanıcı aynı isteği tekrar deneyerek başarılı olabilir mi? */
+  /**
+   * İstemci aynı isteği KENDİLİĞİNDEN tekrarlayarak başarılı olabilir mi?
+   *
+   * Hız sınırı buraya dahil DEĞİLDİR. Sunucu "çok fazla istek gönderdin,
+   * şu kadar saniye bekle" der ve o süre dakikalarla ölçülür; istemcinin
+   * saniyelerle ölçülen geri çekilmesiyle yapılan denemenin başarı şansı
+   * sıfırdır. Tek yaptığı, sonucu zaten belli olan bir isteği birkaç saniye
+   * geciktirmek ve kendini savunan bir sunucuya üç istek göndermektir —
+   * üstelik kullanıcıya asıl yapması gerekeni (beklemeyi) söyleyen mesajı da
+   * o kadar geciktirir.
+   *
+   * Bekleme süresi `retryAfterSeconds` alanında kullanıcıya iletilir; kararı
+   * o verir.
+   */
   get isRetryable(): boolean {
-    return this.code === 'rate_limited' || this.code === 'internal_error';
+    return this.code === 'internal_error';
   }
 
   /** Belirli bir form alanına ait hata mesajını döndürür. */
