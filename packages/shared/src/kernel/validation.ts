@@ -19,6 +19,27 @@ import { normalize as normalizePhone } from './phone.ts';
 export const uuidSchema = z.string().uuid({ message: 'Geçersiz kayıt kimliği.' });
 
 /**
+ * Kullanıcının açılır listeden seçtiği kayıt.
+ *
+ * Değer yine bir UUID'dir ama HATA MESAJI farklıdır. `uuidSchema`'nın mesajı
+ * ("Geçersiz kayıt kimliği") adres çubuğundaki bozuk bir kimlik ya da bir
+ * istemcinin gönderdiği hatalı gövde için doğrudur; formda kategori seçmeyi
+ * unutan müşteriye söylenecek cümle değildir.
+ *
+ * "Ürününüzü Satın" formunda tam olarak bu oluyordu: boş bırakılan Kategori
+ * listesi "Geçersiz kayıt kimliği." diyor, hemen altındaki İlçe listesi ise
+ * "Lütfen listeden bir ilçe seçin." diyordu. Aynı ekranda, aynı hatada, iki
+ * ayrı dil.
+ *
+ * @param label Alanın adı, -i hâlinde: "kategori", "marka".
+ */
+export function selectionSchema(label: string) {
+  return z.string({ required_error: `Lütfen ${label} seçin.` }).uuid({
+    message: `Lütfen ${label} seçin.`,
+  });
+}
+
+/**
  * İnsan tarafından okunabilen belge numarası: "SIP-2026-0001" gibi.
  * Ön ek, yıl ve sıra numarasından oluşur.
  *

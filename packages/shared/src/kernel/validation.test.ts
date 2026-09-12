@@ -21,6 +21,7 @@ import {
   referenceNumberSchema,
   timeSlotSchema,
   today,
+  selectionSchema,
 } from './validation.ts';
 
 afterEach(() => {
@@ -245,5 +246,39 @@ describe('appointmentTimeSlotSchema', () => {
     expect(() =>
       appointmentTimeSlotSchema.parse({ startTime: '11:00', endTime: '09:00' }),
     ).toThrow();
+  });
+});
+
+describe('listeden seçilen kayıt', () => {
+  /*
+    `uuidSchema` ile aynı değeri kabul eder, farklı konuşur. "Ürününüzü Satın"
+    formunda boş bırakılan Kategori listesi "Geçersiz kayıt kimliği." diyordu;
+    hemen altındaki İlçe listesi "Lütfen listeden bir ilçe seçin." diyordu. Aynı
+    ekranda, aynı hatada, iki ayrı dil — ve ilki müşteriye söylenecek bir cümle
+    değil.
+  */
+  it('seçim yapılmadığında alanın adıyla konuşur', () => {
+    const sonuc = selectionSchema('bir kategori').safeParse('');
+
+    expect(sonuc.success).toBe(false);
+    if (!sonuc.success) {
+      expect(sonuc.error.issues[0]?.message).toBe('Lütfen bir kategori seçin.');
+    }
+  });
+
+  it('alan hiç gönderilmediğinde de Türkçe konuşur', () => {
+    // Varsayılan `required_error` İngilizce "Required" üretir.
+    const sonuc = selectionSchema('bir marka').safeParse(undefined);
+
+    expect(sonuc.success).toBe(false);
+    if (!sonuc.success) {
+      expect(sonuc.error.issues[0]?.message).toBe('Lütfen bir marka seçin.');
+    }
+  });
+
+  it('geçerli kimliği kabul eder', () => {
+    const kimlik = '11111111-1111-4111-8111-111111111111';
+
+    expect(selectionSchema('bir kategori').parse(kimlik)).toBe(kimlik);
   });
 });

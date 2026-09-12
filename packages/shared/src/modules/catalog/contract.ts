@@ -15,6 +15,7 @@ import {
   paginationSchema,
   positiveKurusSchema,
   requiredText,
+  selectionSchema,
   uuidSchema,
 } from '../../kernel/validation.ts';
 import { PRODUCT_CONDITIONS, PRODUCT_STATUSES } from '../../kernel/status.ts';
@@ -193,7 +194,7 @@ export const createProductSchema = z.object({
   }),
   status: z.enum(CREATABLE_PRODUCT_STATUSES).default('draft'),
   warrantyMonths: z.number().int().min(0).max(60).default(0),
-  categoryId: uuidSchema,
+  categoryId: selectionSchema('bir kategori'),
   brandId: uuidSchema.nullable().default(null),
   images: z
     .array(productImageInputSchema)

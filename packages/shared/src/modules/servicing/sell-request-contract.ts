@@ -13,6 +13,7 @@ import {
   optionalText,
   requiredText,
   servicedDistrictSchema,
+  selectionSchema,
   uuidSchema,
 } from '../../kernel/validation.ts';
 import { PRODUCT_CONDITIONS } from '../../kernel/status.ts';
@@ -33,7 +34,7 @@ const pickupAddressSchema = addressSchema.extend({
 export const createSellRequestSchema = z.object({
   contact: requestContactSchema,
   title: requiredText('Ürün başlığı', 5, 160),
-  categoryId: uuidSchema,
+  categoryId: selectionSchema('bir kategori'),
   brand: requiredText('Marka', 1, 60),
   model: optionalText(80),
   condition: z.enum(PRODUCT_CONDITIONS, {
@@ -113,7 +114,7 @@ export const convertToProductSchema = z.object({
     .number()
     .int({ message: 'Tutar kuruş cinsinden tam sayı olmalıdır.' })
     .positive({ message: 'Satış fiyatı sıfırdan büyük olmalıdır.' }),
-  categoryId: uuidSchema,
+  categoryId: selectionSchema('bir kategori'),
   brandId: uuidSchema.nullable().default(null),
   condition: z.enum(PRODUCT_CONDITIONS),
   warrantyMonths: z.number().int().min(0).max(60).default(0),
