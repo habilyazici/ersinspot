@@ -18,7 +18,7 @@ import {
   productImages,
   products,
 } from '../../catalog/infrastructure/schema.ts';
-import { orderItems, orders } from '../infrastructure/schema.ts';
+import { cartItems, orderItems, orders } from '../infrastructure/schema.ts';
 import { cancelExpiredUnpaidOrders } from '../index.ts';
 
 /**
@@ -348,6 +348,80 @@ describe('sepet', () => {
     });
 
     expect(response.status).toBe(404);
+  });
+
+  /*
+    Ürünü silinen kalem, müşteriyi çıkışsız bırakıyordu.
+
+    Kalem ekranda çizilmiyor — ürün bilgisi yok — ama `hasUnavailableItems`
+    kuruluyordu. Arayüzde o bayrak "Siparişi Tamamla"yı kapatır ve "satışta
+    olmayan ürünleri çıkarın" uyarısını gösterir. Çıkarılacak satır görünmediği
+    için müşteri o sepetle bir daha sipariş veremiyordu; iyi kalemi çıkarıp
+    yeniden eklemek de kurtarmıyordu, çünkü hayalet satır yerinde kalıyordu.
+  */
+  it('ürünü silinmiş kalemi sepetten kaldırır', async () => {
+    const [ikinci] = await db
+      .insert(products)
+      .values({
+        slug: 'silinecek-urun',
+        title: 'Silinecek Ürün',
+        description: 'Sepette dururken yönetici tarafından silinecek ürün.',
+        priceKurus: 500_000,
+        condition: 'good',
+        status: 'for_sale',
+        categoryId,
+      })
+      .returning({ id: products.id });
+
+    await addToCart(customerCookie, productId);
+    await addToCart(customerCookie, ikinci!.id);
+
+    await db.update(products).set({ deletedAt: new Date() }).where(eq(products.id, ikinci!.id));
+
+    const payload = (await (await request('/api/cart', { cookie: customerCookie })).json()) as {
+      cart: { items: unknown[]; hasUnavailableItems: boolean };
+    };
+
+    expect(payload.cart.items).toHaveLength(1);
+    // Silinmiş ürün "satışta olmayan ürün" değildir: sipariş engellenmemelidir.
+    expect(payload.cart.hasUnavailableItems).toBe(false);
+
+    // Satır gerçekten gitmiştir; her okumada yeniden atlanan bir kalıntı değil.
+    const kalan = await db.select({ id: cartItems.id }).from(cartItems);
+    expect(kalan).toHaveLength(1);
+  });
+
+  it('rozet sayısı sepette görünen kalem sayısıyla aynıdır', async () => {
+    /*
+      Rozet `cart_items` satırlarını doğrudan sayıyordu; ürünü silinmiş kalem o
+      sayıya dahildi. Sayfa 1 kalem gösterirken başlıkta 2 yazıyordu.
+    */
+    const [ikinci] = await db
+      .insert(products)
+      .values({
+        slug: 'rozet-urunu',
+        title: 'Rozet Ürünü',
+        description: 'Rozet sayısının sepetle aynı olduğunu denetleyen ürün.',
+        priceKurus: 300_000,
+        condition: 'good',
+        status: 'for_sale',
+        categoryId,
+      })
+      .returning({ id: products.id });
+
+    await addToCart(customerCookie, productId);
+    await addToCart(customerCookie, ikinci!.id);
+    await db.update(products).set({ deletedAt: new Date() }).where(eq(products.id, ikinci!.id));
+
+    const rozet = (await (await request('/api/cart/count', { cookie: customerCookie })).json()) as {
+      count: number;
+    };
+    const sepet = (await (await request('/api/cart', { cookie: customerCookie })).json()) as {
+      cart: { items: unknown[] };
+    };
+
+    expect(rozet.count).toBe(sepet.cart.items.length);
+    expect(rozet.count).toBe(1);
   });
 });
 
