@@ -13,6 +13,7 @@ import {
   optionalText,
   requiredText,
   servicedDistrictSchema,
+  positiveKurusSchema,
   selectionSchema,
   uuidSchema,
 } from '../../kernel/validation.ts';
@@ -55,11 +56,7 @@ export const createSellRequestSchema = z.object({
    * Müşterinin aklındaki fiyat (kuruş). İsteğe bağlıdır ve bağlayıcı değildir;
    * işletmenin teklifi ayrıca belirlenir.
    */
-  askingPrice: z
-    .number()
-    .int({ message: 'Tutar kuruş cinsinden tam sayı olmalıdır.' })
-    .positive({ message: 'Fiyat sıfırdan büyük olmalıdır.' })
-    .optional(),
+  askingPrice: positiveKurusSchema.optional(),
   pickupAddress: pickupAddressSchema,
   photos: z
     .array(requestPhotoInputSchema)
@@ -110,10 +107,7 @@ export type SellRequest = z.infer<typeof sellRequestSchema>;
 export const convertToProductSchema = z.object({
   title: requiredText('Ürün başlığı', 5, 160),
   description: requiredText('Ürün açıklaması', 20, 5000),
-  price: z
-    .number()
-    .int({ message: 'Tutar kuruş cinsinden tam sayı olmalıdır.' })
-    .positive({ message: 'Satış fiyatı sıfırdan büyük olmalıdır.' }),
+  price: positiveKurusSchema,
   categoryId: selectionSchema('bir kategori'),
   brandId: uuidSchema.nullable().default(null),
   condition: z.enum(PRODUCT_CONDITIONS),

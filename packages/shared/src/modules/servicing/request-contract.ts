@@ -17,6 +17,7 @@ import {
   dateOnlySchema,
   fullNameSchema,
   optionalText,
+  positiveKurusSchema,
   paginationSchema,
   phoneSchema,
   referenceNumberSchema,
@@ -142,10 +143,7 @@ export const cancelRequestSchema = z.object({
 // ---------------------------------------------------------------------------
 
 export const createQuoteSchema = z.object({
-  amount: z
-    .number()
-    .int({ message: 'Tutar kuruş cinsinden tam sayı olmalıdır.' })
-    .positive({ message: 'Teklif tutarı sıfırdan büyük olmalıdır.' }),
+  amount: positiveKurusSchema,
   validUntil: appointmentDateSchema,
   note: optionalText(1000),
 });

@@ -8,6 +8,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import {
   MAX_APPOINTMENT_LEAD_DAYS,
   appointmentDateSchema,
@@ -21,6 +22,7 @@ import {
   referenceNumberSchema,
   timeSlotSchema,
   today,
+  positiveKurusSchema,
   selectionSchema,
 } from './validation.ts';
 
@@ -280,5 +282,29 @@ describe('listeden seçilen kayıt', () => {
     const kimlik = '11111111-1111-4111-8111-111111111111';
 
     expect(selectionSchema('bir kategori').parse(kimlik)).toBe(kimlik);
+  });
+});
+
+describe('tutar üst sınırı', () => {
+  /*
+    `Number.isInteger(1e300)` JavaScript'te TRUE döner. Elle yazılmış
+    `.int().positive()` denetimi bu sayıyı geçiriyordu ve değer `bigint` kolona
+    kadar gidip veritabanında patlıyordu: müşteri temiz bir doğrulama hatası
+    yerine 500 alıyordu.
+  */
+  it('taşan sayıyı reddeder', () => {
+    const sonuc = positiveKurusSchema.safeParse(1e300);
+
+    expect(sonuc.success).toBe(false);
+    if (!sonuc.success) {
+      expect(sonuc.error.issues[0]?.message).toBe('Tutar çok büyük.');
+    }
+  });
+
+  it('elle yazılmış denetim bu sayıyı geçiriyordu', () => {
+    // Kaldırılan kuralın aynısı: neden yetersiz olduğunu gösterir.
+    const eskiKural = z.number().int().positive();
+
+    expect(eskiKural.safeParse(1e300).success).toBe(true);
   });
 });
