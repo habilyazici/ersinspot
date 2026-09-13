@@ -14,7 +14,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils.ts';
-import { useDocumentTitle } from '@/lib/document-title.ts';
+import { useDocumentTitle, useMetaDescription } from '@/lib/document-head.ts';
 
 /**
  * Sayfa genişlikleri.
@@ -93,6 +93,15 @@ export function PageHeader({
     kendisi çağırır.
   */
   useDocumentTitle(title);
+
+  /*
+    Arama sonucu açıklaması da buradan gelir — ama YALNIZCA düz metinse.
+
+    `description` bir ReactNode'dur ve on sayfada bağlantı içeren bir parça
+    olarak veriliyor; ondan güvenilir bir düz metin çıkarılamaz. O sayfalar site
+    açıklamasında kalır, kalan kırk beşi kendi cümlesini alır.
+  */
+  useMetaDescription(typeof description === 'string' ? description : undefined);
 
   return (
     <header className={cn('space-y-4', centered && 'text-center', className)}>

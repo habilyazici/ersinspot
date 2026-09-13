@@ -12,7 +12,7 @@ import { formatPrice } from '@/lib/format.ts';
 import { cn } from '@/lib/utils.ts';
 import { useAuth } from '@/features/auth';
 import { formatBrandAndCategory, useProduct } from '@/features/catalog';
-import { useDocumentTitle } from '@/lib/document-title.ts';
+import { useDocumentTitle, useMetaDescription } from '@/lib/document-head.ts';
 import { FavoriteButton, useAddToCart, useFavoriteStatus } from '@/features/ordering';
 
 export default function ProductDetailPage() {
@@ -29,6 +29,8 @@ export default function ProductDetailPage() {
     Kanca koşulsuz çağrılır; ürün yüklenene kadar `undefined` geçilir.
   */
   useDocumentTitle(product?.title);
+  // İlanın kendi metni: arama sonucunda ürünü anlatan tek şey budur.
+  useMetaDescription(product?.description);
 
   if (isLoading) return <PageSpinner label="Ürün yükleniyor" />;
   if (isError) return <ErrorState error={error} onRetry={() => void refetch()} />;
