@@ -100,6 +100,12 @@ export function FormField({
 /**
  * Girdi görünümü.
  *
+ * İPUCU METNİ 500 TONUNDA, 400 DEĞİL. `slate-400` beyaz üzerinde 2.63:1
+ * kontrast verir; WCAG AA normal metin için 4.5:1 ister. İpucu metni, boş bir
+ * alanın ne beklediğini söyleyen tek şeydir — "Örn. Arçelik No Frost
+ * Buzdolabı 520 L" gibi — ve sitedeki HER girdi bu sınıfı paylaşır, yani hata
+ * tek yerde yazılıp her formda görünüyordu. 500 tonu 4.76:1 verir.
+ *
  * Etiketi kendi düzeninde taşıyan yerler (liste üstündeki sıralama seçici gibi)
  * `FormField` sarmalayıcısını kullanamaz ama AYNI görünümü paylaşmalıdır; bu
  * yüzden sınıf dışa aktarılır. Elle yazıldığında ayrışıyordu: giriş formundaki
@@ -107,7 +113,7 @@ export function FormField({
  */
 export const fieldControlClass =
   'w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm ' +
-  'placeholder:text-slate-400 aria-[invalid=true]:border-red-500';
+  'placeholder:text-slate-500 aria-[invalid=true]:border-red-500';
 
 const inputClass = fieldControlClass;
 

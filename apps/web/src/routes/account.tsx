@@ -361,7 +361,7 @@ export default function AccountPage() {
                       {formatRelativeTime(session.lastUsedAt)} kullanıldı
                     </p>
 
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-slate-500">
                       Giriş: {formatDateTime(session.createdAt)}
                     </p>
                   </div>

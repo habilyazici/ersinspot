@@ -192,6 +192,47 @@ describe('Arayüz tutarlılığı', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('okunacak metin kontrastı yetersiz tonda yazılmaz', () => {
+    /*
+      `slate-400` beyaz üzerinde 2.63:1 verir; WCAG AA normal metin için 4.5:1
+      ister. `slate-500` 4.76:1 verir ve sitede zaten yardımcı metinlerin tonu
+      odur.
+
+      Ton DEKORATİF ÖĞELERDE serbesttir: kontrast kuralı, bilgi taşımayan ve
+      `aria-hidden` ile gizlenen grafiklere işlemez — SSS sayfasındaki açılır ok
+      işareti gibi. Bu yüzden AÇILIŞ ETİKETİNİN TAMAMI okunur ve `aria-hidden`
+      taşıyanlar elenir; ilk sürümüm etiketin ilk satırına bakıyor, `aria-hidden`
+      bir alt satırda kaldığı için o oku yanlışlıkla yakalıyordu.
+
+      Gerçekten yakalandığı yerler: her girdinin ipucu metni (tek satırda
+      yazılıydı, sitedeki bütün formlarda görünüyordu) ve hesap sayfasındaki
+      oturum giriş saati.
+    */
+    const acilisEtiketi = /<[a-zA-Z][^>]*\btext-slate-400\b[^>]*>/g;
+
+    /*
+      İpucu metni AYRICA aranır ve koşulsuz yakalanır.
+
+      Bu sınıf JSX içinde değil, paylaşılan bir sınıf dizgesinde duruyordu —
+      `fieldControlClass` — ve etikete bakan kural onu görmüyordu. Kuralı ilk
+      yazdığımda düzeltmeyi geri alıp denedim; test geçti. Bir ipucu metni her
+      zaman okunacak metindir, dekoratif olamaz.
+    */
+    const ipucuTonu = /placeholder:text-slate-400\b/;
+
+    const offenders = [...componentFiles(), ...pageFiles()]
+      .filter(
+        ({ source }) =>
+          ipucuTonu.test(source) ||
+          [...source.matchAll(acilisEtiketi)].some(
+            (eslesme) => !eslesme[0].includes('aria-hidden'),
+          ),
+      )
+      .map(({ name }) => name);
+
+    expect(offenders).toEqual([]);
+  });
+
   it('kart görünümü yalnızca card.tsx içinde tanımlıdır', () => {
     /*
       Kural `components/ui/` ile sınırlıydı ve özellik modülleri dışarıda
