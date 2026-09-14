@@ -123,6 +123,40 @@ describe('Mimari sözleşmesi', () => {
     expect(withoutContract).toEqual([]);
   });
 
+  it('HTTP katmanı veritabanına doğrudan dokunmaz', () => {
+    /*
+      Bağımlılık yönü `api → application → infrastructure`. Rota dosyası
+      ortadaki adımı atlayıp veritabanı istemcisini ya da tablo şemasını
+      içe aktarırsa, kural yalnızca belgede kalır.
+
+      Denetimde kimlik modülü tam olarak bunu yapıyordu: `api/routes.ts` 672
+      satırdı, `db` istemcisini ve üç tabloyu içe aktarıyor, işlemleri kendisi
+      açıyordu. Kalan beş modülün rota dosyasında tek bir veritabanı çağrısı
+      yoktu — yani kural zaten uygulanıyordu, yalnızca bir yerde uygulanmıyordu
+      ve bunu söyleyen bir şey yoktu.
+    */
+    const yasakli = [/from '.*platform\/db\/client\.ts'/, /from '.*infrastructure\/schema\.ts'/];
+
+    const offenders: string[] = [];
+
+    for (const moduleName of knownModules()) {
+      const routes = path.join(MODULES_DIR, moduleName, 'api', 'routes.ts');
+      let source: string;
+
+      try {
+        source = readFileSync(routes, 'utf8');
+      } catch {
+        continue;
+      }
+
+      if (yasakli.some((kural) => kural.test(source))) {
+        offenders.push(`${moduleName}/api/routes.ts`);
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
   it('yönetim uçlarının tamamı rota tanımında yetki bildirir', () => {
     /*
       Kural 3: yetkilendirme rota tanımında bildirilir, handler içinde değil.
