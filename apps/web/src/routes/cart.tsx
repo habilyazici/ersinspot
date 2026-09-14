@@ -187,7 +187,7 @@ export default function CartPage() {
           </dl>
 
           <Button asChild size="lg" className="mt-5 w-full" disabled={cart.hasUnavailableItems}>
-            <Link to="/odeme">Siparişi Tamamla</Link>
+            <Link to="/odeme">Siparişi tamamla</Link>
           </Button>
 
           <p className="mt-3 text-xs text-slate-500">

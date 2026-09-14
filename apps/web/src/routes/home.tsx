@@ -34,7 +34,7 @@ export default function HomePage() {
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild size="lg">
                 <Link to="/urunler">
-                  Ürünleri İncele
+                  Ürünleri incele
                   <ArrowRight aria-hidden="true" />
                 </Link>
               </Button>
@@ -45,7 +45,7 @@ export default function HomePage() {
                 variant="outline"
                 className="border-white/30 bg-transparent text-white hover:bg-white/10"
               >
-                <Link to="/urun-sat">Ürününüzü Satın</Link>
+                <Link to="/urun-sat">Ürününüzü satın</Link>
               </Button>
             </div>
           </div>

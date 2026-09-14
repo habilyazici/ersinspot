@@ -214,7 +214,7 @@ export function SiteHeader() {
                     disabled={logout.isPending}
                     className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60"
                   >
-                    Çıkış Yap
+                    Çıkış yap
                   </button>
                 </>
               ) : (

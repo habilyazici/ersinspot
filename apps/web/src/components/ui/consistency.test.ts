@@ -84,6 +84,86 @@ function componentFiles(): { name: string; source: string }[] {
   return [...walk(COMPONENTS, ''), ...walk(FEATURES, 'features/')];
 }
 
+/**
+ * Düğmelerin GÖRÜNEN metni.
+ *
+ * `<Button>` ve ham `<button>` gövdeleri ayrıştırılır; JSX ifadeleri ve iç
+ * etiketler atılıp geriye yalnızca kullanıcının okuduğu metin bırakılır.
+ * Böylece etiket bir simgenin yanında ya da `asChild` ile sarmalanmış bir
+ * `<Link>` içinde dursa da aynı şekilde görülür.
+ *
+ * Süslü parantezler İÇTEN DIŞA, tekrarlayarak temizlenir: iç içe şablon
+ * ifadeleri (`aria-label={`Sepetim${...}`}`) tek geçişte çözülmez ve
+ * artıkları metin sanılırdı.
+ */
+function buttonLabels(source: string): string[] {
+  const labels: string[] = [];
+
+  for (const tag of ['Button', 'button']) {
+    let index = 0;
+
+    while (true) {
+      const start = source.indexOf(`<${tag}`, index);
+      if (start === -1) break;
+
+      // Açılış etiketinin sonu: süslü parantez ve dize içindeki `>` sayılmaz.
+      let cursor = start;
+      let depth = 0;
+      let quote: string | null = null;
+      let open = -1;
+
+      for (; cursor < source.length; cursor += 1) {
+        const character = source[cursor];
+
+        if (quote !== null) {
+          if (character === quote) quote = null;
+          continue;
+        }
+        if (character === '"' || character === "'" || character === '`') {
+          quote = character;
+          continue;
+        }
+        if (character === '{') depth += 1;
+        else if (character === '}') depth -= 1;
+        else if (character === '>' && depth === 0) {
+          open = cursor;
+          break;
+        }
+      }
+
+      if (open === -1) {
+        index = start + tag.length + 1;
+        continue;
+      }
+
+      const end = source.indexOf(`</${tag}>`, open);
+      if (end === -1) {
+        index = open;
+        continue;
+      }
+
+      let body = source.slice(open + 1, end);
+
+      // Önce ifadeler (içteki `>` karakterlerini de götürür), sonra etiketler.
+      for (let previous = ''; previous !== body;) {
+        previous = body;
+        body = body.replace(/\{[^{}]*\}/g, ' ');
+      }
+
+      const text = body
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (text !== '') labels.push(text);
+
+      index = end + tag.length + 3;
+    }
+  }
+
+  return labels;
+}
+
 describe('Arayüz tutarlılığı', () => {
   it('hiçbir sayfa kendi kapsayıcı ölçüsünü yazmaz', () => {
     const offenders = pageFiles()
@@ -330,13 +410,21 @@ describe('Arayüz tutarlılığı', () => {
       olağan biçim cümle düzenidir ve çoğunluk da oydu.
 
       Sayfa başlıkları bu kuralın dışındadır: onlar başlıktır, eylem değil.
+
+      ETİKET, DÜZENLİ İFADEYLE DEĞİL GÖVDE AYRIŞTIRILARAK okunur. Önceki hâli
+      `<Button ...>metin</Button>` kalıbını arıyordu ve metnin yanında başka
+      bir şey olduğu anda kör kalıyordu. Üç biçim kaçıyordu, üçü de kod
+      tabanında gerçekten vardı:
+
+        <Button>Ürünleri İncele <ArrowRight /></Button>   — yanında simge
+        <Button asChild><Link>Siparişi Tamamla</Link></Button>
+        <button>Çıkış Yap</button>                        — ham öğe
+
+      Üçüncüsü başlığın kendi içindeydi: aynı dosya masaüstünde "Çıkış yap",
+      mobil menüde "Çıkış Yap" yazıyordu. Kural vardı, denetimi yoktu.
     */
     const offenders = [...pageFiles(), ...componentFiles()]
-      .flatMap(({ name, source }) =>
-        [...source.matchAll(/<Button\b[\s\S]{0,500}?>\s*([^<>{][^<>]{2,40}?)\s*<\/Button>/g)].map(
-          (match) => ({ name, label: (match[1] ?? '').replace(/\s+/g, ' ').trim() }),
-        ),
-      )
+      .flatMap(({ name, source }) => buttonLabels(source).map((label) => ({ name, label })))
       .filter(({ label }) => {
         const words = label.split(' ').filter((word) => /^\p{L}/u.test(word));
         return words.length > 1 && words.slice(1).every((word) => /^\p{Lu}/u.test(word));
