@@ -10,9 +10,10 @@
  * `dangerouslySetInnerHTML` kullanılıyordu.
  */
 
-import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type {
+  AdminBlogPostSummary,
   BlogListQuery,
   BlogPost,
   BlogPostSummary,
@@ -21,7 +22,7 @@ import type {
   UpdateBlogPostInput,
 } from '@ersinspot/shared';
 import { paginate } from '@ersinspot/shared';
-import { contains } from '../../../platform/db/search.ts';
+import { contains, turkishAsc } from '../../../platform/db/search.ts';
 import { db } from '../../../platform/db/client.ts';
 import type { Transaction } from '../../../platform/db/client.ts';
 import { alreadyExists, notFound } from '../../../platform/errors/index.ts';
@@ -44,6 +45,17 @@ const summarySelection = {
   authorName: blogPosts.authorName,
   readingMinutes: blogPosts.readingMinutes,
   publishedAt: blogPosts.publishedAt,
+} as const;
+
+/**
+ * Yönetim listesi seçimi.
+ *
+ * Görüntülenme sayısı yalnızca burada okunur; vitrin listesi onu istemez ve
+ * almamalıdır. Sayaç her okunuşta artıyor ama hiçbir sorgu okumuyordu.
+ */
+const adminSummarySelection = {
+  ...summarySelection,
+  viewCount: blogPosts.viewCount,
 } as const;
 
 function toSummary(row: {
@@ -133,7 +145,9 @@ export async function listPublishedPosts(
     .select(summarySelection)
     .from(blogPosts)
     .where(and(...conditions))
-    .orderBy(desc(blogPosts.publishedAt))
+    // Kimlik, eşit sıralama anahtarlarını bozan kararlı ikinci anahtardır:
+    // eşitlik olduğunda sayfalar arasında kayma olmaz.
+    .orderBy(desc(blogPosts.publishedAt), asc(blogPosts.id))
     .limit(query.pageSize)
     .offset(offset);
 
@@ -152,7 +166,7 @@ export async function listPublishedPosts(
  * yok sayılıyorlardı: panelde filtre seçilebiliyor ama liste değişmiyordu ve
  * kullanıcı filtrenin çalışmadığını ancak sonuçları sayarak anlıyordu.
  */
-export async function listAllPosts(query: BlogListQuery): Promise<Paginated<BlogPostSummary>> {
+export async function listAllPosts(query: BlogListQuery): Promise<Paginated<AdminBlogPostSummary>> {
   const conditions: SQL[] = [];
 
   if (query.category !== undefined) {
@@ -174,10 +188,12 @@ export async function listAllPosts(query: BlogListQuery): Promise<Paginated<Blog
   const offset = (query.page - 1) * query.pageSize;
 
   const rows = await db
-    .select(summarySelection)
+    .select(adminSummarySelection)
     .from(blogPosts)
     .where(where)
-    .orderBy(desc(blogPosts.createdAt))
+    // Kimlik, eşit sıralama anahtarlarını bozan kararlı ikinci anahtardır:
+    // eşitlik olduğunda sayfalar arasında kayma olmaz.
+    .orderBy(desc(blogPosts.createdAt), asc(blogPosts.id))
     .limit(query.pageSize)
     .offset(offset);
 
@@ -186,7 +202,11 @@ export async function listAllPosts(query: BlogListQuery): Promise<Paginated<Blog
     .from(blogPosts)
     .where(where);
 
-  return paginate(rows.map(toSummary), countRow?.value ?? 0, query);
+  return paginate(
+    rows.map((row) => ({ ...toSummary(row), viewCount: row.viewCount })),
+    countRow?.value ?? 0,
+    query,
+  );
 }
 
 async function loadTags(postId: string): Promise<string[]> {
@@ -199,6 +219,32 @@ async function loadTags(postId: string): Promise<string[]> {
   return rows.map((row) => row.name);
 }
 
+/** Satırı tam yazı görünümüne çevirir; etiketler ayrıca okunur. */
+async function toPost(row: typeof blogPosts.$inferSelect): Promise<BlogPost> {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    excerpt: row.excerpt,
+    content: row.content,
+    coverImageUrl: row.coverImageStorageKey === null ? null : resolveUrl(row.coverImageStorageKey),
+    category: row.category,
+    tags: await loadTags(row.id),
+    authorName: row.authorName,
+    readingMinutes: row.readingMinutes,
+    isPublished: row.isPublished,
+    publishedAt: row.publishedAt?.toISOString() ?? null,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+/**
+ * Vitrin için bağlantı adına göre yazı. YALNIZCA yayınlanmış yazılar döner.
+ *
+ * Yönetim paneli bu yolu kullanamaz: taslak yazı burada bulunamaz. Panelin
+ * kendi okuma yolu `getPostById`.
+ */
 export async function getPostBySlug(slug: string): Promise<BlogPost> {
   const rows = await db
     .select()
@@ -221,22 +267,34 @@ export async function getPostBySlug(slug: string): Promise<BlogPost> {
       logger.warn('Blog görüntülenme sayacı güncellenemedi', { error: String(error) });
     });
 
-  return {
-    id: row.id,
-    slug: row.slug,
-    title: row.title,
-    excerpt: row.excerpt,
-    content: row.content,
-    coverImageUrl: row.coverImageStorageKey === null ? null : resolveUrl(row.coverImageStorageKey),
-    category: row.category,
-    tags: await loadTags(row.id),
-    authorName: row.authorName,
-    readingMinutes: row.readingMinutes,
-    isPublished: row.isPublished,
-    publishedAt: row.publishedAt?.toISOString() ?? null,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
+  return toPost(row);
+}
+
+/**
+ * Yönetim paneli için kimliğe göre yazı. Taslaklar dahil.
+ *
+ * Panelin düzenleme formu yazının TAM içeriğine ihtiyaç duyar; liste yalnızca
+ * özet döndürür. Form bu içeriği vitrin ucundan (`/api/blog/:slug`) çekiyordu
+ * ve o uç yayınlanmamış yazıyı bulamaz: taslağa "düzenle" denince istek 404
+ * dönüyor, form da önceki yazının içeriğiyle açık kalıyordu. Kaydet'e
+ * basıldığında taslak, o içerikle ÜZERİNE YAZILIYORDU.
+ *
+ * Katalogdaki ayrımın aynısı: `getProductBySlug` vitrin, `getProductById`
+ * panel içindir.
+ *
+ * Görüntülenme sayacı burada ARTMAZ: personelin kendi yazısını düzenlemek
+ * için açması bir okunma değildir.
+ */
+export async function getPostById(postId: string): Promise<BlogPost> {
+  const rows = await db.select().from(blogPosts).where(eq(blogPosts.id, postId)).limit(1);
+
+  const row = rows[0];
+
+  if (row === undefined) {
+    throw notFound('Yazı');
+  }
+
+  return toPost(row);
 }
 
 // ---------------------------------------------------------------------------
@@ -417,18 +475,34 @@ export async function deletePost(postId: string): Promise<void> {
   logger.info('Blog yazısı silindi', { postId });
 }
 
-/** Kullanılan etiketleri, yazı sayısıyla birlikte döndürür. Etiket bulutu için. */
+/**
+ * Kullanılan etiketleri, YAYINLANMIŞ yazı sayısıyla birlikte döndürür.
+ *
+ * Uç herkese açıktır ve sayım yalnızca vitrinde görünen yazıları kapsamalıdır.
+ * Önceden `blog_post_tags` bağları sayılıyor, yazının yayında olup olmadığına
+ * hiç bakılmıyordu. İki sonucu vardı:
+ *
+ *   • Yalnızca taslaklara bağlı bir etiket bulutta görünüyordu ve tıklayan
+ *     kullanıcı boş bir listeye düşüyordu — liste `isPublished` süzüyor,
+ *     sayım süzmüyordu.
+ *   • Henüz yayınlanmamış bir yazının etiketi dışarıya sızıyordu.
+ *
+ * Sıralama sayıya göredir; eşit sayıda yazıya sahip etiketler ada göre
+ * sıralanır, böylece bulut her açılışta aynı görünür.
+ */
 export async function listTags(): Promise<{ name: string; slug: string; postCount: number }[]> {
+  const publishedPostCount = sql<number>`count(${blogPosts.id})::int`;
+
   const rows = await db
-    .select({
-      name: tags.name,
-      slug: tags.slug,
-      postCount: sql<number>`count(${blogPostTags.postId})::int`,
-    })
+    .select({ name: tags.name, slug: tags.slug, postCount: publishedPostCount })
     .from(tags)
     .leftJoin(blogPostTags, eq(blogPostTags.tagId, tags.id))
+    .leftJoin(
+      blogPosts,
+      and(eq(blogPostTags.postId, blogPosts.id), eq(blogPosts.isPublished, true)),
+    )
     .groupBy(tags.id, tags.name, tags.slug)
-    .orderBy(desc(sql`count(${blogPostTags.postId})`));
+    .orderBy(desc(publishedPostCount), turkishAsc(tags.name));
 
   return rows.filter((row) => row.postCount > 0);
 }

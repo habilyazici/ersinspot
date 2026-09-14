@@ -19,12 +19,40 @@ import { normalize as normalizePhone } from './phone.ts';
 export const uuidSchema = z.string().uuid({ message: 'Geçersiz kayıt kimliği.' });
 
 /**
+ * Kullanıcının açılır listeden seçtiği kayıt.
+ *
+ * Değer yine bir UUID'dir ama HATA MESAJI farklıdır. `uuidSchema`'nın mesajı
+ * ("Geçersiz kayıt kimliği") adres çubuğundaki bozuk bir kimlik ya da bir
+ * istemcinin gönderdiği hatalı gövde için doğrudur; formda kategori seçmeyi
+ * unutan müşteriye söylenecek cümle değildir.
+ *
+ * "Ürününüzü Satın" formunda tam olarak bu oluyordu: boş bırakılan Kategori
+ * listesi "Geçersiz kayıt kimliği." diyor, hemen altındaki İlçe listesi ise
+ * "Lütfen listeden bir ilçe seçin." diyordu. Aynı ekranda, aynı hatada, iki
+ * ayrı dil.
+ *
+ * @param label Alanın adı, -i hâlinde: "kategori", "marka".
+ */
+export function selectionSchema(label: string) {
+  return z.string({ required_error: `Lütfen ${label} seçin.` }).uuid({
+    message: `Lütfen ${label} seçin.`,
+  });
+}
+
+/**
  * İnsan tarafından okunabilen belge numarası: "SIP-2026-0001" gibi.
  * Ön ek, yıl ve sıra numarasından oluşur.
+ *
+ * Girdi önce NORMALLEŞTİRİLİR: kırpılır ve büyük harfe çevrilir. Numara
+ * müşteriye e-postayla gider ve müşteri onu kopyalayıp yapıştırır; başında
+ * boşluk kalması ya da küçük harfe düşmesi bir yazım hatası değildir, ama
+ * doğrudan desene sokulduğunda "Geçersiz takip numarası" cevabı veriyordu —
+ * hem sipariş takip sayfasında hem doğrudan API'ye yapılan çağrıda.
  */
 export const referenceNumberSchema = z
   .string()
-  .regex(/^[A-Z]{2,4}-\d{4}-\d{4,6}$/, { message: 'Geçersiz takip numarası.' });
+  .transform((value) => value.trim().toUpperCase())
+  .pipe(z.string().regex(/^[A-Z]{2,4}-\d{4}-\d{4,6}$/, { message: 'Geçersiz takip numarası.' }));
 
 // ---------------------------------------------------------------------------
 // Metin
@@ -118,6 +146,53 @@ export const emailSchema = z
       .max(254, { message: 'E-posta adresi çok uzun.' }),
   );
 
+/**
+ * Türkiye IBAN'ı.
+ *
+ * Havale bilgisi yönetim panelinden girilir ve müşteriye sipariş detayında
+ * gösterilir: yanlış yazılmış bir hane, paranın gitmemesi ya da başka bir
+ * hesaba gitmesi demektir. Bu yüzden yalnızca biçim değil, ISO 13616'nın
+ * MOD-97 sağlama toplamı da denetlenir — tek hane hatasını yakalayan şey odur.
+ *
+ * Girdi normalleştirilir: boşluklar atılır, harfler büyütülür. Kullanıcı IBAN'ı
+ * bankadan dört haneli gruplar hâlinde kopyalar.
+ */
+export const ibanSchema = z
+  .string({ required_error: 'IBAN zorunludur.' })
+  .transform((value) => value.replace(/\s+/g, '').toUpperCase())
+  .pipe(
+    z
+      .string()
+      .regex(/^TR\d{24}$/, { message: "IBAN 'TR' ile başlamalı ve 26 karakter olmalıdır." })
+      .refine(hasValidIbanChecksum, {
+        message: 'IBAN sağlama toplamı tutmuyor; haneleri kontrol edin.',
+      }),
+  );
+
+/**
+ * IBAN sağlama toplamı (ISO 13616 / MOD-97-10).
+ *
+ * İlk dört karakter sona alınır, harfler sayıya çevrilir (A=10 … Z=35) ve elde
+ * edilen büyük sayının 97'ye bölümünden kalan 1 olmalıdır. Sayı `Number`
+ * sınırlarını aştığı için bölme parça parça yapılır.
+ */
+function hasValidIbanChecksum(iban: string): boolean {
+  const yeniden = iban.slice(4) + iban.slice(0, 4);
+
+  let kalan = 0;
+  for (const karakter of yeniden) {
+    const basamaklar = /\d/.test(karakter)
+      ? karakter
+      : String(karakter.charCodeAt(0) - 'A'.charCodeAt(0) + 10);
+
+    for (const basamak of basamaklar) {
+      kalan = (kalan * 10 + Number(basamak)) % 97;
+    }
+  }
+
+  return kalan === 1;
+}
+
 export const fullNameSchema = z
   .string({ required_error: 'Ad soyad zorunludur.' })
   .transform((value) => cleanText(value).replace(/\s+/g, ' '))
@@ -148,6 +223,19 @@ export const phoneSchema = z
   });
 
 /**
+ * Şifrenin asgari uzunluğu.
+ *
+ * Sabit olarak dışa aktarılır çünkü arayüz de bu sayıyı SÖYLER: kayıt, şifre
+ * değiştirme ve şifre sıfırlama formlarının üçü de alanın altına "en az N
+ * karakter" yazar. Üç yerde elle yazıldığında sınır değiştiğinde formlar
+ * kullanıcıya yanlış kuralı anlatmaya devam ederdi.
+ */
+export const MIN_PASSWORD_LENGTH = 10;
+
+/** Şifre alanlarının altında gösterilen yardım metni. Kural tek yerden okunur. */
+export const PASSWORD_HINT = `En az ${String(MIN_PASSWORD_LENGTH)} karakter.`;
+
+/**
  * Şifre kuralları.
  *
  * Uzunluk, karmaşıklık kurallarından daha etkili olduğu için asgari uzunluk
@@ -157,7 +245,9 @@ export const phoneSchema = z
  */
 export const passwordSchema = z
   .string({ required_error: 'Şifre zorunludur.' })
-  .min(10, { message: 'Şifre en az 10 karakter olmalıdır.' })
+  .min(MIN_PASSWORD_LENGTH, {
+    message: `Şifre en az ${String(MIN_PASSWORD_LENGTH)} karakter olmalıdır.`,
+  })
   // bcrypt/argon2 girdisinin makul üst sınırı; hizmet reddi saldırısını da engeller
   .max(200, { message: 'Şifre en fazla 200 karakter olabilir.' })
   .refine((value) => value.trim().length > 0, { message: 'Şifre yalnızca boşluk olamaz.' });
@@ -210,10 +300,19 @@ export const positiveKurusSchema = kurusSchema.refine((value) => value > 0, {
 // Tarih ve saat
 // ---------------------------------------------------------------------------
 
-/** "2026-03-15" biçiminde takvim günü. Saat dilimi taşımaz. */
+/**
+ * "2026-03-15" biçiminde takvim günü. Saat dilimi taşımaz.
+ *
+ * Ret mesajı, ŞEMANIN BEKLEDİĞİ biçimi söyler. Önceki hâli "GG.AA.YYYY"
+ * diyordu, yani desenin kabul etmediği tek biçimi: mesajı okuyup "15.09.2026"
+ * yazan kullanıcı aynı hatayı bir kez daha alırdı. Tarih alanları normalde
+ * `<input type="date">` olduğu için tarayıcı değeri zaten ISO gönderir ve
+ * mesaj nadiren görünür — ama göründüğü yer, tam olarak birinin değeri elle
+ * yazdığı yerdir.
+ */
 export const dateOnlySchema = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Tarih GG.AA.YYYY biçiminde olmalıdır.' })
+  .regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Tarih YYYY-AA-GG biçiminde olmalıdır.' })
   .refine(
     (value) => {
       const date = new Date(`${value}T00:00:00Z`);
@@ -266,6 +365,30 @@ export const APPOINTMENT_TIME_SLOTS = [
 ] as const satisfies readonly TimeSlot[];
 
 /**
+ * İSTEMCİDEN gelen saat aralığı.
+ *
+ * `timeSlotSchema` yalnızca biçime ve sıraya bakar: "geçerli saat" ve
+ * "başlangıç bitişten önce". Sunulan aralıklardan biri olup olmadığını
+ * denetlemiyordu ve teslimat, mağazadan alım ile randevu uçları onu doğrudan
+ * kullanıyordu — yani arayüzün beş seçenek sunduğu yerde sunucu her aralığı
+ * kabul ediyordu.
+ *
+ * Ölçüldüğünde sonucu şuydu: `03:00–05:00` teslimat aralığıyla bir sipariş
+ * oluşturulabiliyor ve ekip ekranında o saatle görünüyordu. Arayüzden bu
+ * mümkün değil; şemayı doğrudan çağıran bir betik, eski bir istemci ya da
+ * ileride yazılacak bir mobil uygulama için mümkündü.
+ *
+ * Aralıklar zaten paylaşılan bir iş sabiti; denetim de aynı yerde olmalı.
+ */
+export const appointmentTimeSlotSchema = timeSlotSchema.refine(
+  (slot) =>
+    APPOINTMENT_TIME_SLOTS.some(
+      (offered) => offered.startTime === slot.startTime && offered.endTime === slot.endTime,
+    ),
+  { message: 'Lütfen sunulan saat aralıklarından birini seçin.' },
+);
+
+/**
  * Randevu ve teslimat için asgari hazırlık süreleri (gün).
  *
  * Mağazanın işleyişinden gelir: ürün hazırlanmalı, ekip planlanmalı, nakliyede
@@ -290,6 +413,19 @@ export const LEAD_TIME_DAYS = {
 
 /** Tekliflerin varsayılan geçerlilik süresi (gün). */
 export const QUOTE_VALIDITY_DAYS = 7;
+
+/**
+ * Havale/EFT ile verilen siparişin ödeme süresi (gün).
+ *
+ * Bu sürenin sonunda ödeme bildirimi gelmemişse sipariş otomatik iptal edilir
+ * ve rezerve edilen ürünler satışa döner. Sunucudaki bakım görevi de,
+ * müşteriye sipariş detayında gösterilen uyarı da aynı sayıyı kullanır.
+ *
+ * PAYLAŞILAN PAKETTE DURUR çünkü iki taraf da onu söyler: sunucu uygular,
+ * arayüz anlatır. Sunucu tarafında sabit, arayüzde ise elle yazılmış bir metin
+ * ("üç gün") olduğunda süre değiştiğinde müşteriye yanlış söz verilirdi.
+ */
+export const PAYMENT_GRACE_DAYS = 3;
 
 /**
  * İşletmenin saat dilimi.

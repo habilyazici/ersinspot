@@ -36,12 +36,18 @@ export interface StoredFile {
   readonly contentType: string;
 }
 
-/** MIME türünden dosya uzantısı. Kullanıcının verdiği dosya adına güvenilmez. */
+/**
+ * MIME türünden dosya uzantısı. Kullanıcının verdiği dosya adına güvenilmez.
+ *
+ * Yalnızca `ALLOWED_IMAGE_TYPES` içindeki türler yer alır; yükleme yolu başka
+ * bir türü buraya kadar getirmez. Tabloda bir zamanlar `application/pdf` de
+ * vardı ve hiçbir yükleme onu üretemiyordu — var olmayan bir yeteneği
+ * duyuran, okuyanı yanıltan bir satırdı.
+ */
 const EXTENSION_BY_TYPE: Readonly<Record<string, string>> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',
-  'application/pdf': 'pdf',
 };
 
 /**

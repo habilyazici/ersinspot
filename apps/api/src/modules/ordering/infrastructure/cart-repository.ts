@@ -9,7 +9,7 @@
  * `catalog` modülünün sözleşmesinden istenir.
  */
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '../../../platform/db/client.ts';
 import type { Transaction } from '../../../platform/db/client.ts';
 import { cartItems } from './schema.ts';
@@ -35,13 +35,25 @@ export async function findByUser(userId: string, executor: Executor = db): Promi
     .orderBy(cartItems.createdAt);
 }
 
-export async function countByUser(userId: string): Promise<number> {
-  const [row] = await db
-    .select({ value: sql<number>`count(*)::int` })
-    .from(cartItems)
-    .where(eq(cartItems.userId, userId));
+/**
+ * Verilen ürünlerin kalemlerini sepetten çıkarır.
+ *
+ * Ürünü silinmiş kalemleri temizlemek için kullanılır. Hangi ürünün silindiğini
+ * bu katman BİLMEZ — kimlikleri çağıran verir; burada `products` tablosuna
+ * bakılmaz.
+ */
+export async function removeProducts(
+  userId: string,
+  productIds: readonly string[],
+): Promise<number> {
+  if (productIds.length === 0) return 0;
 
-  return row?.value ?? 0;
+  const deleted = await db
+    .delete(cartItems)
+    .where(and(eq(cartItems.userId, userId), inArray(cartItems.productId, [...productIds])))
+    .returning({ id: cartItems.id });
+
+  return deleted.length;
 }
 
 /**

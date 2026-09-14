@@ -20,6 +20,7 @@ import { resetDatabase } from '../../../test/helpers.ts';
 import {
   getPurchasableProducts,
   markProductsAsSold,
+  releaseExpiredReservations,
   releaseProducts,
   reserveProducts,
 } from './inventory-service.ts';
@@ -300,5 +301,79 @@ describe('satışın tamamlanması', () => {
 
     expect(sold).toBe(0);
     expect(await statusOf(productId)).toBe('for_sale');
+  });
+});
+
+/**
+ * Süresi geçmiş rezervasyonların toplu serbest bırakılması.
+ *
+ * Saatte dört kez çalışan bakım görevidir ve EMNİYET AĞIDIR: normal yolda
+ * siparişin iptali ürünü zaten serbest bırakır. Buraya, o yolun tamamlanamadığı
+ * kayıtlar düşer — süreç ortada düşmüş, işlem yarım kalmış.
+ *
+ * Zamanlayıcıya bağlı çalıştığı için bozulduğunda sessizdir: kimse "ürün hâlâ
+ * rezerve" diye bildirim almaz, ürün yalnızca satılamaz olarak durur.
+ */
+describe('süresi geçmiş rezervasyonların temizliği', () => {
+  /** Rezervasyon bitişini geçmişe alır: veritabanı kısıtı doğrudan geçmiş tarih yazmaya izin verir. */
+  async function expireReservation(productId: string): Promise<void> {
+    await db
+      .update(products)
+      .set({ reservedUntil: new Date(Date.now() - 60_000) })
+      .where(eq(products.id, productId));
+  }
+
+  it('süresi dolmuş rezervasyonu satışa döndürür', async () => {
+    const productId = await createProduct({ status: 'reserved' });
+    await expireReservation(productId);
+
+    expect(await releaseExpiredReservations()).toBe(1);
+    expect(await statusOf(productId)).toBe('for_sale');
+  });
+
+  it('serbest bırakılan üründe bitiş tarihini de siler', async () => {
+    /*
+      Tarih kalsaydı ürün satışta görünürken geçmiş bir rezervasyon bitişi
+      taşırdı; sonraki turlar onu her seferinde yeniden "serbest bırakır" ve
+      sayaç gerçekte olmayan bir iş bildirirdi.
+    */
+    const productId = await createProduct({ status: 'reserved' });
+    await expireReservation(productId);
+    await releaseExpiredReservations();
+
+    const [row] = await db
+      .select({ reservedUntil: products.reservedUntil })
+      .from(products)
+      .where(eq(products.id, productId));
+
+    expect(row?.reservedUntil).toBeNull();
+    expect(await releaseExpiredReservations()).toBe(0);
+  });
+
+  it('süresi dolmamış rezervasyona dokunmaz', async () => {
+    const productId = await createProduct({ status: 'reserved' });
+
+    expect(await releaseExpiredReservations()).toBe(0);
+    expect(await statusOf(productId)).toBe('reserved');
+  });
+
+  it('rezerve olmayan ürüne bitiş tarihi yazılamaz', async () => {
+    /*
+      Görev `status = 'reserved'` satırlarını tarar. Satılmış bir ürünün bakım
+      turuyla satışa geri dönmesi ancak ona bir bitiş tarihi yazılabilseydi
+      mümkün olurdu; veritabanı kısıtı (`products_reserved_has_expiry`) buna
+      zaten izin vermiyor. Korumanın yeri burası olduğu için denetimi de burada
+      yapılır — kısıt kaldırılırsa bu test düşer.
+    */
+    const productId = await createProduct({ status: 'sold' });
+
+    await expect(
+      db
+        .update(products)
+        .set({ reservedUntil: new Date(Date.now() - 60_000) })
+        .where(eq(products.id, productId)),
+    ).rejects.toThrow();
+
+    expect(await statusOf(productId)).toBe('sold');
   });
 });

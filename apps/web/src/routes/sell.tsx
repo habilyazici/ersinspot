@@ -22,6 +22,7 @@ import {
   PRODUCT_CONDITION_LABELS,
   createSellRequestSchema,
   money,
+  phone,
 } from '@ersinspot/shared';
 import type { CreateSellRequestInput } from '@ersinspot/shared';
 import { AddressFields } from '@/components/ui/address-fields.tsx';
@@ -33,27 +34,10 @@ import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
 import { PhotoUpload } from '@/components/ui/photo-upload.tsx';
 import { findError } from '@/lib/form.ts';
 import { useAuth } from '@/features/auth';
-import { useCategories } from '@/features/catalog';
-import type { CategoryNode } from '@/features/catalog';
+import { flattenCategories, useCategories } from '@/features/catalog';
 import { useCreateSellRequest } from '@/features/servicing';
 
 type SellValues = CreateSellRequestInput;
-
-/**
- * Kategori ağacını düz listeye çevirir.
- *
- * Seçim kutusunda hiyerarşi girinti ile gösterilir; iç içe `optgroup`
- * kullanılamaz çünkü ağaç ikiden derin olabilir.
- */
-function flattenCategories(
-  nodes: readonly CategoryNode[],
-  depth = 0,
-): { id: string; label: string }[] {
-  return nodes.flatMap((node) => [
-    { id: node.id, label: `${'— '.repeat(depth)}${node.name}` },
-    ...flattenCategories(node.children, depth + 1),
-  ]);
-}
 
 export default function SellPage() {
   const navigate = useNavigate();
@@ -146,7 +130,7 @@ export default function SellPage() {
                 required
                 type="tel"
                 autoComplete="tel"
-                placeholder="0507 194 05 50"
+                placeholder={phone.PLACEHOLDER}
                 hint="Değerlendirme sonrası sizi bu numaradan arayacağız."
                 error={errors.contact?.phone?.message}
                 {...register('contact.phone')}
@@ -275,12 +259,20 @@ export default function SellPage() {
             Aklınızdaki Fiyat
           </h2>
 
+          {/*
+            Alan METİNDİR, `type="number"` değil.
+
+            Tutar `money.parseLira` ile okunuyor ve o, Türkçe yazımı da kabul
+            eder ("6.500", "6500,50"). Sayı girdisi virgülü reddeder: tarayıcı
+            değeri boş dizeye çevirir, `setValueAs` `undefined` döndürür ve
+            müşterinin yazdığı fiyat sessizce kaybolurdu. Ürün formu ile teklif
+            kutusu da aynı sebeple metin kullanıyor.
+          */}
           <TextField
             label="Beklediğiniz Tutar"
-            type="number"
-            min={1}
+            inputMode="decimal"
             placeholder="Örn. 6500"
-            hint="İsteğe bağlı ve bağlayıcı değil. Yazarsanız pazarlığın nereden başlayacağını biliriz."
+            hint="İsteğe bağlı ve bağlayıcı değil. Lira olarak yazın; kuruş için virgül kullanın."
             error={errors.askingPrice?.message}
             {...register('askingPrice', {
               /*
@@ -308,7 +300,7 @@ export default function SellPage() {
             className="w-full"
             isLoading={isSubmitting || createRequest.isPending}
           >
-            Talep Oluştur
+            Talep oluştur
           </Button>
         </Card>
       </form>

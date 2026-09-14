@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Clock, Mail, MapPin, Phone } from 'lucide-react';
+import { PageContainer } from '@/components/ui/page.tsx';
 import { useSiteSettings } from '@/features/content';
 import { phone as phoneUtils } from '@ersinspot/shared';
 
@@ -22,7 +23,7 @@ export function SiteFooter() {
 
   return (
     <footer className="mt-16 border-t border-slate-200 bg-white">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-3 lg:px-8">
+      <PageContainer width="wide" className="grid gap-8 py-12 md:grid-cols-3">
         <div>
           <span className="text-lg font-bold text-brand-navy-800">
             Ersin<span className="text-brand-orange-500">Spot</span>
@@ -37,37 +38,42 @@ export function SiteFooter() {
           <h2 className="text-sm font-semibold text-slate-900">Hizmetler</h2>
           <ul className="mt-3 space-y-2 text-sm text-slate-600">
             <li>
-              <Link to="/urunler" className="hover:text-brand-orange-600">
+              <Link to="/urunler" className="hover:text-brand-orange-700">
                 İkinci El Ürünler
               </Link>
             </li>
             <li>
-              <Link to="/teknik-servis" className="hover:text-brand-orange-600">
+              <Link to="/teknik-servis" className="hover:text-brand-orange-700">
                 Teknik Servis
               </Link>
             </li>
             <li>
-              <Link to="/nakliye" className="hover:text-brand-orange-600">
+              <Link to="/nakliye" className="hover:text-brand-orange-700">
                 Evden Eve Nakliyat
               </Link>
             </li>
             <li>
-              <Link to="/urun-sat" className="hover:text-brand-orange-600">
+              <Link to="/urun-sat" className="hover:text-brand-orange-700">
                 Ürününüzü Satın
               </Link>
             </li>
             <li>
-              <Link to="/blog" className="hover:text-brand-orange-600">
+              <Link to="/blog" className="hover:text-brand-orange-700">
                 Blog
               </Link>
             </li>
             <li>
-              <Link to="/sss" className="hover:text-brand-orange-600">
+              <Link to="/sss" className="hover:text-brand-orange-700">
                 Sıkça Sorulan Sorular
               </Link>
             </li>
             <li>
-              <Link to="/kullanim-kosullari" className="hover:text-brand-orange-600">
+              <Link to="/iletisim" className="hover:text-brand-orange-700">
+                İletişim
+              </Link>
+            </li>
+            <li>
+              <Link to="/kullanim-kosullari" className="hover:text-brand-orange-700">
                 Kullanım Koşulları
               </Link>
             </li>
@@ -85,7 +91,7 @@ export function SiteFooter() {
                 />
                 <a
                   href={phoneUtils.toTelHref(contactPhone)}
-                  className="hover:text-brand-orange-600"
+                  className="hover:text-brand-orange-700"
                 >
                   {phoneUtils.format(contactPhone)}
                 </a>
@@ -95,7 +101,7 @@ export function SiteFooter() {
             {contactEmail === '' ? null : (
               <li className="flex items-start gap-2">
                 <Mail className="mt-0.5 size-4 shrink-0 text-brand-orange-500" aria-hidden="true" />
-                <a href={`mailto:${contactEmail}`} className="hover:text-brand-orange-600">
+                <a href={`mailto:${contactEmail}`} className="hover:text-brand-orange-700">
                   {contactEmail}
                 </a>
               </li>
@@ -134,7 +140,7 @@ export function SiteFooter() {
             </li>
           </ul>
         </div>
-      </div>
+      </PageContainer>
 
       <div className="border-t border-slate-200 py-6">
         <p className="text-center text-sm text-slate-500">

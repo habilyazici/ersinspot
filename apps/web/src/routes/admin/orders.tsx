@@ -7,14 +7,15 @@
  * görünmemelidir.
  */
 
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ImageOff, Search, ShoppingBag } from 'lucide-react';
 import { ORDER_STATUSES, ORDER_STATUS_LABELS } from '@ersinspot/shared';
-import type { OrderStatus } from '@ersinspot/shared';
 import { Card } from '@/components/ui/card.tsx';
+import { Button } from '@/components/ui/button.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
+import { enumParam, useListFilters } from '@/lib/list-filters.ts';
 import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
 import { SearchField } from '@/components/ui/search-field.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
@@ -23,11 +24,10 @@ import { formatDate, formatPrice } from '@/lib/format.ts';
 import { useAdminOrders } from '@/features/ordering';
 
 export default function AdminOrdersPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params, page, hasActiveFilters, setFilter, clearFilters } = useListFilters();
 
-  const status = (searchParams.get('durum') ?? undefined) as OrderStatus | undefined;
-  const search = searchParams.get('ara') ?? '';
-  const page = Number(searchParams.get('sayfa') ?? '1');
+  const status = enumParam(params.get('durum'), ORDER_STATUSES);
+  const search = params.get('ara') ?? '';
 
   const { data, isLoading, isError, error, refetch } = useAdminOrders({
     page,
@@ -36,18 +36,6 @@ export default function AdminOrdersPage() {
   });
 
   /** Süzgeci adres çubuğuna yazar. Sayfa numarası daima sıfırlanır. */
-  function setFilter(key: string, value: string | undefined): void {
-    const next = new URLSearchParams(searchParams);
-
-    if (value === undefined || value === '') next.delete(key);
-    else next.set(key, value);
-
-    if (key !== 'sayfa') next.delete('sayfa');
-
-    // Süzgeç değişimi geçmişe kayıt eklemez; geri tuşu listede değil,
-    // sayfalar arasında gezinmelidir.
-    setSearchParams(next, { replace: true });
-  }
 
   return (
     <>
@@ -85,12 +73,19 @@ export default function AdminOrdersPage() {
         <ErrorState error={error} onRetry={() => void refetch()} />
       ) : data === undefined || data.items.length === 0 ? (
         <EmptyState
-          icon={search === '' ? ShoppingBag : Search}
-          title={search === '' ? 'Sipariş yok' : 'Sonuç bulunamadı'}
+          icon={hasActiveFilters ? Search : ShoppingBag}
+          title={hasActiveFilters ? 'Sonuç bulunamadı' : 'Sipariş yok'}
           description={
-            search === ''
-              ? 'Bu süzgeçle eşleşen sipariş bulunmuyor.'
-              : 'Arama kriterlerinizi değiştirip tekrar deneyin.'
+            hasActiveFilters
+              ? 'Bu filtreyle eşleşen sipariş bulunmuyor.'
+              : 'Vitrinden sipariş verildiğinde burada görünür.'
+          }
+          action={
+            hasActiveFilters ? (
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Filtreleri temizle
+              </Button>
+            ) : undefined
           }
           className="mt-4"
         />
@@ -136,7 +131,7 @@ export default function AdminOrdersPage() {
                     </p>
                   </div>
 
-                  <p className="shrink-0 self-center font-semibold tabular-nums text-brand-orange-600">
+                  <p className="shrink-0 self-center font-semibold tabular-nums text-brand-orange-700">
                     {formatPrice(order.total)}
                   </p>
                 </Link>

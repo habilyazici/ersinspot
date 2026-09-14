@@ -242,6 +242,42 @@ ettiği ile formun izin verdiği ayrışamaz.
 
 ---
 
+## Kural 7: Arayüzün SÖYLEDİĞİ kural, paylaşılan pakette durur
+
+Bir kuralı yalnızca sunucuda uygulamak yetmez; arayüz o kuralı kullanıcıya
+anlatıyorsa aynı yerden okumalıdır. Aksi halde iki taraf ayrışır ve kullanıcı
+sınırı ancak bir hata mesajıyla öğrenir.
+
+Denetimde bulunan örnekler:
+
+| Kural                    | Nerede uygulanıyordu      | Arayüzde nasıl duruyordu               |
+| ------------------------ | ------------------------- | -------------------------------------- |
+| Şifrenin asgari uzunluğu | `passwordSchema`          | Üç formda elle yazılmış "10 karakter"  |
+| Ödeme süresi             | `RESERVATION_DURATION_MS` | Sipariş sayfasında elle "üç gün"       |
+| Teklifin geçerlilik sonu | `isQuoteExpired` (sunucu) | Hiç bilinmiyordu; kabul düğmesi açıktı |
+
+Üçü de artık `@ersinspot/shared` içindedir ve iki taraf aynı değeri okur.
+
+---
+
+## Kural 8: Her ucun bir çağıranı, her çağrının bir ucu vardır
+
+Sunucuda uç yazmak bir özelliği bitirmez. Denetimde DÖRT özellik sunucusu tam,
+arayüzü hiç yazılmamış hâlde bulundu: nakliye talebi fotoğrafları, satış
+talebinin ürüne dönüştürülmesi, iletişim formu ve taslak blog yazısının
+okunması. Hepsi tip denetiminden, linten ve testlerden geçiyordu — çünkü hiçbir
+şey iki tarafı karşılaştırmıyordu.
+
+`apps/web/src/routing.test.ts` artık iki yönü de denetler:
+
+- Her `apiRequest('/api/...')` adresi sunucuda tanımlı bir uca çözülmelidir.
+  Yolu yanlış yazmak düz bir dize hatasıdır; yalnızca o ekran açıldığında 404
+  olarak görünür.
+- Sunucudaki her uç bir ekrandan çağrılmalıdır. Çağrılmayanlar testin içindeki
+  kısa listede GEREKÇESİYLE bildirilir; liste bilinçli olarak dardır.
+
+---
+
 ## Paylaşılan paket (`@ersinspot/shared`)
 
 Sunucu ve tarayıcının paylaştığı sözleşme. İki bölümden oluşur:
@@ -311,11 +347,12 @@ geçildiğinde her örnek aynı görevi çalıştırır; o noktada bir danışma
 
 ## Test yaklaşımı
 
-| Katman         | Test türü        | Veritabanı             |
-| -------------- | ---------------- | ---------------------- |
-| `domain/`      | Birim            | Yok — saf fonksiyonlar |
-| `application/` | Entegrasyon      | Gerçek PostgreSQL      |
-| `api/`         | Uçtan uca (HTTP) | Gerçek PostgreSQL      |
+| Katman         | Test türü        | Veritabanı                       |
+| -------------- | ---------------- | -------------------------------- |
+| `domain/`      | Birim            | Yok — saf fonksiyonlar           |
+| `application/` | Entegrasyon      | Gerçek PostgreSQL                |
+| `api/`         | Uçtan uca (HTTP) | Gerçek PostgreSQL                |
+| `platform/`    | Birim            | Yalnızca veritabanına dokunanlar |
 
 Sahte veritabanı kullanılmaz. Denetimde bulunan hataların çoğu — kısıt ihlalleri,
 tetikleyici davranışı, işlem geri alma, eşzamanlılık — ancak gerçek veritabanında
@@ -323,3 +360,22 @@ görünür.
 
 Testler `pnpm db:up` ile ayağa kalkan yerel PostgreSQL'e karşı çalışır ve CI'da
 aynı sürüm kullanılır.
+
+`platform/` testleri, altyapının ANLATTIĞI şeyi gerçekten yaptığını denetler:
+log maskelemesinin şifreyi gizlediğini, hata işleyicisinin veritabanı kodunu
+bulduğunu, vekil başlığından okunan adresin doğrulandığını, aramanın Türkçe
+harf duyarsız olduğunu. Bu davranışların ortak yanı, yanlış çalıştıklarında
+sessiz kalmalarıdır — maskelenmemiş bir log satırı da, eşleşmeyen bir hata
+kodu da kimseye hata vermez.
+
+### Kaynak ağacını denetleyen testler
+
+Arayüz tarafında iki paket kod ÇALIŞTIRMAZ, kaynağı okur:
+
+| Dosya                               | Ne denetler                                                                                         |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `components/ui/consistency.test.ts` | Sayfaların ortak bileşenleri kullanması, etiket ve terim yazımı, atlama bağlantısının hedefi        |
+| `routing.test.ts`                   | Her bağlantının bir rotaya, her rotanın bir bağlantıya, her API çağrısının bir uca karşılık geldiği |
+
+İkisi de Kural 8'in arayüz tarafındaki karşılığıdır: bir kural yazılıp
+uygulanmıyorsa kural değildir. Bu testler o kuralların kendisini korur.

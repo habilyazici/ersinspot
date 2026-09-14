@@ -12,10 +12,12 @@ import {
   optionalText,
   requiredText,
   servicedDistrictSchema,
+  appointmentTimeSlotSchema,
   timeSlotSchema,
   uuidSchema,
 } from '../../kernel/validation.ts';
 import { HOUSE_SIZES } from '../../kernel/pricing.ts';
+import { toAsciiLower } from '../../kernel/slug.ts';
 import {
   requestContactSchema,
   requestPhotoInputSchema,
@@ -108,7 +110,7 @@ export const createMovingRequestSchema = z
     toLocation: movingLocationSchema,
     /** Tercih edilen taşınma tarihi. Kesin randevu, teklif onaylandıktan sonra verilir. */
     preferredDate: appointmentDateSchema,
-    preferredTimeSlot: timeSlotSchema.optional(),
+    preferredTimeSlot: appointmentTimeSlotSchema.optional(),
     items: z
       .array(movingItemSchema)
       .min(1, { message: 'En az bir eşya eklemelisiniz.' })
@@ -118,13 +120,62 @@ export const createMovingRequestSchema = z
     photos: z.array(requestPhotoInputSchema).max(10).default([]),
     customerNote: optionalText(1000),
   })
-  .refine(
-    (data) =>
-      data.fromLocation.address.district !== data.toLocation.address.district ||
-      data.fromLocation.address.street !== data.toLocation.address.street ||
-      data.fromLocation.address.buildingNo !== data.toLocation.address.buildingNo,
-    { message: 'Çıkış ve varış adresi aynı olamaz.', path: ['toLocation'] },
-  );
+  /*
+    Çıkış ve varış adresi aynı olamaz.
+
+    Karşılaştırma adresin TÜM alanları üzerinden yapılır. Önceden yalnızca
+    ilçe, sokak ve bina numarasına bakılıyordu ve iki meşru taşınma yanlışlıkla
+    reddediliyordu:
+
+      • Aynı ilçede aynı sokak adı farklı mahallelerde bulunabilir — Türkiye
+        adres düzeninde olağandır.
+      • Aynı binada daire değiştirmek de bir taşınmadır.
+
+    Kuralın amacı, kullanıcının aynı adresi iki kez doldurduğunu yakalamaktır;
+    o durum ancak alanların HEPSİ aynıyken vardır.
+  */
+  /*
+    Hata VARIŞ İLÇESİNE bağlanır.
+
+    Kural adresin tamamına aittir ama `path` bir yaprak alan olmak ZORUNDADIR:
+    react-hook-form yalnızca kayıtlı alanlara düşen hataları yüzeye çıkarır ve
+    yol bir zamanlar `['toLocation']` idi — kayıtlı olan `toLocation.floor`,
+    `toLocation.address.district` gibi alanlardı, grubun kendisi değil. Sonuç,
+    kuralın görünmeden çalışmasıydı: uzun formu dolduran müşteri düğmeye
+    basıyor, istek gönderilmiyor ve ekranda tek bir açıklama çıkmıyordu.
+
+    İlçe, "Varış Adresi" bloğunun ilk alanıdır; mesaj değiştirilmesi gereken
+    yerin başında görünür.
+  */
+  .refine((data) => addressKey(data.fromLocation.address) !== addressKey(data.toLocation.address), {
+    message: 'Çıkış ve varış adresi aynı olamaz.',
+    path: ['toLocation', 'address', 'district'],
+  });
+
+/**
+ * Adresi karşılaştırılabilir tek bir dizeye indirger.
+ *
+ * Boşluk ve büyük/küçük harf farkları yok sayılır: "Atatürk Cad." ile
+ * "atatürk cad." aynı adrestir ve kullanıcının ikisini iki farklı yere yazması
+ * bir taşınma değildir.
+ */
+function addressKey(address: {
+  district: string;
+  neighborhood: string;
+  street: string;
+  buildingNo: string;
+  apartmentNo?: string | undefined;
+}): string {
+  return [
+    address.district,
+    address.neighborhood,
+    address.street,
+    address.buildingNo,
+    address.apartmentNo ?? '',
+  ]
+    .map((part) => toAsciiLower(part).replace(/\s+/g, ' ').trim())
+    .join('|');
+}
 
 export type CreateMovingRequestInput = z.infer<typeof createMovingRequestSchema>;
 

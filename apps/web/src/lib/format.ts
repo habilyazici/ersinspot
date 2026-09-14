@@ -42,13 +42,6 @@ const dateTimeFormatter = new Intl.DateTimeFormat('tr-TR', {
   minute: '2-digit',
 });
 
-const shortDateFormatter = new Intl.DateTimeFormat('tr-TR', {
-  timeZone: BUSINESS_TIME_ZONE,
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-});
-
 /** "15 Eylül 2026" */
 export function formatDate(value: string | Date): string {
   return dateFormatter.format(typeof value === 'string' ? new Date(value) : value);
@@ -57,11 +50,6 @@ export function formatDate(value: string | Date): string {
 /** "15 Eylül 2026 14:30" */
 export function formatDateTime(value: string | Date): string {
   return dateTimeFormatter.format(typeof value === 'string' ? new Date(value) : value);
-}
-
-/** "15.09.2026" — tablolarda yer kazanmak için. */
-export function formatShortDate(value: string | Date): string {
-  return shortDateFormatter.format(typeof value === 'string' ? new Date(value) : value);
 }
 
 /**

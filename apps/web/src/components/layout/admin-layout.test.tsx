@@ -15,6 +15,7 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
+import { hasRoleAtLeast } from '@ersinspot/shared';
 import type { CurrentUser } from '@ersinspot/shared';
 
 const state: { role: CurrentUser['role']; unread: number | undefined } = {
@@ -22,6 +23,14 @@ const state: { role: CurrentUser['role']; unread: number | undefined } = {
   unread: 0,
 };
 
+/*
+  Taklit, `useAuth` sözleşmesinin TAMAMINI karşılar.
+
+  `hasRole` eksik bırakılmıştı ve düzen o sırada rolü doğrudan
+  karşılaştırdığı için fark edilmiyordu. Eksik bir taklit, denetlenen
+  bileşenin gerçekte kullanmadığı bir arayüze göre yazılmış demektir; kural
+  tek yere (`hasRoleAtLeast`) taşındığında test çalışma anında düşer.
+*/
 vi.mock('@/features/auth', () => ({
   useAuth: () => ({
     user: {
@@ -35,7 +44,9 @@ vi.mock('@/features/auth', () => ({
     },
     isAuthenticated: true,
     isStaff: true,
+    isEmailVerified: true,
     isLoading: false,
+    hasRole: (role: CurrentUser['role']) => hasRoleAtLeast(state.role, role),
   }),
 }));
 

@@ -9,7 +9,7 @@
  * içinde herhangi bir sırayla yazılabilir.
  */
 
-import { eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import type {
   DeviceType,
   HouseSize,
@@ -105,17 +105,20 @@ export async function findMovingDetail(
 }
 
 export async function findMovingItems(requestId: string): Promise<MovingItemRow[]> {
-  return db
-    .select({
-      id: movingRequestItems.id,
-      name: movingRequestItems.name,
-      quantity: movingRequestItems.quantity,
-      needsDisassembly: movingRequestItems.needsDisassembly,
-      note: movingRequestItems.note,
-    })
-    .from(movingRequestItems)
-    .where(eq(movingRequestItems.requestId, requestId))
-    .orderBy(movingRequestItems.displayOrder);
+  return (
+    db
+      .select({
+        id: movingRequestItems.id,
+        name: movingRequestItems.name,
+        quantity: movingRequestItems.quantity,
+        needsDisassembly: movingRequestItems.needsDisassembly,
+        note: movingRequestItems.note,
+      })
+      .from(movingRequestItems)
+      .where(eq(movingRequestItems.requestId, requestId))
+      // `displayOrder` benzersiz değil; eşitlikte eşya listesinin sırası sabit kalsın.
+      .orderBy(asc(movingRequestItems.displayOrder), asc(movingRequestItems.id))
+  );
 }
 
 // ---------------------------------------------------------------------------

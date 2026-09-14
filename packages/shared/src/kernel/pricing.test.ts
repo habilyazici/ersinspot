@@ -118,6 +118,20 @@ describe('nakliye tahmini', () => {
     expect(large.basePrice).toBeGreaterThan(small.basePrice);
   });
 
+  it('bodrum kattan taşımada kat ücreti almaz', () => {
+    /*
+      Kural "zemin kat ve altı ücretsiz" biçimindedir ve bodrum, formun açıkça
+      istediği bir değerdir. Fiyatlandırma değişecekse değişikliğin görüneceği
+      yer burasıdır: üçüncü kattan taşınan ek ücret öderken bodrumdan taşınan
+      ödemiyor.
+    */
+    const bodrum = estimateMoving({ ...base, fromFloor: -3 });
+    const zemin = estimateMoving(base);
+
+    expect(bodrum.floorSurcharge).toBe(zemin.floorSurcharge);
+    expect(bodrum.total).toBe(zemin.total);
+  });
+
   it('asansörsüz katlar için ek ücret alır', () => {
     const withoutElevator = estimateMoving({ ...base, fromFloor: 4, fromHasElevator: false });
     const groundFloor = estimateMoving(base);

@@ -10,7 +10,7 @@ import type {
   BrandSummary,
   CategoryNode,
   ProductDetail,
-  CreateProductInput,
+  CreateProductBody,
   ProductStatus,
   UpdateProductInput,
   Paginated,
@@ -137,7 +137,7 @@ export function useCreateProduct() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: CreateProductInput) => {
+    mutationFn: async (input: CreateProductBody) => {
       const response = await apiRequest<{ product: { productId: string } }>('/api/admin/products', {
         method: 'POST',
         body: input,
@@ -197,4 +197,41 @@ export function useDeleteProduct() {
       void queryClient.invalidateQueries({ queryKey: catalogKeys.all });
     },
   });
+}
+
+/**
+ * Kategori ağacını açılır liste seçeneklerine indirger.
+ *
+ * Alt kategoriler tire ile girintilenir; iki seviyeli ağaç tek bir `select`
+ * içinde okunabilir kalır. Ürün formu ve satış talebi dönüşümü aynı listeyi
+ * gösterdiği için burada durur — ürün formunun içinde kaldığında ikinci ekran
+ * kendi kopyasını yazmak zorundaydı.
+ */
+export function flattenCategories(
+  nodes: readonly CategoryNode[],
+  depth = 0,
+): { id: string; label: string }[] {
+  return nodes.flatMap((node) => [
+    { id: node.id, label: `${'— '.repeat(depth)}${node.name}` },
+    ...flattenCategories(node.children, depth + 1),
+  ]);
+}
+
+/**
+ * Ürünün kart ve detay ekranlarında görünen üst satırı: "Beko · Buzdolabı".
+ *
+ * Marka ile kategori TEK slotta gösterilir ama biri diğerinin yerine geçmez.
+ * Kart eskiden markası olmayan üründe kategoriyi aynı yere basıyordu; ızgarada
+ * "Beko, Samsung, Bosch, Oturma Odası" alt alta gelince kategori marka gibi
+ * okunuyordu. Detay sayfası ise markasız üründe "— · Oturma Odası" yazıp
+ * boşluğu tire ile dolduruyordu. İkisi de aynı kurala bağlandı: marka varsa
+ * yazılır, yoksa satır yalnızca kategoriden ibarettir.
+ */
+export function formatBrandAndCategory(product: {
+  brand: { name: string } | null;
+  category: { name: string };
+}): string {
+  return product.brand === null
+    ? product.category.name
+    : `${product.brand.name} · ${product.category.name}`;
 }

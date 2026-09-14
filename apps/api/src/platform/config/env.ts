@@ -42,8 +42,14 @@ const envSchema = z
      * denemesi sınırını tamamen atlaması demektir.
      *
      * Bu yüzden başlık yalnızca burası açıkken okunur. Kapalıyken adres TCP
-     * bağlantısından alınır ve uydurulamaz. Vekil arkasında çalışıyorsanız
-     * açın — vekil başlığı kendisi yazar ve istemcininkini ezer.
+     * bağlantısından alınır ve uydurulamaz.
+     *
+     * AÇARKEN DİKKAT: vekilin başlığı KENDİSİ YAZMASI gerekir. Yaygın nginx
+     * yapılandırması `$proxy_add_x_forwarded_for` istemcinin gönderdiği değeri
+     * ezmez, sonuna ekler; zincirin ilk halkası o zaman hâlâ istemcinindir.
+     * Bu yüzden `X-Real-IP` tercih edilir ve vekilde şöyle kurulmalıdır:
+     *
+     *     proxy_set_header X-Real-IP $remote_addr;
      */
     TRUST_PROXY: z
       .enum(['true', 'false'])
@@ -71,7 +77,28 @@ const envSchema = z
     S3_SECRET_ACCESS_KEY: z.string().optional(),
 
     SMTP_HOST: z.string().optional(),
-    SMTP_PORT: z.coerce.number().int().optional(),
+
+    /**
+     * SMTP portu.
+     *
+     * DOLDURULMAMIŞ DEĞER BOŞ DİZEDİR, tanımsız değil: `.env` içindeki
+     * `SMTP_PORT=` satırı `''` olarak gelir. `z.coerce.number()` onu 0'a
+     * çevirir, `.optional()` de yalnızca `undefined` değerini karşıladığı için
+     * araya girmez — sonuç, geçerli sayılan bir 0 portudur. Mailer `?? 587`
+     * yazar ama 0 nullish olmadığı için varsayılana da düşmez: taşıyıcı
+     * 0 portuna bağlanmaya çalışır ve HER e-posta başarısız olur. Gönderim
+     * hatası bilinçli olarak yutulduğu için arıza tamamen sessizdir — şifre
+     * sıfırlama ve e-posta doğrulama çalışmaz, hiçbir yerde hata görünmez.
+     *
+     * Boş değer önce tanımsıza çevrilir; aralık da ayrıca denetlenir, böylece
+     * biçimsiz bir port ilk gönderimde değil AÇILIŞTA yakalanır. Dosyanın
+     * baştaki kuralı budur.
+     */
+    SMTP_PORT: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.coerce.number().int().min(1).max(65_535).optional(),
+    ),
+
     SMTP_USER: z.string().optional(),
     SMTP_PASSWORD: z.string().optional(),
     MAIL_FROM: z.string().default('Ersin Spot <bilgi@ersinspot.com>'),

@@ -23,7 +23,6 @@ import type { LucideIcon } from 'lucide-react';
 import { REQUEST_STATUS_LABELS, SERVICE_KIND_LABELS, today } from '@ersinspot/shared';
 import { Button } from '@/components/ui/button.tsx';
 import { Card } from '@/components/ui/card.tsx';
-import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { PageHeader, Section } from '@/components/ui/page.tsx';
 import { StatusBadge } from '@/components/ui/status-badge.tsx';
 import { formatDate, formatTimeSlot } from '@/lib/format.ts';
@@ -51,7 +50,7 @@ function StatCard({
         <span
           className={
             tone === 'attention' && value !== undefined && value > 0
-              ? 'flex size-11 shrink-0 items-center justify-center rounded-lg bg-brand-orange-50 text-brand-orange-600'
+              ? 'flex size-11 shrink-0 items-center justify-center rounded-lg bg-brand-orange-50 text-brand-orange-700'
               : 'flex size-11 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500'
           }
         >
@@ -253,18 +252,6 @@ export default function AdminDashboardPage() {
             </p>
           </Card>
         </Section>
-      ) : null}
-
-      {/* "Bekleyen iş yok" ancak veriler GERÇEKTEN yüklendiyse söylenebilir. */}
-      {failed.length === 0 &&
-      newOrders.data?.totalItems === 0 &&
-      pendingRequests.data?.totalItems === 0 &&
-      unreadCount === 0 ? (
-        <EmptyState
-          title="Bekleyen iş yok"
-          description="Tüm siparişler ve talepler işleme alınmış durumda."
-          className="mt-8"
-        />
       ) : null}
     </>
   );

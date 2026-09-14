@@ -23,7 +23,28 @@ export default defineConfig({
 
   build: {
     target: 'es2022',
-    sourcemap: true,
+
+    /*
+      Kaynak haritaları ÜRETİME ÇIKMAZ.
+
+      `true` iken derleme, yorumlar dahil tüm TypeScript kaynağını
+      `sourcesContent` içinde taşıyan 75 harita dosyası üretiyor ve bunlar
+      `dist/` ile birlikte sunuluyordu. Küçültülmüş kod zaten istemciye
+      gidiyor; harita onu okunur yapmakla kalmıyor, savunmaların gerekçesini de
+      veriyor.
+
+      Somut örneği bot tuzağı: `honeypot-field.tsx` kaynağı, alanın nasıl
+      gizlendiğini ve sunucunun tuzağa düşen isteğe SESSİZCE başarılı yanıt
+      verdiğini anlatan yorumla birlikte pakette duruyordu. Tuzağın tek değeri
+      bilinmemesidir; onu okuyan bir araç hem alanı boş bırakır hem 201
+      yanıtına güvenmemesi gerektiğini öğrenir. Hız sınırı eşikleri, CSRF
+      koşulları ve müşteriden gizlenen alanlar da aynı şekilde açıktaydı.
+
+      Hata toplama servisi eklendiğinde `'hidden'` yapılmalı: haritalar üretilir
+      ama pakette bir `sourceMappingURL` bırakılmaz; dağıtım adımı onları
+      servise yükleyip yayımlanan dizinden siler.
+    */
+    sourcemap: false,
     rollupOptions: {
       output: {
         /*

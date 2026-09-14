@@ -24,6 +24,8 @@ import {
   WARRANTY_STATUS_LABELS,
   createTechnicalServiceRequestSchema,
   dateAfterDays,
+  phone,
+  MAX_APPOINTMENT_LEAD_DAYS,
 } from '@ersinspot/shared';
 import type { CreateTechnicalServiceRequestInput } from '@ersinspot/shared';
 import { AddressFields } from '@/components/ui/address-fields.tsx';
@@ -130,7 +132,7 @@ export default function TechnicalServicePage() {
                 required
                 type="tel"
                 autoComplete="tel"
-                placeholder="0507 194 05 50"
+                placeholder={phone.PLACEHOLDER}
                 hint="Keşif randevusu için sizi bu numaradan arayacağız."
                 error={errors.contact?.phone?.message}
                 {...register('contact.phone')}
@@ -244,6 +246,7 @@ export default function TechnicalServicePage() {
               required
               type="date"
               min={dateAfterDays(LEAD_TIME_DAYS.technicalService)}
+              max={dateAfterDays(MAX_APPOINTMENT_LEAD_DAYS)}
               hint="Kesin randevu, talebiniz incelendikten sonra size bildirilir."
               error={errors.preferredDate?.message}
               {...register('preferredDate')}
@@ -264,7 +267,7 @@ export default function TechnicalServicePage() {
             Keşif Ücreti
           </h2>
 
-          <p className="text-2xl font-bold text-brand-orange-600">{formatPrice(INSPECTION_FEE)}</p>
+          <p className="text-2xl font-bold text-brand-orange-700">{formatPrice(INSPECTION_FEE)}</p>
 
           <p className="text-sm text-slate-600">
             Teknisyenimizin adresinize gelip arızayı yerinde incelemesinin ücretidir. Onarımı bize
@@ -295,7 +298,7 @@ export default function TechnicalServicePage() {
             className="w-full"
             isLoading={isSubmitting || createRequest.isPending}
           >
-            Talep Oluştur
+            Talep oluştur
           </Button>
         </Card>
       </form>

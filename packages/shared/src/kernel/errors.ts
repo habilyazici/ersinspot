@@ -33,7 +33,8 @@ export const ERROR_CODES = [
   'resource_conflict',
   'product_unavailable',
 
-  // 413 / 415 — yükleme
+  // 413 / 415 — gövde ve yükleme
+  'request_too_large',
   'file_too_large',
   'unsupported_file_type',
 
@@ -65,6 +66,7 @@ export const ERROR_STATUS: Readonly<Record<ErrorCode, number>> = {
   resource_conflict: 409,
   product_unavailable: 409,
 
+  request_too_large: 413,
   file_too_large: 413,
   unsupported_file_type: 415,
 
@@ -98,6 +100,7 @@ export const ERROR_MESSAGES: Readonly<Record<ErrorCode, string>> = {
   resource_conflict: 'Kayıt başkası tarafından değiştirilmiş. Sayfayı yenileyip tekrar deneyin.',
   product_unavailable: 'Bu ürün artık satışta değil.',
 
+  request_too_large: 'Gönderilen istek izin verilen boyutu aşıyor.',
   file_too_large: 'Dosya boyutu izin verilen sınırı aşıyor.',
   unsupported_file_type: 'Bu dosya türü desteklenmiyor.',
 
@@ -170,9 +173,22 @@ export class ApiError extends Error {
     return this.code === 'unauthenticated';
   }
 
-  /** Kullanıcı aynı isteği tekrar deneyerek başarılı olabilir mi? */
+  /**
+   * İstemci aynı isteği KENDİLİĞİNDEN tekrarlayarak başarılı olabilir mi?
+   *
+   * Hız sınırı buraya dahil DEĞİLDİR. Sunucu "çok fazla istek gönderdin,
+   * şu kadar saniye bekle" der ve o süre dakikalarla ölçülür; istemcinin
+   * saniyelerle ölçülen geri çekilmesiyle yapılan denemenin başarı şansı
+   * sıfırdır. Tek yaptığı, sonucu zaten belli olan bir isteği birkaç saniye
+   * geciktirmek ve kendini savunan bir sunucuya üç istek göndermektir —
+   * üstelik kullanıcıya asıl yapması gerekeni (beklemeyi) söyleyen mesajı da
+   * o kadar geciktirir.
+   *
+   * Bekleme süresi `retryAfterSeconds` alanında kullanıcıya iletilir; kararı
+   * o verir.
+   */
   get isRetryable(): boolean {
-    return this.code === 'rate_limited' || this.code === 'internal_error';
+    return this.code === 'internal_error';
   }
 
   /** Belirli bir form alanına ait hata mesajını döndürür. */

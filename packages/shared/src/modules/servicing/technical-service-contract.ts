@@ -12,6 +12,7 @@ import {
   optionalText,
   requiredText,
   servicedDistrictSchema,
+  appointmentTimeSlotSchema,
   timeSlotSchema,
 } from '../../kernel/validation.ts';
 import {
@@ -116,7 +117,7 @@ export const createTechnicalServiceRequestSchema = z
     problemDescription: requiredText('Arıza açıklaması', 15, 2000),
     address: serviceAddressSchema,
     preferredDate: appointmentDateSchema,
-    preferredTimeSlot: timeSlotSchema.optional(),
+    preferredTimeSlot: appointmentTimeSlotSchema.optional(),
     photos: z.array(requestPhotoInputSchema).max(10).default([]),
     customerNote: optionalText(1000),
     /**
@@ -162,9 +163,17 @@ export const technicalServiceRequestSchema = serviceRequestBaseSchema.extend({
 
 export type TechnicalServiceRequest = z.infer<typeof technicalServiceRequestSchema>;
 
+/**
+ * Teknisyen tespitinin alt sınırı.
+ *
+ * Dışa aktarılır çünkü yönetim panelindeki kaydet düğmesi de aynı eşiğe bakar:
+ * iki sayı ayrıştığında düğme etkinleşir ama sunucu isteği reddeder.
+ */
+export const MIN_DIAGNOSIS_LENGTH = 10;
+
 /** Teknisyenin keşif sonrası girdiği tespit. */
 export const recordDiagnosisSchema = z.object({
-  diagnosis: requiredText('Tespit', 10, 2000),
+  diagnosis: requiredText('Tespit', MIN_DIAGNOSIS_LENGTH, 2000),
 });
 
 export type RecordDiagnosisInput = z.infer<typeof recordDiagnosisSchema>;

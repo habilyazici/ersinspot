@@ -7,7 +7,7 @@
  * süzgeci önce gelir.
  */
 
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ClipboardList, Home, Package, Search, Wrench } from 'lucide-react';
 import {
   REQUEST_STATUSES,
@@ -15,11 +15,13 @@ import {
   SERVICE_KINDS,
   SERVICE_KIND_LABELS,
 } from '@ersinspot/shared';
-import type { RequestStatus, ServiceKind } from '@ersinspot/shared';
+import type { ServiceKind } from '@ersinspot/shared';
 import { Card } from '@/components/ui/card.tsx';
+import { Button } from '@/components/ui/button.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
+import { enumParam, useListFilters } from '@/lib/list-filters.ts';
 import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
 import { SearchField } from '@/components/ui/search-field.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
@@ -34,12 +36,11 @@ const KIND_ICONS: Readonly<Record<ServiceKind, typeof Home>> = {
 };
 
 export default function AdminRequestsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params, page, hasActiveFilters, setFilter, clearFilters } = useListFilters();
 
-  const status = (searchParams.get('durum') ?? undefined) as RequestStatus | undefined;
-  const kind = (searchParams.get('tur') ?? undefined) as ServiceKind | undefined;
-  const search = searchParams.get('ara') ?? '';
-  const page = Number(searchParams.get('sayfa') ?? '1');
+  const status = enumParam(params.get('durum'), REQUEST_STATUSES);
+  const kind = enumParam(params.get('tur'), SERVICE_KINDS);
+  const search = params.get('ara') ?? '';
 
   const { data, isLoading, isError, error, refetch } = useAdminRequests({
     page,
@@ -47,19 +48,6 @@ export default function AdminRequestsPage() {
     ...(kind === undefined ? {} : { kind }),
     ...(search === '' ? {} : { search }),
   });
-
-  function setFilter(key: string, value: string | undefined): void {
-    const next = new URLSearchParams(searchParams);
-
-    if (value === undefined || value === '') next.delete(key);
-    else next.set(key, value);
-
-    if (key !== 'sayfa') next.delete('sayfa');
-
-    // Süzgeç değişimi geçmişe kayıt eklemez; geri tuşu listede değil,
-    // sayfalar arasında gezinmelidir.
-    setSearchParams(next, { replace: true });
-  }
 
   return (
     <>
@@ -110,12 +98,19 @@ export default function AdminRequestsPage() {
         <ErrorState error={error} onRetry={() => void refetch()} />
       ) : data === undefined || data.items.length === 0 ? (
         <EmptyState
-          icon={search === '' ? ClipboardList : Search}
-          title={search === '' ? 'Talep yok' : 'Sonuç bulunamadı'}
+          icon={hasActiveFilters ? Search : ClipboardList}
+          title={hasActiveFilters ? 'Sonuç bulunamadı' : 'Talep yok'}
           description={
-            search === ''
-              ? 'Bu süzgeçle eşleşen talep bulunmuyor.'
-              : 'Arama kriterlerinizi değiştirip tekrar deneyin.'
+            hasActiveFilters
+              ? 'Bu filtreyle eşleşen talep bulunmuyor.'
+              : 'Nakliye, teknik servis ve satış talepleri buraya düşer.'
+          }
+          action={
+            hasActiveFilters ? (
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Filtreleri temizle
+              </Button>
+            ) : undefined
           }
           className="mt-4"
         />
@@ -131,7 +126,7 @@ export default function AdminRequestsPage() {
                 <Card as="li" key={request.id} interactive className="p-0">
                   <Link to={`/yonetim/talepler/${request.id}`} className="flex gap-4 p-4">
                     <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-brand-orange-50">
-                      <Icon className="size-5 text-brand-orange-600" aria-hidden="true" />
+                      <Icon className="size-5 text-brand-orange-700" aria-hidden="true" />
                     </div>
 
                     <div className="min-w-0 flex-1">
@@ -155,7 +150,7 @@ export default function AdminRequestsPage() {
                     </div>
 
                     {request.quotedAmount === null ? null : (
-                      <p className="shrink-0 self-center font-semibold tabular-nums text-brand-orange-600">
+                      <p className="shrink-0 self-center font-semibold tabular-nums text-brand-orange-700">
                         {formatPrice(request.quotedAmount)}
                       </p>
                     )}

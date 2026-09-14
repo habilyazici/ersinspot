@@ -20,7 +20,16 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-brand-orange-500 text-white hover:bg-brand-orange-600 shadow-sm',
+        /*
+          Zemin 700, 500 DEĞİL.
+
+          Beyaz metin `brand-orange-500` üzerinde 2.8:1 kontrast veriyordu;
+          WCAG AA normal metin için 4.5:1 ister. Sitedeki her birincil
+          eylem — "Sepete ekle", "Siparişi onayla", "Giriş yap" — eşiğin
+          altındaydı. 700 tonu her iki yönde de 5.18:1 verir ve marka
+          rengini terk etmez.
+        */
+        primary: 'bg-brand-orange-700 text-white hover:bg-brand-orange-800 shadow-sm',
         secondary: 'bg-brand-navy-800 text-white hover:bg-brand-navy-700 shadow-sm',
         outline: 'border border-slate-300 bg-white text-slate-900 hover:bg-slate-50',
         ghost: 'text-slate-700 hover:bg-slate-100',
@@ -61,12 +70,34 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     tanımlı bir davranış olması gerekir.
   */
   const showLoading = isLoading && !asChild;
+  const isDisabled = disabled ?? isLoading;
+
+  /*
+    Bağlantı `disabled` ÖZNİTELİĞİYLE devre dışı kalmaz.
+
+    `asChild` verildiğinde çizilen öğe bir `<a>`dır. `disabled` orada geçerli
+    bir öznitelik değildir: tarayıcı yok sayar, `:disabled` sözde sınıfı
+    eşleşmez ve varyantlardaki `disabled:pointer-events-none` hiç uygulanmaz.
+    Sonuç, devre dışı görünmeyen ve tıklandığında gerçekten gezinen bir
+    bağlantıydı — sepette satışta olmayan ürün varken "Siparişi Tamamla"
+    düğmesi tam olarak böyleydi.
+
+    Bağlantıda karşılığı olan araçlar kullanılır: işaretçi olayları ve odak
+    kapatılır, durum `aria-disabled` ile bildirilir.
+  */
+  const disabledLinkClass = 'pointer-events-none opacity-50';
 
   return (
     <Component
       ref={ref}
-      className={cn(buttonVariants({ variant, size }), className)}
-      disabled={disabled ?? isLoading}
+      className={cn(
+        buttonVariants({ variant, size }),
+        asChild && isDisabled && disabledLinkClass,
+        className,
+      )}
+      {...(asChild
+        ? { 'aria-disabled': isDisabled || undefined, tabIndex: isDisabled ? -1 : undefined }
+        : { disabled: isDisabled })}
       aria-busy={showLoading}
       {...props}
     >

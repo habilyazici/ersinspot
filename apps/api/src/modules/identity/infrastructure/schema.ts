@@ -98,8 +98,16 @@ export const sessions = pgTable(
     expiresAt: timestamp({ withTimezone: true }).notNull(),
 
     /**
-     * Kayan yenileme için: her kullanımda güncellenir. Uzun süre kullanılmayan
-     * oturumlar temizlik görevinde silinir.
+     * Oturumun en son ne zaman kullanıldığı — "aktif cihazlarım" ekranı için.
+     *
+     * SÜREYİ UZATMAZ: `expiresAt` oturum açılırken bir kez belirlenir ve sabit
+     * kalır; temizlik görevi de süresi dolanları siler, uzun süre atıl kalanları
+     * değil. Alan her istekte de yazılmaz, saatte bir tazelenir
+     * (`SESSION_LAST_USED_WRITE_INTERVAL_MS`) — aksi halde her sayfa
+     * görüntülemesi bir `UPDATE` olurdu.
+     *
+     * Buradaki not "kayan yenileme" diyordu ve ikisi de doğru değildi; şemaya
+     * bakan biri oturumların kullanıldıkça uzadığını sanırdı.
      */
     lastUsedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 

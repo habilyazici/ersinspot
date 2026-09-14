@@ -11,11 +11,12 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Eye, EyeOff, HelpCircle, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, HelpCircle, Pencil, Plus } from 'lucide-react';
 import { ApiError, FAQ_CATEGORIES, FAQ_CATEGORY_LABELS } from '@ersinspot/shared';
 import type { Faq, FaqCategory } from '@ersinspot/shared';
 import { Button } from '@/components/ui/button.tsx';
 import { Card } from '@/components/ui/card.tsx';
+import { ConfirmDelete } from '@/components/ui/confirm-delete.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { SelectField, TextAreaField, TextField } from '@/components/ui/form-field.tsx';
@@ -202,7 +203,12 @@ export default function AdminFaqsPage() {
                           variant="ghost"
                           size="icon"
                           aria-label={faq.isPublished ? 'Yayından kaldır' : 'Yayına al'}
-                          isLoading={updateFaq.isPending}
+                          /*
+                            Yükleme göstergesi YALNIZCA işlem gören satırda.
+                            Mutasyon durumu liste boyunca paylaşıldığı için tek
+                            satıra basmak bütün satırları döndürüyordu.
+                          */
+                          isLoading={updateFaq.isPending && updateFaq.variables?.faqId === faq.id}
                           onClick={() => {
                             updateFaq.mutate(
                               { faqId: faq.id, faq: { isPublished: !faq.isPublished } },
@@ -237,13 +243,11 @@ export default function AdminFaqsPage() {
                           <Pencil aria-hidden="true" />
                         </Button>
 
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Sil"
-                          className="text-state-danger-fg"
-                          isLoading={deleteFaq.isPending}
-                          onClick={() => {
+                        <ConfirmDelete
+                          label="Soruyu sil"
+                          question="Soru kalıcı olarak silinecek."
+                          isPending={deleteFaq.isPending && deleteFaq.variables === faq.id}
+                          onConfirm={() => {
                             deleteFaq.mutate(faq.id, {
                               onSuccess: () => {
                                 toast.success('Soru silindi.');
@@ -253,9 +257,7 @@ export default function AdminFaqsPage() {
                               },
                             });
                           }}
-                        >
-                          <Trash2 aria-hidden="true" />
-                        </Button>
+                        />
                       </div>
                     </div>
 

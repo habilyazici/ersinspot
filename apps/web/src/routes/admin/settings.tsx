@@ -96,8 +96,8 @@ export default function AdminSettingsPage() {
                     <Card as="li" key={setting.key} className="space-y-3">
                       {setting.valueType === 'boolean' ? (
                         <SelectField
-                          label={setting.description}
-                          hint={setting.key}
+                          label={setting.label}
+                          hint={setting.hint ?? undefined}
                           value={value}
                           onChange={(event) => {
                             setDrafts({ ...drafts, [setting.key]: event.target.value });
@@ -116,8 +116,8 @@ export default function AdminSettingsPage() {
                         </SelectField>
                       ) : (
                         <TextField
-                          label={setting.description}
-                          hint={setting.key}
+                          label={setting.label}
+                          hint={setting.hint ?? undefined}
                           // Saat alanı serbest metin kabul etmemeli.
                           type={
                             setting.valueType === 'time'
@@ -137,7 +137,12 @@ export default function AdminSettingsPage() {
                         <div className="flex gap-2">
                           <Button
                             size="sm"
-                            isLoading={updateSetting.isPending}
+                            // Yükleme göstergesi yalnızca kaydedilen ayarda;
+                            // mutasyon durumu tüm liste tarafından paylaşılır.
+                            isLoading={
+                              updateSetting.isPending &&
+                              updateSetting.variables?.key === setting.key
+                            }
                             onClick={() => {
                               save(setting.key);
                             }}

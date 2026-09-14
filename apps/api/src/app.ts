@@ -12,11 +12,18 @@
  * `publicApi` grubuna eklemek bilinçli bir tercihtir; unutmakla olmaz.
  */
 
+import { sql } from 'drizzle-orm';
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
+import { MAX_IMAGE_BYTES } from '@ersinspot/shared';
+import { requestTooLarge } from './platform/errors/index.ts';
+import type { MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './platform/http/auth.ts';
 import type { ValidatedVariables } from './platform/http/validate.ts';
 import { errorHandler, notFoundHandler } from './platform/http/error-handler.ts';
+import { db } from './platform/db/client.ts';
 import { env } from './platform/config/env.ts';
+import { logger } from './platform/observability/logger.ts';
 import {
   corsMiddleware,
   csrfProtection,
@@ -32,6 +39,27 @@ import { filesRoutes, localFileRoutes } from './modules/files/index.ts';
 
 export type AppVariables = AuthVariables & ValidatedVariables;
 
+/** Metin gövdeleri için üst sınır. Yükleme ucu kendi sınırını kullanır. */
+const MAX_TEXT_BODY_BYTES = 512 * 1024;
+
+/**
+ * Yola göre gövde sınırı.
+ *
+ * Yükleme ucu görselin kendisini taşır; geri kalan her şey metindir. En büyük
+ * meşru metin gövdesi blog yazısıdır (50.000 karakter) ve 512 KB onun birkaç
+ * katıdır.
+ */
+const bodyLimitForPath: MiddlewareHandler = async (c, next) => {
+  const maxSize = c.req.path === '/api/uploads' ? MAX_IMAGE_BYTES + 64 * 1024 : MAX_TEXT_BODY_BYTES;
+
+  return bodyLimit({
+    maxSize,
+    onError: () => {
+      throw requestTooLarge(maxSize);
+    },
+  })(c, next);
+};
+
 export function createApp() {
   const app = new Hono<{ Variables: AppVariables }>();
 
@@ -41,6 +69,26 @@ export function createApp() {
 
   app.onError(errorHandler);
   app.notFound(notFoundHandler);
+
+  /*
+    İstek gövdesi ÜST SINIRI.
+
+    Sınır yokken herkese açık bir uca (iletişim formu gibi) yirmi megabaytlık
+    bir JSON gönderilebiliyor ve sunucu onu tamponlayıp ayrıştırıyordu:
+    doğrulama gövdeyi okuduktan SONRA çalışır, dolayısıyla reddedilen istek de
+    belleği bir kez ödemiş oluyordu. Birkaç eşzamanlı istek yeter.
+
+    Vekil sunucunun `client_max_body_size` ayarına güvenilmez — dosya
+    yüklemesine izin vermek için o değer zaten yükseltilmek zorunda ve
+    yükseltildiğinde JSON uçları da aynı sınırı devralır. Savunma katmanları
+    birbirine güvenmez.
+
+    Sınır TEK middleware'de seçilir, yol başına iki ayrı `use` ile değil: Hono
+    eşleşen middleware'lerin HEPSİNİ çalıştırır, dolayısıyla `/api/uploads`
+    hem kendi sınırından hem küresel sınırdan geçiyor ve 1 MB'lık bir görsel
+    metin sınırına takılıyordu.
+  */
+  app.use('*', bodyLimitForPath);
 
   app.use('*', securityHeaders);
   app.use('*', corsMiddleware);
@@ -55,11 +103,42 @@ export function createApp() {
   // -------------------------------------------------------------------------
 
   /**
-   * Yük dengeleyici ve izleme için. Bilinçli olarak hiçbir sistem bilgisi
-   * (sürüm, veritabanı durumu, ortam) döndürmez — bu bilgiler saldırgana
-   * yardımcı olur ve dışarıya açık bir uçta yeri yoktur.
+   * CANLILIK: süreç ayakta mı?
+   *
+   * Süreç yöneticisinin (systemd, pm2) yeniden başlatma kararı buna bakar ve
+   * bu yüzden BAĞIMLILIKLARA BAKMAZ. Veritabanı erişilemez olduğunda API'yi
+   * yeniden başlatmak veritabanını geri getirmez; yalnızca bir yeniden
+   * başlatma döngüsü üretir ve gerçek arızayı gizler.
+   *
+   * Bilinçli olarak hiçbir sistem bilgisi (sürüm, ortam) döndürmez — bu
+   * bilgiler saldırgana yardımcı olur ve dışarıya açık bir uçta yeri yoktur.
    */
   app.get('/health', (c) => c.json({ status: 'ok' }));
+
+  /**
+   * HAZIRLIK: istek karşılayabilir mi?
+   *
+   * İzleme ve trafik yönlendirme buna bakmalıdır. `/health` tek başına
+   * yeterliydi sanılıyordu ama veritabanı düştüğünde de 200 döndürüyor: site
+   * her isteğe 500 verirken izleme yemyeşil görünüyor ve arızayı ilk fark eden
+   * müşteri oluyordu.
+   *
+   * Sorgu en ucuz olanıdır (`select 1`) ve sonucu yalnızca "hazır / değil"
+   * olarak bildirilir; hata metni, sürücü ayrıntısı ya da bağlantı bilgisi
+   * dışarı çıkmaz.
+   */
+  app.get('/ready', async (c) => {
+    try {
+      await db.execute(sql`select 1`);
+      return c.json({ status: 'ready' });
+    } catch (error) {
+      logger.error('Hazırlık denetimi başarısız', {
+        error: error instanceof Error ? error : String(error),
+      });
+
+      return c.json({ status: 'unavailable' }, 503);
+    }
+  });
 
   // -------------------------------------------------------------------------
   // Kimlik doğrulama

@@ -16,7 +16,6 @@ import {
   CUSTOMER_CANCELLABLE_REQUEST_STATUSES,
   REQUEST_STATUS_TRANSITIONS,
   RESPONDABLE_REQUEST_STATUS,
-  businessDayEnd,
   canTransition,
   hasRoleAtLeast,
 } from '@ersinspot/shared';
@@ -65,14 +64,13 @@ export function requiresAppointment(status: RequestStatus): boolean {
  * Süresi dolmuş bir teklif kabul edilemez; işletme fiyatı yeniden
  * değerlendirmelidir.
  *
- * Teklif, geçerlilik gününün SONUNA kadar kabul edilir ve o gün işletmenin
- * saat dilimine göre biter. Sınır UTC'den alındığında teklif Türkiye'de
- * ertesi sabah 03:00'e kadar kabul edilmeye devam ediyordu: müşteriye
- * bildirilen son gün ile sunucunun uyguladığı sınır aynı değildi.
+ * Uygulama PAYLAŞILAN PAKETTEDİR: arayüz de aynı kuralı bilmek zorunda, aksi
+ * halde müşteriye süresi geçmiş bir teklif için kabul düğmesi gösterilir ve
+ * karşılığında yalnızca bir hata mesajı alır. Buradan yeniden dışa aktarılır
+ * ki uygulama katmanı kuralları tek yerden içe aktarmayı sürdürsün — katalog
+ * modülü `slugify` için aynı yolu izliyor.
  */
-export function isQuoteExpired(validUntil: string, now: Date = new Date()): boolean {
-  return now.getTime() >= businessDayEnd(validUntil).getTime();
-}
+export { isQuoteExpired } from '@ersinspot/shared';
 
 /**
  * Bir müşterinin aynı anda açık tutabileceği talep sayısı.

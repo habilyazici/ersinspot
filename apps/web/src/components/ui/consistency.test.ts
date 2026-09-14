@@ -16,7 +16,21 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const ROUTES = path.resolve(import.meta.dirname, '../../routes');
-const UI = path.resolve(import.meta.dirname);
+const COMPONENTS = path.resolve(import.meta.dirname, '..');
+const FEATURES = path.resolve(import.meta.dirname, '../../features');
+const SRC = path.resolve(import.meta.dirname, '../..');
+
+/** `src/` altındaki tüm kaynak dosyalar; testler hariç. */
+function sourceFiles(dir: string = SRC, prefix = ''): { name: string; source: string }[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) return sourceFiles(full, `${prefix}${entry.name}/`);
+    if (!/\.tsx?$/.test(entry.name) || entry.name.includes('.test.')) return [];
+
+    return [{ name: `${prefix}${entry.name}`, source: readFileSync(full, 'utf8') }];
+  });
+}
 
 /**
  * Tüm sayfa dosyaları, ALT DİZİNLER DAHİL.
@@ -36,10 +50,124 @@ function pageFiles(dir: string = ROUTES, prefix = ''): { name: string; source: s
   });
 }
 
+/**
+ * Elle yazılmış sayfa kapsayıcısı arar.
+ *
+ * Kural, `PageContainer`ın tanımladığı SAYFA ÇERÇEVESİNİ hedefler; genişlikler
+ * `page.tsx` içindeki `WIDTHS` kümesinden gelir. Bir metin ölçüsü (duyuru
+ * şeridindeki `max-w-3xl` gibi) çerçeve değildir ve kapsam dışıdır.
+ *
+ * İlk hâli `/mx-auto\s+max-w-/` idi ve yalnızca iki sınıf YAN YANA yazıldığında
+ * eşleşiyordu. Aradaki tek bir sınıf kuralı görünmez kılıyordu: anasayfa,
+ * başlık ve alt bilgi `mx-auto grid max-w-7xl` yazıp denetimden geçiyordu.
+ * Deseni aynı sınıf dizesi içinde, sıradan bağımsız arar.
+ */
+const CONTAINER_WIDTHS = 'max-w-(?:md|2xl|4xl|5xl|7xl)';
+
+const HAND_ROLLED_CONTAINER = new RegExp(
+  `mx-auto[^"'\`]*\\b${CONTAINER_WIDTHS}\\b|\\b${CONTAINER_WIDTHS}\\b[^"'\`]*mx-auto`,
+);
+
+/** `components/` ve `features/` altındaki tüm bileşen dosyaları. */
+function componentFiles(): { name: string; source: string }[] {
+  function walk(dir: string, prefix: string): { name: string; source: string }[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = path.join(dir, entry.name);
+
+      if (entry.isDirectory()) return walk(full, `${prefix}${entry.name}/`);
+      if (!entry.name.endsWith('.tsx') || entry.name.includes('.test.')) return [];
+
+      return [{ name: `${prefix}${entry.name}`, source: readFileSync(full, 'utf8') }];
+    });
+  }
+
+  return [...walk(COMPONENTS, ''), ...walk(FEATURES, 'features/')];
+}
+
+/**
+ * Düğmelerin GÖRÜNEN metni.
+ *
+ * `<Button>` ve ham `<button>` gövdeleri ayrıştırılır; JSX ifadeleri ve iç
+ * etiketler atılıp geriye yalnızca kullanıcının okuduğu metin bırakılır.
+ * Böylece etiket bir simgenin yanında ya da `asChild` ile sarmalanmış bir
+ * `<Link>` içinde dursa da aynı şekilde görülür.
+ *
+ * Süslü parantezler İÇTEN DIŞA, tekrarlayarak temizlenir: iç içe şablon
+ * ifadeleri (`aria-label={`Sepetim${...}`}`) tek geçişte çözülmez ve
+ * artıkları metin sanılırdı.
+ */
+function buttonLabels(source: string): string[] {
+  const labels: string[] = [];
+
+  for (const tag of ['Button', 'button']) {
+    let index = 0;
+
+    while (true) {
+      const start = source.indexOf(`<${tag}`, index);
+      if (start === -1) break;
+
+      // Açılış etiketinin sonu: süslü parantez ve dize içindeki `>` sayılmaz.
+      let cursor = start;
+      let depth = 0;
+      let quote: string | null = null;
+      let open = -1;
+
+      for (; cursor < source.length; cursor += 1) {
+        const character = source[cursor];
+
+        if (quote !== null) {
+          if (character === quote) quote = null;
+          continue;
+        }
+        if (character === '"' || character === "'" || character === '`') {
+          quote = character;
+          continue;
+        }
+        if (character === '{') depth += 1;
+        else if (character === '}') depth -= 1;
+        else if (character === '>' && depth === 0) {
+          open = cursor;
+          break;
+        }
+      }
+
+      if (open === -1) {
+        index = start + tag.length + 1;
+        continue;
+      }
+
+      const end = source.indexOf(`</${tag}>`, open);
+      if (end === -1) {
+        index = open;
+        continue;
+      }
+
+      let body = source.slice(open + 1, end);
+
+      // Önce ifadeler (içteki `>` karakterlerini de götürür), sonra etiketler.
+      for (let previous = ''; previous !== body;) {
+        previous = body;
+        body = body.replace(/\{[^{}]*\}/g, ' ');
+      }
+
+      const text = body
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (text !== '') labels.push(text);
+
+      index = end + tag.length + 3;
+    }
+  }
+
+  return labels;
+}
+
 describe('Arayüz tutarlılığı', () => {
   it('hiçbir sayfa kendi kapsayıcı ölçüsünü yazmaz', () => {
     const offenders = pageFiles()
-      .filter(({ source }) => /mx-auto\s+max-w-/.test(source))
+      .filter(({ source }) => HAND_ROLLED_CONTAINER.test(source))
       .map(({ name }) => name);
 
     expect(offenders).toEqual([]);
@@ -69,7 +197,7 @@ describe('Arayüz tutarlılığı', () => {
 
     const offenders = readdirSync(LAYOUTS)
       .filter((name) => name.endsWith('.tsx') && !name.includes('.test.'))
-      .filter((name) => /mx-auto\s+max-w-/.test(readFileSync(path.join(LAYOUTS, name), 'utf8')));
+      .filter((name) => HAND_ROLLED_CONTAINER.test(readFileSync(path.join(LAYOUTS, name), 'utf8')));
 
     expect(offenders).toEqual([]);
   });
@@ -144,15 +272,224 @@ describe('Arayüz tutarlılığı', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('ortak bileşenler tek bir kart ölçü kümesi tanımlar', () => {
-    // Ölçüler `card.tsx` içinde bir kez tanımlanır; başka bir ui dosyası
-    // kendi kart stilini yazarsa iki kaynak oluşur.
-    const cardClass = /rounded-(?:xl|lg|2xl)\s+border\s+border-slate-200\s+bg-white/;
+  it('okunacak metin kontrastı yetersiz tonda yazılmaz', () => {
+    /*
+      `slate-400` beyaz üzerinde 2.63:1 verir; WCAG AA normal metin için 4.5:1
+      ister. `slate-500` 4.76:1 verir ve sitede zaten yardımcı metinlerin tonu
+      odur.
 
-    const offenders = readdirSync(UI)
-      .filter((name) => name.endsWith('.tsx') && name !== 'card.tsx')
-      .filter((name) => cardClass.test(readFileSync(path.join(UI, name), 'utf8')));
+      Ton DEKORATİF ÖĞELERDE serbesttir: kontrast kuralı, bilgi taşımayan ve
+      `aria-hidden` ile gizlenen grafiklere işlemez — SSS sayfasındaki açılır ok
+      işareti gibi. Bu yüzden AÇILIŞ ETİKETİNİN TAMAMI okunur ve `aria-hidden`
+      taşıyanlar elenir; ilk sürümüm etiketin ilk satırına bakıyor, `aria-hidden`
+      bir alt satırda kaldığı için o oku yanlışlıkla yakalıyordu.
+
+      Gerçekten yakalandığı yerler: her girdinin ipucu metni (tek satırda
+      yazılıydı, sitedeki bütün formlarda görünüyordu) ve hesap sayfasındaki
+      oturum giriş saati.
+    */
+    const acilisEtiketi = /<[a-zA-Z][^>]*\btext-slate-400\b[^>]*>/g;
+
+    /*
+      İpucu metni AYRICA aranır ve koşulsuz yakalanır.
+
+      Bu sınıf JSX içinde değil, paylaşılan bir sınıf dizgesinde duruyordu —
+      `fieldControlClass` — ve etikete bakan kural onu görmüyordu. Kuralı ilk
+      yazdığımda düzeltmeyi geri alıp denedim; test geçti. Bir ipucu metni her
+      zaman okunacak metindir, dekoratif olamaz.
+    */
+    const ipucuTonu = /placeholder:text-slate-400\b/;
+
+    const offenders = [...componentFiles(), ...pageFiles()]
+      .filter(
+        ({ source }) =>
+          ipucuTonu.test(source) ||
+          [...source.matchAll(acilisEtiketi)].some(
+            (eslesme) => !eslesme[0].includes('aria-hidden'),
+          ),
+      )
+      .map(({ name }) => name);
 
     expect(offenders).toEqual([]);
+  });
+
+  it('kart görünümü yalnızca card.tsx içinde tanımlıdır', () => {
+    /*
+      Kural `components/ui/` ile sınırlıydı ve özellik modülleri dışarıda
+      kalıyordu: ürün kartı kendi kenarlığını, köşe yarıçapını ve zeminini
+      yazıyordu — yani kart görünümünün ikinci tanımıydı ve testten habersizce
+      ayrışabilirdi. Tarama artık `components/` ve `features/` ağaçlarının
+      tamamını kapsar.
+    */
+    const cardClass = /rounded-(?:xl|lg|2xl)\s+border\s+border-slate-200\s+bg-white/;
+
+    const offenders = componentFiles()
+      .filter(({ name }) => name !== 'ui/card.tsx')
+      .filter(({ source }) => cardClass.test(source))
+      .map(({ name }) => name);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('her sayfa sekme başlığını belirler', () => {
+    /*
+      Tek sayfalık uygulamada `<title>` yalnızca ilk yüklemede gelir. Sayfa
+      adını `PageHeader` sekmeye yazar; onu kullanmayan sayfa (anasayfa, ürün
+      detayı, 404) kancayı kendisi çağırmak zorundadır. Aksi halde o sayfaya
+      giden kullanıcı bir öncekinin başlığını ya da site varsayılanını görür
+      ve ekran okuyucu yer değiştirdiğini duyurmaz.
+    */
+    /*
+      Anasayfa MUAFTIR: sekmede görünmesi gereken başlık `index.html` içindeki
+      site başlığının kendisidir ("Ersin Spot — İkinci El Beyaz Eşya..."), onu
+      "Anasayfa — Ersin Spot" ile değiştirmek hem arama sonucunu hem yer imini
+      kötüleştirirdi.
+    */
+    const exempt = new Set(['home.tsx']);
+
+    const offenders = pageFiles()
+      .filter(({ name }) => !exempt.has(name))
+      .filter(
+        ({ source }) => !source.includes('PageHeader') && !source.includes('useDocumentTitle'),
+      )
+      .map(({ name }) => name);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('uygulama kodu Node API kullanmaz', () => {
+    /*
+      Bu paketin `tsconfig` dosyası `node` tiplerini yükler: iki denetim testi
+      (`routing`, `consistency`) kaynak ağacını diskten okur ve testler Node'da
+      koşar. Bedeli, tarayıcıda çalışan kodun `node:fs` yazıp tip kontrolünden
+      geçebilmesi — Vite bunu ancak paketleme sırasında, uyarı olarak bildirir.
+
+      Kural bu yüzden burada: testler Node'a erişir, uygulama kodu erişemez.
+    */
+    const offenders = sourceFiles()
+      .filter(({ source }) => /from 'node:|require\('node:/.test(source))
+      .map(({ name }) => name);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('yönetim panelindeki alan etiketleri tek biçimde yazılır', () => {
+    /*
+      Panel CÜMLE DÜZENİ kullanır: yalnızca ilk harf büyük ("Bağlantı adı",
+      "Geçerlilik tarihi"). Ürün formu Başlık Düzeni yazıyordu ve sonuç, AYNI
+      alanın iki komşu ekranda iki farklı yazılışıydı — ürün formunda "Ürün
+      Başlığı", talep detayındaki dönüştürme kartında "Ürün başlığı".
+
+      Vitrin formları Başlık Düzeni kullanır ve bu kural onları kapsamaz:
+      müşteriye giden yüzey ile personelin aleti ayrı seslerdir.
+    */
+    const labels = readdirSync(path.resolve(ROUTES, 'admin'))
+      .filter((name) => name.endsWith('.tsx') && !name.includes('.test.'))
+      .flatMap((name) => {
+        const source = readFileSync(path.resolve(ROUTES, 'admin', name), 'utf8');
+        return [
+          ...source.matchAll(/<(?:Text|Select|TextArea)Field\b[\s\S]{0,400}?label="([^"]+)"/g),
+        ].map((match) => ({ name, label: match[1] ?? '' }));
+      });
+
+    const offenders = labels
+      .filter(({ label }) => {
+        const words = label.split(' ').filter((word) => /^\p{L}/u.test(word));
+        return words.length > 1 && words.slice(1).every((word) => /^\p{Lu}/u.test(word));
+      })
+      .map(({ name, label }) => `${name}: ${label}`);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('düğme etiketleri cümle düzeninde yazılır', () => {
+    /*
+      Yirmi düğme cümle düzeniyle, altısı Başlık Düzeniyle yazılıydı ve
+      aralarında bir kural yoktu: aynı sipariş ekranında "Siparişi Onayla"
+      ile "Siparişi iptal et" yan yana duruyordu. Türkçe arayüz yazımında
+      olağan biçim cümle düzenidir ve çoğunluk da oydu.
+
+      Sayfa başlıkları bu kuralın dışındadır: onlar başlıktır, eylem değil.
+
+      ETİKET, DÜZENLİ İFADEYLE DEĞİL GÖVDE AYRIŞTIRILARAK okunur. Önceki hâli
+      `<Button ...>metin</Button>` kalıbını arıyordu ve metnin yanında başka
+      bir şey olduğu anda kör kalıyordu. Üç biçim kaçıyordu, üçü de kod
+      tabanında gerçekten vardı:
+
+        <Button>Ürünleri İncele <ArrowRight /></Button>   — yanında simge
+        <Button asChild><Link>Siparişi Tamamla</Link></Button>
+        <button>Çıkış Yap</button>                        — ham öğe
+
+      Üçüncüsü başlığın kendi içindeydi: aynı dosya masaüstünde "Çıkış yap",
+      mobil menüde "Çıkış Yap" yazıyordu. Kural vardı, denetimi yoktu.
+    */
+    const offenders = [...pageFiles(), ...componentFiles()]
+      .flatMap(({ name, source }) => buttonLabels(source).map((label) => ({ name, label })))
+      .filter(({ label }) => {
+        const words = label.split(' ').filter((word) => /^\p{L}/u.test(word));
+        return words.length > 1 && words.slice(1).every((word) => /^\p{Lu}/u.test(word));
+      })
+      .map(({ name, label }) => `${name}: ${label}`);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('aynı kavram için tek terim kullanılır', () => {
+    /*
+      "Filtre" ile "süzgeç" aynı şeyi anlatır ve ekranlarda ikisi birden
+      kullanılıyordu: vitrindeki ürün listesi "Filtreleri temizle", yönetim
+      listeleri "Süzgeçleri temizle" diyordu. Vitrin zaten "filtre" tarafında
+      ve Türkçe e-ticaret arayüzlerinde olağan olan da odur.
+
+      Kural yalnızca KULLANICIYA GÖRÜNEN metni kapsar; kod yorumlarında
+      "süzgeç" kullanılmaya devam eder.
+    */
+    const offenders = [...pageFiles(), ...componentFiles()]
+      .flatMap(({ name, source }) => {
+        const withoutComments = source
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .replace(/^\s*\/\/.*$/gm, '');
+
+        return [...withoutComments.matchAll(/süzge\p{L}*/giu)].map(
+          (match) => `${name}: ${match[0]}`,
+        );
+      })
+      .slice(0, 10);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('tarih alanları iki sınırı da bildirir', () => {
+    /*
+      Şema hem en erken hem en geç tarihi kısıtlar: randevu en fazla altmış gün
+      sonrasına verilebilir. Girdide yalnızca `min` vardı, `max` yoktu — takvim
+      2030'u seçtiriyor, kullanıcı sınırı ancak formu gönderip hata alınca
+      öğreniyordu. Kural 7'nin tam karşılığı: arayüzün SÖYLEDİĞİ kural ile
+      sunucunun uyguladığı kural aynı olmalı.
+    */
+    const offenders = pageFiles()
+      .flatMap(({ name, source }) =>
+        [...source.matchAll(/<(?:Text)Field\b[\s\S]{0,600}?\/>/g)]
+          .filter((match) => match[0].includes('type="date"'))
+          .map((match) => ({ name, field: match[0] })),
+      )
+      .filter(({ field }) => !(field.includes('min=') && field.includes('max=')))
+      .map(({ name }) => name);
+
+    expect([...new Set(offenders)]).toEqual([]);
+  });
+
+  it('atlama bağlantısının hedefi odaklanabilir', () => {
+    /*
+      "İçeriğe atla" bağlantısı `#icerik` adresine gider. Hedef odak
+      alamıyorsa tarayıcı yalnızca kaydırma yapar, odağı taşımaz: odak `body`
+      üzerinde kalır ve bir sonraki sekme kullanıcıyı sayfanın en başına,
+      atlamak istediği menüye geri götürür. Bağlantı görünür, tıklanır ve
+      hiçbir işe yaramaz — bu yüzden gözden kaçmıştı.
+    */
+    const layout = readFileSync(path.resolve(COMPONENTS, 'layout/site-layout.tsx'), 'utf8');
+
+    expect(layout).toMatch(/href="#icerik"/);
+    expect(layout).toMatch(/<main[^>]*id="icerik"[^>]*tabIndex=\{-1\}/);
   });
 });

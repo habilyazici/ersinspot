@@ -24,10 +24,11 @@ import { blogPostSchema, blogPostSummarySchema, faqSchema } from '@ersinspot/sha
 import { eq } from 'drizzle-orm';
 import { db } from '../../../platform/db/client.ts';
 import { createTestUser, loginAs, request, resetDatabase } from '../../../test/helpers.ts';
-import { blogPostTags, blogPosts, faqs, tags } from '../infrastructure/schema.ts';
+import { blogPostTags, blogPosts, contactMessages, faqs, tags } from '../infrastructure/schema.ts';
 
 let staffCookie: string;
 let customerCookie: string;
+let adminCookie: string;
 
 /** Geçerli bir blog yazısı gövdesi. Alan sınırları şemadan gelir. */
 function postBody(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -61,6 +62,14 @@ beforeEach(async () => {
     emailVerified: true,
   });
   customerCookie = await loginAs(customer.email, customer.password);
+
+  const admin = await createTestUser({
+    email: 'yonetici@ersinspot.com',
+    phone: '+905321112244',
+    role: 'admin',
+    emailVerified: true,
+  });
+  adminCookie = await loginAs(admin.email, admin.password);
 });
 
 describe('Blog yazma yetkisi', () => {
@@ -488,11 +497,175 @@ describe('İletişim formu', () => {
   });
 });
 
+describe('iletişim formu bot tuzağı', () => {
+  /** Geçerli bir iletişim mesajı gövdesi. */
+  function contactBody(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      fullName: 'Ayşe Yılmaz',
+      email: 'ayse@ornek.com',
+      subject: 'general',
+      message: 'Buca içinde teslimat yapıyor musunuz? Bir buzdolabı almayı düşünüyorum.',
+      ...overrides,
+    };
+  }
+
+  /**
+   * Tuzağa düşen istek BAŞARILI yanıt alır ama kaydedilmez.
+   *
+   * Şema tuzak alanını `.max(0)` ile reddediyordu: istek doğrulamada 400 alıyor
+   * ve yanıt hangi alanın ele verdiğini yazıyordu. Handler'a hiç ulaşılmadığı
+   * için sessiz yoksayma kuralı (`isLikelyBot`) ulaşılamaz koddu.
+   */
+  it('tuzak doluyken başarı döner ama mesajı kaydetmez', async () => {
+    const response = await request('/api/contact', {
+      method: 'POST',
+      body: JSON.stringify(contactBody({ website: 'http://spam.example' })),
+    });
+
+    expect(response.status).toBe(201);
+
+    const rows = await db.select({ id: contactMessages.id }).from(contactMessages);
+    expect(rows).toHaveLength(0);
+  });
+
+  it('tuzak boşken mesaj kaydedilir', async () => {
+    const response = await request('/api/contact', {
+      method: 'POST',
+      body: JSON.stringify(contactBody()),
+    });
+
+    expect(response.status).toBe(201);
+
+    const rows = await db.select({ id: contactMessages.id }).from(contactMessages);
+    expect(rows).toHaveLength(1);
+  });
+});
+
+describe('yönetim yazı okuma', () => {
+  /**
+   * Taslak yazı YÖNETİM ucundan okunabilir.
+   *
+   * Düzenleme formu yazının tam içeriğini vitrin ucundan çekiyordu ve o uç
+   * yalnızca yayınlanmış yazıyı bulur. Taslağa "düzenle" denince istek 404
+   * dönüyor, form bir önceki yazının içeriğiyle açık kalıyor ve kaydedildiğinde
+   * taslağın üzerine o içerik yazılıyordu.
+   */
+  it('taslak yazıyı kimliğiyle döndürür', async () => {
+    const created = await request('/api/admin/blog', {
+      method: 'POST',
+      cookie: staffCookie,
+      body: JSON.stringify(postBody({ slug: 'taslak-icerik', isPublished: false })),
+    });
+    const { post } = (await created.json()) as { post: { postId: string } };
+
+    // Vitrin ucu taslağı bulmaz — panelin oradan okuyamamasının sebebi bu.
+    const publicResponse = await request('/api/blog/taslak-icerik');
+    expect(publicResponse.status).toBe(404);
+
+    const adminResponse = await request(`/api/admin/blog/${post.postId}`, {
+      cookie: staffCookie,
+    });
+    const body = (await adminResponse.json()) as {
+      post: { content: string; isPublished: boolean };
+    };
+
+    expect(adminResponse.status).toBe(200);
+    expect(body.post.isPublished).toBe(false);
+    expect(body.post.content.length).toBeGreaterThan(0);
+  });
+
+  it('personel yetkisi ister', async () => {
+    const created = await request('/api/admin/blog', {
+      method: 'POST',
+      cookie: staffCookie,
+      body: JSON.stringify(postBody({ slug: 'yetki-denemesi' })),
+    });
+    const { post } = (await created.json()) as { post: { postId: string } };
+
+    const asCustomer = await request(`/api/admin/blog/${post.postId}`, {
+      cookie: customerCookie,
+    });
+
+    expect(asCustomer.status).toBe(403);
+  });
+});
+
+describe('etiket bulutu', () => {
+  /**
+   * Sayım yalnızca YAYINLANMIŞ yazıları kapsar.
+   *
+   * Uç herkese açık ve liste `isPublished` süzüyor; sayım süzmediğinde
+   * yalnızca taslağa bağlı bir etiket bulutta görünüyor, tıklayan kullanıcı
+   * boş listeye düşüyordu. Ayrıca yayınlanmamış bir yazının etiketi dışarıya
+   * sızıyordu.
+   */
+  it('yalnızca taslağa bağlı etiketi göstermez', async () => {
+    await request('/api/admin/blog', {
+      method: 'POST',
+      cookie: staffCookie,
+      body: JSON.stringify(
+        postBody({ slug: 'taslak-yazi', isPublished: false, tags: ['Gizli Etiket'] }),
+      ),
+    });
+
+    const response = await request('/api/blog/tags');
+    const body = (await response.json()) as { tags: { name: string }[] };
+
+    expect(body.tags.map((tag) => tag.name)).not.toContain('Gizli Etiket');
+  });
+
+  it('yayınlanmış yazının etiketini sayar', async () => {
+    await request('/api/admin/blog', {
+      method: 'POST',
+      cookie: staffCookie,
+      body: JSON.stringify(postBody({ tags: ['Beyaz Eşya'] })),
+    });
+
+    const response = await request('/api/blog/tags');
+    const body = (await response.json()) as { tags: { name: string; postCount: number }[] };
+
+    expect(body.tags.find((tag) => tag.name === 'Beyaz Eşya')?.postCount).toBe(1);
+  });
+});
+
 describe('Site ayarları', () => {
   it('herkese açık uçtan okunur', async () => {
     const response = await request('/api/settings');
 
     expect(response.status).toBe(200);
+  });
+
+  /**
+   * Havale bilgileri vitrin ayarlarının içinde dönüyordu.
+   *
+   * IBAN ile hesap sahibinin adı birlikte, mağaza adına sahte bir ödeme
+   * sayfası kurmak için gereken her şeyi verir; üstelik hesap sahibi gerçek
+   * bir kişidir. Oturumsuz bir ziyaretçinin bunları görmesi için hiçbir sebep
+   * yok — bilgiyi isteyen tek kişi siparişini ödeyecek müşteridir.
+   */
+  it('havale bilgileri oturumsuz uçtan dönmez', async () => {
+    const response = await request('/api/settings');
+    const body = (await response.json()) as { settings: Record<string, string> };
+
+    expect(Object.keys(body.settings)).not.toContain('payment.bank.iban');
+    expect(Object.keys(body.settings)).not.toContain('payment.bank.account_holder');
+
+    // Vitrin değerleri yerinde durmalı: süzgeç ayarları topluca kesmemeli.
+    expect(Object.keys(body.settings)).toContain('contact.phone');
+  });
+
+  it('havale bilgileri için oturum gerekir', async () => {
+    const anonymous = await request('/api/settings/payment');
+
+    expect(anonymous.status).toBe(401);
+  });
+
+  it('oturum açmış müşteri havale bilgilerini görür', async () => {
+    const response = await request('/api/settings/payment', { cookie: customerCookie });
+    const body = (await response.json()) as { settings: Record<string, string> };
+
+    expect(response.status).toBe(200);
+    expect(Object.keys(body.settings)).toContain('payment.bank.iban');
   });
 
   it('yalnızca yönetici değiştirebilir', async () => {
@@ -504,5 +677,56 @@ describe('Site ayarları', () => {
 
     // Ayarlar personel değil YÖNETİCİ yetkisi ister.
     expect(asStaff.status).toBe(403);
+  });
+
+  /*
+    Ayarın TÜRÜ ("metin", "saat") yalnızca girdinin nasıl çizileceğini söyler.
+    Anlamı denetlenmediğinde yöneticinin telefon alanına yazdığı bir yazım
+    hatası doğrudan alt bilgiye ve `tel:` bağlantısına düşüyor, IBAN'daki bir
+    hane hatası ise parayı hiçbir yere göndermiyordu.
+  */
+  async function ayarla(key: string, value: string) {
+    return request(`/api/admin/settings/${key}`, {
+      method: 'PUT',
+      cookie: adminCookie,
+      body: JSON.stringify({ value }),
+    });
+  }
+
+  it('geçersiz telefonu reddeder', async () => {
+    expect((await ayarla('contact.phone', 'bu-telefon-degil')).status).toBe(400);
+  });
+
+  it('telefonu kanonik biçimde saklar', async () => {
+    expect((await ayarla('contact.phone', '0507 194 05 50')).status).toBe(200);
+
+    const response = await request('/api/settings');
+    const body = (await response.json()) as { settings: Record<string, string> };
+
+    expect(body.settings['contact.phone']).toBe('+905071940550');
+  });
+
+  it('geçersiz e-postayı reddeder', async () => {
+    expect((await ayarla('contact.email', 'bu-eposta-degil')).status).toBe(400);
+  });
+
+  it('sağlama toplamı tutmayan IBAN reddedilir', async () => {
+    expect((await ayarla('payment.bank.iban', 'TR330006100519786457841327')).status).toBe(400);
+  });
+
+  it('gruplu yazılmış IBAN kabul edilir ve sadeleştirilir', async () => {
+    expect((await ayarla('payment.bank.iban', 'tr33 0006 1005 1978 6457 8413 26')).status).toBe(
+      200,
+    );
+
+    const response = await request('/api/settings/payment', { cookie: customerCookie });
+    const body = (await response.json()) as { settings: Record<string, string> };
+
+    expect(body.settings['payment.bank.iban']).toBe('TR330006100519786457841326');
+  });
+
+  it('isteğe bağlı ayar boşaltılabilir', async () => {
+    // "Boşsa ödeme bilgisi gösterilmez" diye tanımlı; boş bırakmak bir hata değil.
+    expect((await ayarla('payment.bank.iban', '')).status).toBe(200);
   });
 });

@@ -148,6 +148,20 @@ jobs:
       - name: Derle
         run: pnpm build
 
+      # Kaynak haritaları yorumlarıyla birlikte TÜM kaynağı taşır. Bot tuzağının
+      # nasıl çalıştığını, hız sınırı eşiklerini ve müşteriden gizlenen alanları
+      # anlatan gerekçeler pakete girmemelidir.
+      - name: Kaynak haritası sızmadı mı
+        run: |
+          haritalar=$(find apps/web/dist -name '*.map' | head -20)
+          if [ -n "$haritalar" ]; then
+            echo "HATA: üretim paketinde kaynak haritası var:"
+            echo "$haritalar"
+            echo "vite.config.ts içindeki build.sourcemap ayarını kontrol edin."
+            exit 1
+          fi
+          echo "Kaynak haritası yok."
+
       - name: Paket boyutunu raporla
         run: |
           if [ -d apps/web/dist ]; then

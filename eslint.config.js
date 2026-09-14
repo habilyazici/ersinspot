@@ -91,7 +91,9 @@ export default tseslint.config(
         {
           object: 'process',
           property: 'env',
-          message: "Ortam değişkenlerine '@/platform/config/env' üzerinden erişin.",
+          message:
+            "Ortam değişkenlerine 'platform/config/env.ts' modülünden erişin; " +
+            'değerler orada bir kez doğrulanır.',
         },
       ],
     },
@@ -152,7 +154,6 @@ export default tseslint.config(
     rules: { 'no-restricted-globals': 'off' },
   },
 
-
   // ---------------------------------------------------------------------------
   // Modüler monolit sınırları
   // ---------------------------------------------------------------------------
@@ -166,22 +167,28 @@ export default tseslint.config(
         'error',
         {
           patterns: [
+            /*
+              Modül sınırı yalnızca GÖRELİ yolla denetlenir.
+
+              Burada bir de `@/modules/*` deseni duruyordu, ama sunucu paketinin
+              `tsconfig.json` dosyasında `paths` tanımı yok: takma adlı bir
+              içe aktarım zaten çözümlenmez ve `apps/api` içinde tek bir örneği
+              de bulunmaz. Hiçbir zaman eşleşemeyecek bir desen, okuyana
+              korunmayan bir yolun korunduğunu söyler — asıl işi yapan aşağıdaki
+              göreli desendir.
+            */
             {
-              // Başka bir modülün iç dosyalarına erişim yasak.
-              // Modül içinde göreli yol (./domain/x.ts) kullanılır; modüller arası
-              // erişim yalnızca @/modules/<ad> genel sözleşmesi üzerinden yapılır.
-              group: ['@/modules/*/*', '@/modules/*/**'],
+              // Göreli yolla modül sınırını aşmak yasak.
+              group: [
+                '../../*/infrastructure/*',
+                '../../*/application/*',
+                '../../*/domain/*',
+                '../../*/api/*',
+              ],
               message:
                 'Modüller arası erişim yalnızca genel sözleşme üzerinden yapılır: ' +
-                "import { catalog } from '@/modules/catalog'. " +
+                "import { catalog } from '../../catalog/index.ts'. " +
                 'Ayrıntı için docs/MIMARI.md, Kural 1.',
-            },
-            {
-              // Göreli yolla modül sınırını aşmak da yasak.
-              group: ['../../*/infrastructure/*', '../../*/application/*', '../../*/domain/*', '../../*/api/*'],
-              message:
-                'Başka bir modülün iç katmanına göreli yolla erişilemez. ' +
-                'Genel sözleşmeyi kullanın: @/modules/<ad>. Ayrıntı için docs/MIMARI.md.',
             },
             {
               // Şema birleştiricisi modüllerin tablolarını toplar; iş kodu ondan

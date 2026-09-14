@@ -29,6 +29,8 @@ import {
   createOrderSchema,
   dateAfterDays,
   money,
+  phone,
+  MAX_APPOINTMENT_LEAD_DAYS,
 } from '@ersinspot/shared';
 import type { CreateOrderInput, IzmirDistrict } from '@ersinspot/shared';
 import { AddressFields } from '@/components/ui/address-fields.tsx';
@@ -276,7 +278,7 @@ export default function CheckoutPage() {
                 required
                 type="tel"
                 autoComplete="tel"
-                placeholder="0507 194 05 50"
+                placeholder={phone.PLACEHOLDER}
                 hint="Teslimat öncesi sizi bu numaradan arayacağız."
                 error={errors.contact?.phone?.message}
                 {...register('contact.phone')}
@@ -322,7 +324,8 @@ export default function CheckoutPage() {
                 required
                 type="date"
                 min={dateAfterDays(LEAD_TIME_DAYS.delivery)}
-                hint="En erken iki gün sonrasına randevu verilebilir."
+                max={dateAfterDays(MAX_APPOINTMENT_LEAD_DAYS)}
+                hint={`En erken ${String(LEAD_TIME_DAYS.delivery)} gün sonrasına randevu verilebilir.`}
                 error={findError(
                   errors,
                   isHomeDelivery ? 'delivery.deliveryDate' : 'delivery.pickupDate',
@@ -421,7 +424,7 @@ export default function CheckoutPage() {
             className="w-full"
             isLoading={isSubmitting || createOrder.isPending}
           >
-            Siparişi Onayla
+            Siparişi onayla
           </Button>
 
           <p className="text-xs text-slate-500">

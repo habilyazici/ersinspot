@@ -11,7 +11,12 @@
  */
 
 import { eq } from 'drizzle-orm';
-import type { CreateProductInput, ProductCondition, UpdateProductInput } from '@ersinspot/shared';
+import type {
+  CreateProductInput,
+  ProductCondition,
+  ProductStatus,
+  UpdateProductInput,
+} from '@ersinspot/shared';
 import { attachFiles } from '../../files/index.ts';
 import { db } from '../../../platform/db/client.ts';
 import type { Transaction } from '../../../platform/db/client.ts';
@@ -180,10 +185,15 @@ export async function updateProduct(productId: string, input: UpdateProductInput
  * yapılamaz, önce bir siparişe bağlanıp rezerve olmalıdır.
  *
  * Rezervasyon durumu bu uçtan değiştirilemez; o, sipariş akışının sorumluluğudur.
+ *
+ * Parametre TÜM durumları kabul eder (`ProductStatus`), oluşturma şemasının
+ * daralttığı kümeyi değil: buraya gelen değer istemciden gelir ve reddedilecekse
+ * bu fonksiyonun kendi denetimlerinde reddedilmelidir. Tip daha dar olsaydı
+ * aşağıdaki `reserved` kontrolü ulaşılamaz hâle gelirdi.
  */
 export async function changeProductStatus(
   productId: string,
-  newStatus: CreateProductInput['status'],
+  newStatus: ProductStatus,
 ): Promise<void> {
   const existing = await repository.findById(productId);
 

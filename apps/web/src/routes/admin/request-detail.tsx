@@ -11,31 +11,45 @@
  */
 
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { CalendarPlus, ClipboardList, NotebookPen, Receipt, Stethoscope } from 'lucide-react';
+import {
+  CalendarPlus,
+  ClipboardList,
+  NotebookPen,
+  PackagePlus,
+  Receipt,
+  Stethoscope,
+} from 'lucide-react';
 import {
   APPOINTMENT_TIME_SLOTS,
   ApiError,
   LEAD_TIME_DAYS,
+  MIN_DIAGNOSIS_LENGTH,
+  PRODUCT_CONDITIONS,
+  PRODUCT_CONDITION_LABELS,
   QUOTE_VALIDITY_DAYS,
   REQUEST_STATUS_LABELS,
   REQUEST_STATUS_TRANSITIONS,
   dateAfterDays,
   money,
   today,
+  MAX_APPOINTMENT_LEAD_DAYS,
 } from '@ersinspot/shared';
-import type { RequestStatus } from '@ersinspot/shared';
+import type { ProductCondition, RequestStatus } from '@ersinspot/shared';
 import { Button } from '@/components/ui/button.tsx';
 import { Card, DetailList, Timeline } from '@/components/ui/card.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
+import { CheckboxField } from '@/components/ui/choice-field.tsx';
 import { SelectField, TextAreaField, TextField } from '@/components/ui/form-field.tsx';
 import { PageContainer, PageHeader, Section } from '@/components/ui/page.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { StatusBadge } from '@/components/ui/status-badge.tsx';
 import { formatDate, formatDateTime, formatPrice, formatTimeSlot } from '@/lib/format.ts';
+import { flattenCategories, useBrands, useCategories } from '@/features/catalog';
 import {
   RequestInfo,
+  useConvertSellRequest,
   useCreateQuote,
   useRecordDiagnosis,
   useRequest,
@@ -43,6 +57,24 @@ import {
   useSetStaffNote,
   useUpdateRequestStatus,
 } from '@/features/servicing';
+
+/**
+ * Dönüşüm formunun durumu.
+ *
+ * Fiyat LİRA METNİ olarak tutulur ("8.500" ya da "8500,50") ve gönderimde
+ * kuruşa çevrilir; ürün formundaki sözleşmenin aynısı. Kutuda kuruş tutmak,
+ * personelin ekranda "850000 ₺" görmesi demek olurdu.
+ */
+interface ConversionForm {
+  title: string;
+  description: string;
+  price: string;
+  categoryId: string;
+  brandId: string;
+  condition: ProductCondition;
+  warrantyMonths: number;
+  copyPhotos: boolean;
+}
 
 export default function AdminRequestDetailPage() {
   const { requestId = '' } = useParams<{ requestId: string }>();
@@ -53,6 +85,11 @@ export default function AdminRequestDetailPage() {
   const updateStatus = useUpdateRequestStatus();
   const setStaffNote = useSetStaffNote();
   const recordDiagnosis = useRecordDiagnosis();
+  const convertRequest = useConvertSellRequest();
+
+  // Dönüşüm formunun kategori ve marka seçenekleri.
+  const { data: categories } = useCategories();
+  const { data: brands } = useBrands();
 
   const [quoteAmount, setQuoteAmount] = useState('');
   const [quoteValidUntil, setQuoteValidUntil] = useState(dateAfterDays(QUOTE_VALIDITY_DAYS));
@@ -68,11 +105,32 @@ export default function AdminRequestDetailPage() {
   const [diagnosis, setDiagnosis] = useState('');
 
   /*
-    Personel notu kutusu kontrollüdür ve yüklenen talepten doldurulur.
+    Satış talebini katalog kaydına dönüştürme formu.
 
-    Önceden kutu `defaultValue` ile çiziliyor, düğme ise boş metinde devre dışı
-    kalıyordu: yanlışlıkla yazılmış bir not hiçbir zaman kaldırılamıyordu.
-    Artık düğme yalnızca metin DEĞİŞTİĞİNDE etkin ve boş kaydetmek notu siler.
+    Sunucu ucu (`POST /admin/sell-requests/:id/convert`), servisi ve şeması
+    baştan vardı; sözleşme "satış talebindeki bilgiler ön dolgu olarak
+    kullanılır" diye yazıyordu ama bu formu çizen hiçbir şey yoktu. Personel
+    kabul ettiği ürünü katalogda elle yeniden oluşturmak zorundaydı ve talep
+    ile ürün arasındaki bağ (`resultingProductId`) hiç kurulmuyordu.
+  */
+  const [conversion, setConversion] = useState<ConversionForm | null>(null);
+
+  /*
+    Kayıttan doldurulan kutular KONTROLLÜDÜR.
+
+    Personel notu kutusu önceden `defaultValue` ile çiziliyor, düğme ise boş
+    metinde devre dışı kalıyordu: yanlışlıkla yazılmış bir not hiçbir zaman
+    kaldırılamıyordu. Artık düğme yalnızca metin DEĞİŞTİĞİNDE etkin ve boş
+    kaydetmek notu siler.
+
+    Teknisyen tespiti kutusu aynı hatayı taşımaya devam ediyordu. `defaultValue`
+    yalnızca ilk çizimde okunur; bileşen bir talepten diğerine geçerken (aynı
+    rota, farklı parametre) yeniden bağlanmaz, dolayısıyla kutuda ÖNCEKİ
+    talebin tespiti kalıyordu. Kaydet düğmesi de yerel duruma baktığı için
+    mevcut tespiti gören personel, tek karakter yazana kadar düğmeyi kapalı
+    buluyordu.
+
+    İkisi de aynı yerde, yüklenen talebe göre tazelenir.
   */
   const [note, setNote] = useState('');
   const [loadedRequestId, setLoadedRequestId] = useState<string | null>(null);
@@ -80,6 +138,8 @@ export default function AdminRequestDetailPage() {
   if (request !== undefined && request.id !== loadedRequestId) {
     setLoadedRequestId(request.id);
     setNote(request.staffNote ?? '');
+    setDiagnosis(request.kind === 'technical_service' ? (request.diagnosis ?? '') : '');
+    setConversion(null);
   }
 
   if (isLoading) return <PageSpinner label="Talep yükleniyor" />;
@@ -149,6 +209,73 @@ export default function AdminRequestDetailPage() {
         },
         onError: (failure) => {
           reportError(failure, 'Randevu oluşturulamadı.');
+        },
+      },
+    );
+  }
+
+  /**
+   * Dönüşüm formunu talepten ön doldurur.
+   *
+   * Müşterinin bildirdiği başlık, açıklama, kategori ve durum zaten kayıtta;
+   * personelin girmesi gereken tek şey satış fiyatıdır. İstediği alanı yine
+   * düzeltebilir — ürün ilanı kataloğun sesiyle yazılır.
+   */
+  function startConversion(): void {
+    if (request?.kind !== 'sell_request') return;
+
+    setConversion({
+      title: request.title,
+      description: request.description,
+      /*
+        Satış fiyatı ÖN DOLDURULMAZ.
+
+        Buradaki tutarların hiçbiri satış fiyatı değildir: müşterinin istediği
+        bir talep, kabul edilen teklif ise dükkânın ÖDEDİĞİ tutardır. İkisinden
+        biri alana yazılınca, üzerine yazılmadığı takdirde ürün maliyetine —
+        hatta altına — satılığa çıkardı. Alan boş bırakılır; personel neyi
+        ödediğini ipucunda görür ve fiyatı bilerek koyar.
+      */
+      price: '',
+      categoryId: request.category.id,
+      brandId: '',
+      condition: request.condition,
+      warrantyMonths: 0,
+      copyPhotos: true,
+    });
+  }
+
+  function submitConversion(): void {
+    if (conversion === null) return;
+
+    const price = money.parseLira(conversion.price);
+
+    if (price === null || price <= 0) {
+      toast.error('Geçerli bir satış fiyatı girin.');
+      return;
+    }
+
+    convertRequest.mutate(
+      {
+        requestId,
+        product: {
+          title: conversion.title,
+          description: conversion.description,
+          price,
+          categoryId: conversion.categoryId,
+          brandId: conversion.brandId === '' ? null : conversion.brandId,
+          condition: conversion.condition,
+          warrantyMonths: conversion.warrantyMonths,
+          copyPhotos: conversion.copyPhotos,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success('Ürün taslak olarak oluşturuldu. Vitrine çıkarmadan önce gözden geçirin.');
+          setConversion(null);
+        },
+        onError: (failure) => {
+          reportError(failure, 'Ürün oluşturulamadı.');
         },
       },
     );
@@ -273,6 +400,7 @@ export default function AdminRequestDetailPage() {
               label="Geçerlilik tarihi"
               type="date"
               min={today()}
+              max={dateAfterDays(MAX_APPOINTMENT_LEAD_DAYS)}
               value={quoteValidUntil}
               onChange={(event) => {
                 setQuoteValidUntil(event.target.value);
@@ -313,6 +441,7 @@ export default function AdminRequestDetailPage() {
                 label="Tarih"
                 type="date"
                 min={dateAfterDays(LEAD_TIME_DAYS.appointment)}
+                max={dateAfterDays(MAX_APPOINTMENT_LEAD_DAYS)}
                 value={appointmentDate}
                 onChange={(event) => {
                   setAppointmentDate(event.target.value);
@@ -365,8 +494,8 @@ export default function AdminRequestDetailPage() {
               <TextAreaField
                 label="Tespit"
                 rows={4}
-                hint="Keşif sonrası arızanın nedeni ve yapılacak işlem."
-                defaultValue={request.diagnosis ?? ''}
+                hint={`Keşif sonrası arızanın nedeni ve yapılacak işlem. En az ${String(MIN_DIAGNOSIS_LENGTH)} karakter.`}
+                value={diagnosis}
                 onChange={(event) => {
                   setDiagnosis(event.target.value);
                 }}
@@ -375,7 +504,12 @@ export default function AdminRequestDetailPage() {
               <Button
                 variant="outline"
                 className="w-full"
-                disabled={diagnosis.trim().length < 10}
+                // Değişmemiş bir tespiti yeniden kaydetmenin anlamı yok; alt
+                // sınır şemadan gelir.
+                disabled={
+                  diagnosis.trim() === (request.diagnosis ?? '') ||
+                  diagnosis.trim().length < MIN_DIAGNOSIS_LENGTH
+                }
                 isLoading={recordDiagnosis.isPending}
                 onClick={() => {
                   recordDiagnosis.mutate(
@@ -393,6 +527,175 @@ export default function AdminRequestDetailPage() {
               >
                 Tespiti kaydet
               </Button>
+            </Card>
+          ) : null}
+
+          {/* ---------------------------------------------------------------
+              Katalog kaydına dönüştürme — yalnızca satış talebinde
+              --------------------------------------------------------------- */}
+          {request.kind === 'sell_request' ? (
+            <Card padding="md" className="space-y-3">
+              <h2 className="flex items-center gap-2 font-semibold text-slate-900">
+                <PackagePlus className="size-4" aria-hidden="true" />
+                Katalog Kaydı
+              </h2>
+
+              {request.resultingProductId !== null ? (
+                <>
+                  <p className="text-sm text-slate-600">Bu talep katalog kaydına dönüştürüldü.</p>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to={`/yonetim/urunler/${request.resultingProductId}`}>Ürünü aç</Link>
+                  </Button>
+                </>
+              ) : request.status !== 'accepted' && request.status !== 'scheduled' ? (
+                <p className="text-sm text-slate-600">
+                  Ürün, teklif kabul edildikten sonra katalog kaydına dönüştürülebilir.
+                </p>
+              ) : conversion === null ? (
+                <>
+                  <p className="text-sm text-slate-600">
+                    Ürün teslim alındıysa katalogda TASLAK bir kayıt oluşturulur; vitrine çıkarmadan
+                    önce gözden geçirirsiniz.
+                  </p>
+                  <Button className="w-full" onClick={startConversion}>
+                    Ürüne dönüştür
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <TextField
+                    label="Ürün başlığı"
+                    value={conversion.title}
+                    onChange={(event) => {
+                      setConversion({ ...conversion, title: event.target.value });
+                    }}
+                  />
+
+                  <TextAreaField
+                    label="Açıklama"
+                    rows={4}
+                    hint="Vitrinde görünür. Müşterinin yazdığı metin ön dolgudur."
+                    value={conversion.description}
+                    onChange={(event) => {
+                      setConversion({ ...conversion, description: event.target.value });
+                    }}
+                  />
+
+                  <TextField
+                    label="Satış fiyatı (₺)"
+                    inputMode="decimal"
+                    hint={
+                      [
+                        request.quote === null
+                          ? null
+                          : `Ödenen: ${formatPrice(request.quote.amount)}`,
+                        request.askingPrice === null
+                          ? null
+                          : `müşterinin istediği: ${formatPrice(request.askingPrice)}`,
+                      ]
+                        .filter((parca) => parca !== null)
+                        .join(' · ') || undefined
+                    }
+                    value={conversion.price}
+                    onChange={(event) => {
+                      setConversion({ ...conversion, price: event.target.value });
+                    }}
+                  />
+
+                  <SelectField
+                    label="Kategori"
+                    value={conversion.categoryId}
+                    onChange={(event) => {
+                      setConversion({ ...conversion, categoryId: event.target.value });
+                    }}
+                  >
+                    {flattenCategories(categories ?? []).map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </SelectField>
+
+                  {/*
+                    Marka listeden seçilir. Talepteki marka müşterinin yazdığı
+                    serbest metindir ("arçelik", "Arcelik"); katalog markası
+                    ise kayıtlı bir varlıktır ve eşleştirmeyi personel yapar.
+                  */}
+                  <SelectField
+                    label="Marka"
+                    hint={`Müşterinin yazdığı: ${request.brand}`}
+                    value={conversion.brandId}
+                    onChange={(event) => {
+                      setConversion({ ...conversion, brandId: event.target.value });
+                    }}
+                  >
+                    <option value="">Marka yok</option>
+                    {(brands ?? []).map((brand) => (
+                      <option key={brand.id} value={brand.id}>
+                        {brand.name}
+                      </option>
+                    ))}
+                  </SelectField>
+
+                  <SelectField
+                    label="Ürün durumu"
+                    value={conversion.condition}
+                    onChange={(event) => {
+                      setConversion({
+                        ...conversion,
+                        condition: event.target.value as ProductCondition,
+                      });
+                    }}
+                  >
+                    {PRODUCT_CONDITIONS.map((value) => (
+                      <option key={value} value={value}>
+                        {PRODUCT_CONDITION_LABELS[value].label}
+                      </option>
+                    ))}
+                  </SelectField>
+
+                  <TextField
+                    label="Garanti (ay)"
+                    type="number"
+                    min={0}
+                    max={60}
+                    value={String(conversion.warrantyMonths)}
+                    onChange={(event) => {
+                      setConversion({
+                        ...conversion,
+                        warrantyMonths: Number(event.target.value),
+                      });
+                    }}
+                  />
+
+                  <CheckboxField
+                    label="Talep fotoğraflarını ürün görseli olarak kullan"
+                    checked={conversion.copyPhotos}
+                    onChange={(event) => {
+                      setConversion({ ...conversion, copyPhotos: event.target.checked });
+                    }}
+                  />
+
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-1"
+                      isLoading={convertRequest.isPending}
+                      onClick={submitConversion}
+                    >
+                      Oluştur
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setConversion(null);
+                      }}
+                    >
+                      Vazgeç
+                    </Button>
+                  </div>
+                </>
+              )}
             </Card>
           ) : null}
 

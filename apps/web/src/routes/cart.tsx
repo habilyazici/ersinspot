@@ -10,7 +10,7 @@ import { ErrorState } from '@/components/ui/error-state.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { StatusBadge } from '@/components/ui/status-badge.tsx';
 import { formatPrice } from '@/lib/format.ts';
-import { useCart, useRemoveFromCart } from '@/features/ordering';
+import { useCart, useClearCart, useRemoveFromCart } from '@/features/ordering';
 
 /**
  * Sepet.
@@ -22,6 +22,7 @@ import { useCart, useRemoveFromCart } from '@/features/ordering';
 export default function CartPage() {
   const { data: cart, isLoading, isError, error, refetch } = useCart();
   const removeItem = useRemoveFromCart();
+  const clearCart = useClearCart();
 
   if (isLoading) return <PageSpinner label="Sepet yükleniyor" />;
   if (isError) return <ErrorState error={error} onRetry={() => void refetch()} />;
@@ -32,6 +33,12 @@ export default function CartPage() {
       <PageContainer width="prose">
         <EmptyState
           icon={ShoppingCart}
+          /*
+            Bu dalda sayfanın başka içeriği yok: `PageHeader` yalnızca dolu
+            sepette çiziliyor. Varsayılan `h3` bırakılınca sepet, sitedeki tek
+            `h1`siz sayfa oluyordu.
+          */
+          headingLevel={1}
           title="Sepetiniz boş"
           description="Beğendiğiniz ürünleri sepete ekleyerek sipariş verebilirsiniz."
           action={
@@ -55,6 +62,17 @@ export default function CartPage() {
     });
   }
 
+  function handleClear(): void {
+    clearCart.mutate(undefined, {
+      onSuccess: () => toast.success('Sepetiniz boşaltıldı.'),
+      onError: (mutationError: unknown) => {
+        toast.error(
+          mutationError instanceof ApiError ? mutationError.message : 'Sepet boşaltılamadı.',
+        );
+      },
+    });
+  }
+
   return (
     <PageContainer width="form">
       <PageHeader
@@ -63,12 +81,15 @@ export default function CartPage() {
       />
 
       {cart.hasUnavailableItems ? (
+        // Uyarı kutusu, hesap ve ödeme sayfalarındaki uyarılarla aynı belirteçleri
+        // kullanır. Burada ham `amber-*` tonları yazılıydı ve aynı işi yapan iki
+        // kutu iki farklı sarı gösteriyordu.
         <div
           role="alert"
-          className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4"
+          className="mt-4 flex items-start gap-3 rounded-lg bg-state-pending-bg p-4 text-state-pending-fg"
         >
-          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-600" aria-hidden="true" />
-          <p className="text-sm text-amber-900">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+          <p className="text-sm">
             Sepetinizde artık satışta olmayan ürün var. Sipariş verebilmek için bu ürünleri
             çıkarmanız gerekiyor.
           </p>
@@ -95,7 +116,7 @@ export default function CartPage() {
                 {/* Kalemden ürün sayfasına dönüş: fiyat veya durum değiştiyse
                     kullanıcı ayrıntıyı oradan görür. */}
                 <h2 className="truncate font-medium text-slate-900">
-                  <Link to={`/urun/${item.slug}`} className="hover:text-brand-orange-600">
+                  <Link to={`/urun/${item.slug}`} className="hover:text-brand-orange-700">
                     {item.title}
                   </Link>
                 </h2>
@@ -108,7 +129,7 @@ export default function CartPage() {
                   )}
                 </div>
 
-                <p className="mt-2 font-semibold text-brand-orange-600">
+                <p className="mt-2 font-semibold text-brand-orange-700">
                   {formatPrice(item.price)}
                 </p>
               </div>
@@ -124,6 +145,30 @@ export default function CartPage() {
               </Button>
             </Card>
           ))}
+
+          {/*
+            Sepeti boşaltma yalnızca birden çok kalemde görünür: tek kalemlik
+            sepette satırın kendi çöp kutusu aynı işi yapar ve iki düğme,
+            hangisinin ne yaptığını belirsizleştirir.
+
+            Onay SORULMAZ. Sayfadaki tek tek çıkarma da sormuyor ve sepetten
+            çıkarmak geri alınamaz bir silme değil: ürün kataloğda durur,
+            yeniden eklenebilir. `ConfirmDelete` blog yazısı ve SSS kaydı gibi
+            gerçekten kaybolan kayıtlar içindir.
+          */}
+          {cart.items.length > 1 ? (
+            <li className="flex justify-end">
+              <Button
+                variant="ghost"
+                className="text-slate-600"
+                onClick={handleClear}
+                disabled={clearCart.isPending}
+              >
+                <Trash2 aria-hidden="true" />
+                Sepeti boşalt
+              </Button>
+            </li>
+          ) : null}
         </ul>
 
         <Card as="aside" padding="md" className="h-fit">
@@ -142,7 +187,7 @@ export default function CartPage() {
           </dl>
 
           <Button asChild size="lg" className="mt-5 w-full" disabled={cart.hasUnavailableItems}>
-            <Link to="/odeme">Siparişi Tamamla</Link>
+            <Link to="/odeme">Siparişi tamamla</Link>
           </Button>
 
           <p className="mt-3 text-xs text-slate-500">

@@ -12,6 +12,7 @@ import type {
   ReplyToContactMessageInput,
   UpdateBlogPostInput,
   BlogPost,
+  AdminBlogPostSummary,
   BlogPostSummary,
   CreateContactMessageInput,
   Faq,
@@ -22,7 +23,9 @@ import { apiRequest } from '@/lib/api';
 export const contentKeys = {
   all: ['content'] as const,
   settings: ['content', 'settings'] as const,
+  paymentSettings: ['content', 'settings', 'payment'] as const,
   adminBlog: (filters: Partial<BlogListQuery>) => ['content', 'admin', 'blog', filters] as const,
+  adminPost: (postId: string) => ['content', 'admin', 'post', postId] as const,
   adminFaqs: ['content', 'admin', 'faqs'] as const,
   adminSettings: ['content', 'admin', 'settings'] as const,
   messages: (filters: Partial<ContactMessageListQuery>) =>
@@ -35,16 +38,42 @@ export const contentKeys = {
 };
 
 /**
- * Site ayarları.
+ * Vitrin ayarları.
  *
- * İletişim bilgileri ve çalışma saatleri gibi, arayüzün her yerinde kullanılan
- * değerler. Nadiren değiştiği için uzun süre önbellekte tutulur.
+ * İletişim bilgileri, çalışma saatleri ve duyuru: arayüzün her yerinde
+ * kullanılan, herkese açık değerler. Nadiren değiştiği için uzun süre
+ * önbellekte tutulur.
+ *
+ * Havale bilgileri BURADA DÖNMEZ; onlar oturum ister (`usePaymentSettings`).
  */
 export function useSiteSettings() {
   return useQuery({
     queryKey: contentKeys.settings,
     queryFn: async () => {
       const response = await apiRequest<{ settings: Record<string, string> }>('/api/settings');
+      return response.settings;
+    },
+    staleTime: 30 * 60_000,
+  });
+}
+
+/**
+ * Ödeme bilgileri — oturum gerektirir.
+ *
+ * Havale/EFT ile ödeyecek müşterinin banka bilgilerine ihtiyacı vardır. Bunlar
+ * vitrin ayarlarından ayrı bir uçtan gelir: IBAN ile hesap sahibinin adı
+ * birlikte kimlik avı için hazır bir şablondur ve oturumsuz ziyaretçiye
+ * gönderilmez.
+ *
+ * Yanıt vitrin değerlerini de içerir; çağıran tek bir harita okur.
+ */
+export function usePaymentSettings() {
+  return useQuery({
+    queryKey: contentKeys.paymentSettings,
+    queryFn: async () => {
+      const response = await apiRequest<{ settings: Record<string, string> }>(
+        '/api/settings/payment',
+      );
       return response.settings;
     },
     staleTime: 30 * 60_000,
@@ -131,7 +160,7 @@ export function useAdminBlogPosts(filters: Partial<BlogListQuery> = {}) {
   return useQuery({
     queryKey: contentKeys.adminBlog(filters),
     queryFn: () =>
-      apiRequest<Paginated<BlogPostSummary>>('/api/admin/blog', {
+      apiRequest<Paginated<AdminBlogPostSummary>>('/api/admin/blog', {
         query: {
           page: filters.page,
           pageSize: filters.pageSize,
@@ -140,6 +169,26 @@ export function useAdminBlogPosts(filters: Partial<BlogListQuery> = {}) {
         },
       }),
     placeholderData: (previous) => previous,
+  });
+}
+
+/**
+ * Kimliğe göre yazı — TASLAKLAR DAHİL.
+ *
+ * Düzenleme formu yazının tam içeriğini buradan alır. Önceden vitrin ucu
+ * (`useBlogPost`) kullanılıyordu; o uç yalnızca yayınlanmış yazıyı bulduğu için
+ * taslağa "düzenle" denince istek 404 dönüyor ve form bir önceki yazının
+ * içeriğiyle açık kalıyordu — kaydedildiğinde taslağın üzerine o içerik
+ * yazılıyordu.
+ */
+export function useAdminBlogPost(postId: string) {
+  return useQuery({
+    queryKey: contentKeys.adminPost(postId),
+    queryFn: async () => {
+      const response = await apiRequest<{ post: BlogPost }>(`/api/admin/blog/${postId}`);
+      return response.post;
+    },
+    enabled: postId !== '',
   });
 }
 
@@ -305,13 +354,19 @@ export function useReplyToMessage() {
 // Yönetim — site ayarları
 // ---------------------------------------------------------------------------
 
-/** Ayarların tam listesi: değer, tür ve açıklamasıyla. Yönetici yetkisi ister. */
+/** Ayarların tam listesi: değer, tür, alan adı ve açıklamasıyla. Yönetici yetkisi ister. */
 export function useAdminSettings() {
   return useQuery({
     queryKey: contentKeys.adminSettings,
     queryFn: async () => {
       const response = await apiRequest<{
-        settings: { key: string; value: string; valueType: string; description: string }[];
+        settings: {
+          key: string;
+          value: string;
+          valueType: string;
+          label: string;
+          hint: string | null;
+        }[];
       }>('/api/admin/settings');
       return response.settings;
     },

@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { LayoutDashboard, LogOut, Menu, Package, ShoppingCart, User, X } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
+import { PageContainer } from '@/components/ui/page.tsx';
 import { cn } from '@/lib/utils.ts';
 import { useAuth, useLogout } from '@/features/auth';
 import { useCartCount } from '@/features/ordering';
@@ -11,14 +12,38 @@ const NAV_LINKS = [
   { to: '/teknik-servis', label: 'Teknik Servis' },
   { to: '/nakliye', label: 'Nakliye' },
   { to: '/urun-sat', label: 'Ürününüzü Satın' },
-  { to: '/siparis-takip', label: 'Sipariş Takip' },
+  { to: '/siparis-takip', label: 'Sipariş Takibi' },
 ] as const;
 
 export function SiteHeader() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const { isAuthenticated, isStaff, user } = useAuth();
   const logout = useLogout();
   const { data: cartCount = 0 } = useCartCount();
+
+  /*
+    Escape menüyü kapatır ve odağı düğmeye geri verir.
+
+    Panel telefonda ekranın neredeyse tamamını kaplıyor ve klavye ya da ekran
+    okuyucu kullanan biri için tek çıkış yolu, listenin sonuna kadar sekme
+    tuşuna basmaktı. Dinleyici yalnızca panel AÇIKKEN bağlanır; kapalıyken
+    sayfanın her tuş vuruşunu dinlemenin anlamı yok.
+  */
+  useEffect(() => {
+    if (!isMenuOpen) return undefined;
+
+    function onKeyDown(event: KeyboardEvent): void {
+      if (event.key !== 'Escape') return;
+      setIsMenuOpen(false);
+      menuButtonRef.current?.focus();
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isMenuOpen]);
 
   const navLinkClass = ({ isActive }: { isActive: boolean }): string =>
     cn(
@@ -28,7 +53,7 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+      <PageContainer width="wide" className="flex h-16 items-center gap-4 py-0">
         <Link to="/" className="flex shrink-0 items-center gap-2">
           <span className="text-xl font-bold tracking-tight text-brand-navy-800">
             Ersin<span className="text-brand-orange-500">Spot</span>
@@ -103,26 +128,29 @@ export function SiteHeader() {
             <Button asChild size="sm" className="hidden sm:inline-flex">
               <Link to="/giris">
                 <User aria-hidden="true" />
-                Giriş Yap
+                Giriş yap
               </Link>
             </Button>
           )}
 
           <Button
+            ref={menuButtonRef}
             variant="ghost"
             size="icon"
             className="lg:hidden"
             aria-label={isMenuOpen ? 'Menüyü kapat' : 'Menüyü aç'}
             aria-expanded={isMenuOpen}
+            aria-controls="mobil-menu"
             onClick={() => setIsMenuOpen((open) => !open)}
           >
             {isMenuOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
           </Button>
         </div>
-      </div>
+      </PageContainer>
 
       {isMenuOpen ? (
         <nav
+          id="mobil-menu"
           aria-label="Mobil menü"
           className="border-t border-slate-200 bg-white px-4 py-3 lg:hidden"
         >
@@ -186,12 +214,12 @@ export function SiteHeader() {
                     disabled={logout.isPending}
                     className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60"
                   >
-                    Çıkış Yap
+                    Çıkış yap
                   </button>
                 </>
               ) : (
                 <NavLink to="/giris" className={navLinkClass} onClick={() => setIsMenuOpen(false)}>
-                  Giriş Yap
+                  Giriş yap
                 </NavLink>
               )}
             </li>

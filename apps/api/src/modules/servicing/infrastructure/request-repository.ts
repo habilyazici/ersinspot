@@ -6,7 +6,7 @@
  * tabloları kendi repository dosyalarındadır.
  */
 
-import { and, desc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import { businessDayEnd, businessDayStart } from '@ersinspot/shared';
 import type {
@@ -203,16 +203,6 @@ export async function findById(
   return rows[0] ?? null;
 }
 
-export async function findByReferenceNumber(reference: string): Promise<RequestRow | null> {
-  const rows = await db
-    .select(requestSelection)
-    .from(serviceRequests)
-    .where(eq(serviceRequests.referenceNumber, reference))
-    .limit(1);
-
-  return rows[0] ?? null;
-}
-
 /**
  * Talebi kilitleyerek okur.
  *
@@ -249,16 +239,19 @@ export async function findAddresses(requestId: string): Promise<AddressRow[]> {
 }
 
 export async function findPhotos(requestId: string): Promise<PhotoRow[]> {
-  return db
-    .select({
-      id: requestPhotos.id,
-      storageKey: requestPhotos.storageKey,
-      caption: requestPhotos.caption,
-      displayOrder: requestPhotos.displayOrder,
-    })
-    .from(requestPhotos)
-    .where(eq(requestPhotos.requestId, requestId))
-    .orderBy(requestPhotos.displayOrder);
+  return (
+    db
+      .select({
+        id: requestPhotos.id,
+        storageKey: requestPhotos.storageKey,
+        caption: requestPhotos.caption,
+        displayOrder: requestPhotos.displayOrder,
+      })
+      .from(requestPhotos)
+      .where(eq(requestPhotos.requestId, requestId))
+      // `displayOrder` benzersiz değil; eşitlikte sıra sabit kalsın.
+      .orderBy(asc(requestPhotos.displayOrder), asc(requestPhotos.id))
+  );
 }
 
 /** Geçerli teklif: yerine yenisi verilmemiş en son teklif. */
@@ -307,6 +300,15 @@ export async function findCurrentAppointment(
   return rows[0] ?? null;
 }
 
+/**
+ * Talebin zaman çizelgesi, eskiden yeniye.
+ *
+ * `id` ikincil sıralama anahtarıdır. Damga artık `clock_timestamp()` ile
+ * yazıldığı için yeni kayıtlarda eşitlik pratikte oluşmaz; ama `now()`
+ * döneminden kalan satırlar aynı damgayı taşır ve tek anahtarla sıralandığında
+ * sıraları her okumada değişebilirdi. İkinci anahtar o kayıtların sırasını da
+ * en azından SABİT tutar.
+ */
 export async function findEvents(requestId: string): Promise<EventRow[]> {
   return db
     .select({
@@ -317,7 +319,7 @@ export async function findEvents(requestId: string): Promise<EventRow[]> {
     })
     .from(requestEvents)
     .where(eq(requestEvents.requestId, requestId))
-    .orderBy(requestEvents.createdAt);
+    .orderBy(requestEvents.createdAt, requestEvents.id);
 }
 
 /** Birden çok talebin geçerli tekliflerini tek sorguda çeker (N+1 önlenir). */
@@ -406,7 +408,9 @@ export async function listForUser(userId: string, query: RequestListQuery): Prom
     .select(requestSelection)
     .from(serviceRequests)
     .where(and(...conditions))
-    .orderBy(desc(serviceRequests.createdAt))
+    // Kimlik, eşit sıralama anahtarlarını bozan kararlı ikinci anahtardır:
+    // eşitlik olduğunda sayfalar arasında kayma olmaz.
+    .orderBy(desc(serviceRequests.createdAt), asc(serviceRequests.id))
     .limit(query.pageSize)
     .offset(offset);
 
@@ -453,7 +457,9 @@ export async function listForAdmin(query: AdminRequestListQuery): Promise<ListRe
     .select(requestSelection)
     .from(serviceRequests)
     .where(where)
-    .orderBy(desc(serviceRequests.createdAt))
+    // Kimlik, eşit sıralama anahtarlarını bozan kararlı ikinci anahtardır:
+    // eşitlik olduğunda sayfalar arasında kayma olmaz.
+    .orderBy(desc(serviceRequests.createdAt), asc(serviceRequests.id))
     .limit(query.pageSize)
     .offset(offset);
 
@@ -503,12 +509,17 @@ export async function updateStatus(
  *
  * Boş dize ile `null` arasındaki ayrım burada kapanır: sözleşme boş metni
  * "notu kaldır" olarak tanımlar, veritabanı ise yokluğu `null` ile gösterir.
+ *
+ * @returns Böyle bir talep varsa `true`.
  */
-export async function updateStaffNote(requestId: string, staffNote: string): Promise<void> {
-  await db
+export async function updateStaffNote(requestId: string, staffNote: string): Promise<boolean> {
+  const updated = await db
     .update(serviceRequests)
     .set({ staffNote: staffNote === '' ? null : staffNote })
-    .where(eq(serviceRequests.id, requestId));
+    .where(eq(serviceRequests.id, requestId))
+    .returning({ id: serviceRequests.id });
+
+  return updated.length > 0;
 }
 
 /**

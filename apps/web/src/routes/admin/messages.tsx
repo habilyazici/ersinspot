@@ -11,27 +11,25 @@
  */
 
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Mail, MailOpen } from 'lucide-react';
 import { ApiError, CONTACT_SUBJECTS, CONTACT_SUBJECT_LABELS } from '@ersinspot/shared';
-import type { ContactSubject } from '@ersinspot/shared';
 import { Button } from '@/components/ui/button.tsx';
 import { Card, DetailList } from '@/components/ui/card.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { TextAreaField } from '@/components/ui/form-field.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
+import { enumParam, useListFilters } from '@/lib/list-filters.ts';
 import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { formatDateTime } from '@/lib/format.ts';
 import { useContactMessages, useMarkMessageRead, useReplyToMessage } from '@/features/content';
 
 export default function AdminMessagesPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params, page, hasActiveFilters, setFilter, clearFilters } = useListFilters();
 
-  const subject = (searchParams.get('konu') ?? undefined) as ContactSubject | undefined;
-  const page = Number(searchParams.get('sayfa') ?? '1');
+  const subject = enumParam(params.get('konu'), CONTACT_SUBJECTS);
 
   const { data, isLoading, isError, error, refetch } = useContactMessages({
     page,
@@ -43,16 +41,6 @@ export default function AdminMessagesPage() {
 
   const [openId, setOpenId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
-
-  function setFilter(key: string, value: string | undefined): void {
-    const next = new URLSearchParams(searchParams);
-
-    if (value === undefined || value === '') next.delete(key);
-    else next.set(key, value);
-
-    if (key !== 'sayfa') next.delete('sayfa');
-    setSearchParams(next);
-  }
 
   /** Mesajı açar ve okunmamışsa okundu işaretler. */
   function open(messageId: string, isRead: boolean): void {
@@ -90,8 +78,19 @@ export default function AdminMessagesPage() {
       ) : data === undefined || data.items.length === 0 ? (
         <EmptyState
           icon={Mail}
-          title="Mesaj yok"
-          description="Bu süzgeçle eşleşen mesaj bulunmuyor."
+          title={hasActiveFilters ? 'Sonuç bulunamadı' : 'Mesaj yok'}
+          description={
+            hasActiveFilters
+              ? 'Bu filtreyle eşleşen mesaj bulunmuyor.'
+              : 'İletişim formundan gelen mesajlar burada toplanır.'
+          }
+          action={
+            hasActiveFilters ? (
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Filtreleri temizle
+              </Button>
+            ) : undefined
+          }
           className="mt-4"
         />
       ) : (

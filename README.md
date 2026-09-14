@@ -95,12 +95,46 @@ dosya bağlıyorsanız `attachFiles` çağrısını atlamayın — Kural 5.
 
 ## Dağıtım notları
 
-| Değişken         | Ne zaman değiştirilir                                                                                                                                                                                                                                                                                                                                                          |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `TRUST_PROXY`    | Uygulama nginx/Cloudflare gibi bir ters vekilin arkasındaysa `true`. Doğrudan internete açıksa `false` bırakın: `X-Forwarded-For` başlığını istemci de gönderebilir ve ona güvenmek giriş denemesi sınırını atlatır.                                                                                                                                                           |
-| `SESSION_SECRET` | Üretimde rastgele üretin (`openssl rand -base64 48`). Geliştirme anahtarı üretimde reddedilir.                                                                                                                                                                                                                                                                                 |
-| `SMTP_*`         | Üçü (host, kullanıcı, şifre) birden dolu olmalıdır; biri boşsa yapılandırma yok sayılır. Geliştirmede e-posta gönderilmez ve gövdesiyle log'a yazılır — sıfırlama bağlantısını oradan alabilirsiniz. Üretimde yalnızca uyarı düşülür, gövde yazılmaz: tek kullanımlık jetonlar log toplayıcıya girmemelidir. Şifre sıfırlama ve e-posta doğrulama bu ayarlar olmadan çalışmaz. |
-| `STORAGE_DRIVER` | Şimdilik yalnızca `local` uygulanmıştır. `s3` seçilirse süreç açılışta anlaşılır bir mesajla durur.                                                                                                                                                                                                                                                                            |
+| Değişken                    | Ne zaman değiştirilir                                                                                                                                                                                                                                                                                                                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TRUST_PROXY`               | Uygulama nginx/Cloudflare gibi bir ters vekilin arkasındaysa `true`. Doğrudan internete açıksa `false` bırakın: adres başlıklarını istemci de gönderebilir ve onlara güvenmek giriş denemesi sınırını atlatır. Açarken vekilin adresi KENDİSİNİN yazdığından emin olun (`proxy_set_header X-Real-IP $remote_addr;`); `X-Forwarded-For` zinciri yaygın yapılandırmada istemcinin değerini ezmez, sonuna ekler. |
+| `SESSION_SECRET`            | Üretimde rastgele üretin (`openssl rand -base64 48`). Geliştirme anahtarı üretimde reddedilir.                                                                                                                                                                                                                                                                                                                |
+| `SMTP_*`                    | Üçü (host, kullanıcı, şifre) birden dolu olmalıdır; biri boşsa yapılandırma yok sayılır. Geliştirmede e-posta gönderilmez ve gövdesiyle log'a yazılır — sıfırlama bağlantısını oradan alabilirsiniz. Üretimde yalnızca uyarı düşülür, gövde yazılmaz: tek kullanımlık jetonlar log toplayıcıya girmemelidir. Şifre sıfırlama, e-posta doğrulama ve iletişim mesajlarına yanıt bu ayarlar olmadan çalışmaz.    |
+| `STORAGE_DRIVER`            | Şimdilik yalnızca `local` uygulanmıştır. `s3` seçilirse süreç açılışta anlaşılır bir mesajla durur.                                                                                                                                                                                                                                                                                                           |
+| `STORAGE_LOCAL_DIR`         | Yüklenen dosyaların diskteki yeri; sürecin çalışma dizinine göredir. Üretimde uygulama dizininin DIŞINDA mutlak bir yol verin (`/var/lib/ersinspot/storage` gibi): her dağıtımda dizini yenileyen bir düzende buraya kadar yüklenmiş tüm ürün fotoğrafları kaybolur.                                                                                                                                          |
+| `STORAGE_PUBLIC_URL`        | Dosyaların tarayıcıdan erişildiği adres. API kendi alan adındaysa `https://api.ornek.com/files`. Yanlış verildiğinde tek belirti, sitedeki her görselin 404 vermesidir.                                                                                                                                                                                                                                       |
+| `VITE_API_URL`              | Tarayıcı uygulamasının API'yi nerede arayacağı. Boşsa istekler kendi kaynağına gider (`/api/...`) ve web sunucusunun onları API'ye vekillemesi gerekir; geliştirmede bunu Vite yapar. DERLEME ZAMANI değişkenidir — Vite değeri pakete gömer, sunucu ortamında tanımlamak işe yaramaz.                                                                                                                        |
+| `WEB_ORIGIN` / `API_ORIGIN` | İkisi AYNI SİTEDEN olmalıdır: `ersinspot.com` + `api.ersinspot.com` çalışır, `ersinspot.com.tr` + `api-ersinspot.com` çalışmaz. Oturum çerezi `SameSite=Lax` yazılır ve tarayıcı onu ayrı siteye giden isteklerde göndermez; arıza sessizdir — giriş 200 döner, sonraki her istek oturumsuz görünür. Üretimde ikisi de `https` olmalıdır.                                                                     |
+
+İki denetim ucu vardır ve farklı sorulara bakarlar:
+
+| Uç        | Soru                    | Kim kullanır                                          |
+| --------- | ----------------------- | ----------------------------------------------------- |
+| `/health` | Süreç ayakta mı?        | Süreç yöneticisi — yeniden başlatma kararı            |
+| `/ready`  | İstek karşılayabilir mi | İzleme ve trafik yönlendirme — veritabanını da yoklar |
+
+İzlemeyi `/health`'e bağlamayın: veritabanı düştüğünde de 200 döner, çünkü
+API'yi yeniden başlatmak veritabanını geri getirmez. `/ready` o durumda 503
+verir.
+
+Sunucu TypeScript'i **derlemeden** çalıştırır (`pnpm start`, `node --import
+tsx`); `pnpm build` yalnızca tip kontrolü yapar, çıktı üretmez. Bu yüzden
+`tsx` bir çalışma zamanı bağımlılığıdır — geliştirme bağımlılıklarını budayan
+bir kurulum (`pnpm install --prod`, çok aşamalı bir Docker derlemesi) onu
+silerse sunucu `Cannot find package 'tsx'` ile hiç açılmaz. Migration ve
+tohumlama betikleri de aynı şekilde çalışır.
+
+Arayüz tek sayfalık bir uygulamadır: yönlendirme tarayıcıda yapılır ve
+`/urunler`, `/urun/bir-slug` gibi yolların diskte karşılığı yoktur. Web
+sunucusu **bulamadığı her yolu `index.html`'e düşürmelidir**; aksi halde site
+gezinirken çalışır ama paylaşılan bir bağlantı, yenilenen bir sayfa ve arama
+sonucundan gelen her ziyaretçi 404 alır. nginx'te:
+
+```nginx
+location / {
+  try_files $uri $uri/ /index.html;
+}
+```
 
 Bakım görevleri sunucu sürecinin içinde çalışır. Birden çok örneğe geçildiğinde
 her örnek aynı görevi çalıştırır; ayrıntı için [docs/MIMARI.md](docs/MIMARI.md).

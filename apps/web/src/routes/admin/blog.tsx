@@ -11,28 +11,29 @@
  */
 
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Eye, EyeOff, Newspaper, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, Newspaper, Pencil, Plus } from 'lucide-react';
 // Bağlantı adı, sunucunun kullandığı AYNI fonksiyonla üretilir; ekranda
 // önerilen ile kaydedilen ayrışmaz.
 import { ApiError, BLOG_CATEGORIES, BLOG_CATEGORY_LABELS, slugify } from '@ersinspot/shared';
 import type { BlogCategory } from '@ersinspot/shared';
 import { Button } from '@/components/ui/button.tsx';
 import { Card } from '@/components/ui/card.tsx';
+import { ConfirmDelete } from '@/components/ui/confirm-delete.tsx';
 import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { SelectField, TextAreaField, TextField } from '@/components/ui/form-field.tsx';
 import { Markdown } from '@/components/ui/markdown.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
+import { enumParam, useListFilters } from '@/lib/list-filters.ts';
 import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
 import { SearchField } from '@/components/ui/search-field.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { StatusBadge } from '@/components/ui/status-badge.tsx';
 import { formatDate } from '@/lib/format.ts';
 import {
+  useAdminBlogPost,
   useAdminBlogPosts,
-  useBlogPost,
   useCreateBlogPost,
   useDeleteBlogPost,
   useUpdateBlogPost,
@@ -59,11 +60,10 @@ const EMPTY: FormState = {
 };
 
 export default function AdminBlogPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params, page, hasActiveFilters, setFilter, clearFilters } = useListFilters();
 
-  const category = (searchParams.get('kategori') ?? undefined) as BlogCategory | undefined;
-  const search = searchParams.get('ara') ?? '';
-  const page = Number(searchParams.get('sayfa') ?? '1');
+  const category = enumParam(params.get('kategori'), BLOG_CATEGORIES);
+  const search = params.get('ara') ?? '';
 
   const { data, isLoading, isError, error, refetch } = useAdminBlogPosts({
     page,
@@ -71,47 +71,34 @@ export default function AdminBlogPage() {
     ...(search === '' ? {} : { search }),
   });
 
-  function setFilter(key: string, value: string | undefined): void {
-    const next = new URLSearchParams(searchParams);
-
-    if (value === undefined || value === '') next.delete(key);
-    else next.set(key, value);
-
-    // Süzgeç değişince ilk sayfaya dönülür; ikinci sayfada boş liste kalmasın.
-    if (key !== 'sayfa') next.delete('sayfa');
-
-    // Süzgeç değişimi geçmişe kayıt eklemez; geri tuşu listede değil,
-    // sayfalar arasında gezinmelidir.
-    setSearchParams(next, { replace: true });
-  }
-
   const createPost = useCreateBlogPost();
   const updatePost = useUpdateBlogPost();
   const deletePost = useDeleteBlogPost();
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingSlug, setEditingSlug] = useState<string>('');
   const [isFormOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [showPreview, setShowPreview] = useState(false);
 
   /*
     Düzenlemede yazının TAM içeriği gerekir; liste yalnızca özet döndürür.
-    Bu yüzden seçilen yazı bağlantı adıyla ayrıca çekilir.
+
+    Yazı KİMLİĞE göre, yönetim ucundan çekilir. Önceden bağlantı adıyla vitrin
+    ucundan çekiliyordu ve o uç yalnızca yayınlanmış yazıyı bulur: taslağa
+    "düzenle" denince istek 404 dönüyor, form da bir önceki yazının içeriğiyle
+    açık kalıyordu. Kaydet'e basıldığında taslak o içerikle üzerine yazılıyordu.
   */
-  const editingPost = useBlogPost(editingSlug);
+  const editingPost = useAdminBlogPost(editingId ?? '');
 
   function startCreate(): void {
     setEditingId(null);
-    setEditingSlug('');
-    setLoadedSlug(null);
+    setLoadedPostId(null);
     setForm(EMPTY);
     setFormOpen(true);
   }
 
-  function startEdit(postId: string, slug: string): void {
+  function startEdit(postId: string): void {
     setEditingId(postId);
-    setEditingSlug(slug);
     setFormOpen(true);
   }
 
@@ -124,14 +111,14 @@ export default function AdminBlogPage() {
     önce eski formla boyar, sonra effect state'i değiştirir ve ikinci kez
     boyar. Kullanıcı bir an boş formu görür.
 
-    `loadedSlug` hangi yazının forma yazıldığını tutar; aynı yazı ikinci kez
+    `loadedPostId` hangi yazının forma yazıldığını tutar; aynı yazı ikinci kez
     doldurulmaz, yoksa kullanıcının yazdıkları her render'da geri alınırdı.
   */
   const loadedPost = editingPost.data;
-  const [loadedSlug, setLoadedSlug] = useState<string | null>(null);
+  const [loadedPostId, setLoadedPostId] = useState<string | null>(null);
 
-  if (loadedPost !== undefined && loadedPost.slug !== loadedSlug) {
-    setLoadedSlug(loadedPost.slug);
+  if (loadedPost !== undefined && loadedPost.id !== loadedPostId) {
+    setLoadedPostId(loadedPost.id);
     setForm({
       slug: loadedPost.slug,
       title: loadedPost.title,
@@ -168,7 +155,7 @@ export default function AdminBlogPage() {
         setFormOpen(false);
         setForm(EMPTY);
         setEditingId(null);
-        setEditingSlug('');
+        setLoadedPostId(null);
       },
       onError: (failure: unknown) => {
         reportError(failure, 'Yazı kaydedilemedi.');
@@ -203,6 +190,16 @@ export default function AdminBlogPage() {
 
           {editingId !== null && editingPost.isLoading ? (
             <PageSpinner label="Yazı yükleniyor" />
+          ) : editingId !== null && editingPost.isError ? (
+            /*
+              Yazı yüklenemediyse form ÇİZİLMEZ.
+
+              Önceden hata durumunda da form açılıyordu; alanlar önceki yazının
+              içeriğiyle dolu olduğu için kaydetmek, düzenlenmek istenen yazının
+              üzerine yanlış içeriği yazardı. Doldurulamayan bir formu
+              göstermemek tek güvenli davranış.
+            */
+            <ErrorState error={editingPost.error} onRetry={() => void editingPost.refetch()} />
           ) : (
             <>
               <TextField
@@ -327,7 +324,7 @@ export default function AdminBlogPage() {
                   onClick={() => {
                     setFormOpen(false);
                     setEditingId(null);
-                    setEditingSlug('');
+                    setLoadedPostId(null);
                     setForm(EMPTY);
                   }}
                 >
@@ -364,11 +361,18 @@ export default function AdminBlogPage() {
       {data === undefined || data.items.length === 0 ? (
         <EmptyState
           icon={Newspaper}
-          title={search === '' && category === undefined ? 'Henüz yazı yok' : 'Sonuç bulunamadı'}
+          title={hasActiveFilters ? 'Sonuç bulunamadı' : 'Henüz yazı yok'}
           description={
-            search === '' && category === undefined
-              ? 'İlk yazıyı ekleyerek başlayın.'
-              : 'Süzgeçleri değiştirerek tekrar deneyin.'
+            hasActiveFilters
+              ? 'Bu filtreyle eşleşen yazı bulunmuyor.'
+              : 'İlk yazıyı ekleyerek başlayın.'
+          }
+          action={
+            hasActiveFilters ? (
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Filtreleri temizle
+              </Button>
+            ) : undefined
           }
           className="mt-8"
         />
@@ -383,7 +387,13 @@ export default function AdminBlogPage() {
                   <p className="mt-1 text-xs text-slate-500">
                     {BLOG_CATEGORY_LABELS[post.category]}
                     {post.publishedAt === null ? '' : ` · ${formatDate(post.publishedAt)}`} ·{' '}
-                    {post.readingMinutes} dk
+                    {post.readingMinutes} dk ·{' '}
+                    {/*
+                      Görüntülenme sayısı yalnızca burada gösterilir. Sayaç her
+                      okunuşta artıyordu ama hiçbir ekran okumuyordu; ürün
+                      ekranında aynı bilgi zaten personele gösteriliyor.
+                    */}
+                    {post.viewCount} görüntülenme
                   </p>
                 </div>
 
@@ -406,19 +416,17 @@ export default function AdminBlogPage() {
                     size="icon"
                     aria-label="Düzenle"
                     onClick={() => {
-                      startEdit(post.id, post.slug);
+                      startEdit(post.id);
                     }}
                   >
                     <Pencil aria-hidden="true" />
                   </Button>
 
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Sil"
-                    className="text-state-danger-fg"
-                    isLoading={deletePost.isPending}
-                    onClick={() => {
+                  <ConfirmDelete
+                    label="Yazıyı sil"
+                    question="Yazı kalıcı olarak silinecek."
+                    isPending={deletePost.isPending && deletePost.variables === post.id}
+                    onConfirm={() => {
                       deletePost.mutate(post.id, {
                         onSuccess: () => {
                           toast.success('Yazı silindi.');
@@ -428,9 +436,7 @@ export default function AdminBlogPage() {
                         },
                       });
                     }}
-                  >
-                    <Trash2 aria-hidden="true" />
-                  </Button>
+                  />
                 </div>
               </Card>
             ))}

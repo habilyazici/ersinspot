@@ -11,6 +11,13 @@
  * yayına almadan önce bir hukukçu tarafından gözden geçirilmelidir. Özellikle
  * cayma hakkı, ayıplı mal ve garanti maddeleri mevzuata göre
  * biçimlendirilmelidir.
+ *
+ * "Kişisel Veriler" bölümü verinin ne için kullanıldığını anlatır ama KVKK
+ * anlamında bir AYDINLATMA METNİ DEĞİLDİR: veri sorumlusunun kimliği, hukuki
+ * sebep, saklama süresi ve ilgili kişinin başvuru hakları burada yer almaz.
+ * Ayrıca hesap silme akışı henüz yoktur (`users.deletedAt` her okuma yolunda
+ * dikkate alınır ama hiçbir yerde yazılmaz); hangi alanın anonimleştirilip
+ * hangisinin muhasebe için saklanacağı bir ürün ve hukuk kararıdır.
  */
 
 import { Link } from 'react-router-dom';
@@ -18,7 +25,9 @@ import {
   DELIVERY_FEE_OTHER_DISTRICT,
   FREE_DELIVERY_THRESHOLD,
   INSPECTION_FEE,
+  IZMIR_DISTRICTS,
   SERVICED_DISTRICTS,
+  UNSERVICED_DISTRICTS,
 } from '@ersinspot/shared';
 import { PageContainer, PageHeader, Section } from '@/components/ui/page.tsx';
 import { formatPrice } from '@/lib/format.ts';
@@ -36,6 +45,11 @@ export default function TermsPage() {
           <p>
             Bu koşullar, ersinspot.com üzerinden yapılan ürün siparişleri ile nakliye, teknik servis
             ve ürün satma taleplerini kapsar. Siteyi kullanarak bu koşulları kabul etmiş olursunuz.
+          </p>
+          <p>
+            Nakliye, teknik servis ve ürün satma hizmetleri İzmir&apos;in{' '}
+            {SERVICED_DISTRICTS.length} ilçesinde verilir; {UNSERVICED_DISTRICTS.join(', ')}{' '}
+            ilçelerinde bu üç hizmet verilmez. Ürün teslimatı bu kısıtlamaya tabi değildir.
           </p>
         </Section>
 
@@ -70,8 +84,9 @@ export default function TermsPage() {
 
         <Section title="Teslimat">
           <p>
-            Teslimat, {SERVICED_DISTRICTS.length} ilçede yapılır: {SERVICED_DISTRICTS.join(', ')}.
-            Mağazadan teslim alma seçeneğinde teslimat ücreti alınmaz.
+            Sipariş ettiğiniz ürün İzmir&apos;in {IZMIR_DISTRICTS.length} ilçesinin tamamına teslim
+            edilir; hizmet bölgesi kısıtı yalnızca nakliye, teknik servis ve ürün satma taleplerinde
+            geçerlidir. Mağazadan teslim alma seçeneğinde teslimat ücreti alınmaz.
           </p>
           <p>
             Buca dışındaki ilçelere teslimat ücreti {formatPrice(DELIVERY_FEE_OTHER_DISTRICT)}
@@ -159,7 +174,11 @@ export default function TermsPage() {
             <Link to="/sss" className="font-medium text-brand-navy-700 hover:underline">
               sıkça sorulan sorular
             </Link>{' '}
-            sayfasına bakabilir veya bize doğrudan yazabilirsiniz.
+            sayfasına bakabilir veya{' '}
+            <Link to="/iletisim" className="font-medium text-brand-navy-700 hover:underline">
+              bize doğrudan yazabilirsiniz
+            </Link>
+            .
           </p>
         </Section>
       </div>

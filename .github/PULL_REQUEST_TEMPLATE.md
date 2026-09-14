@@ -17,4 +17,6 @@
 - [ ] Veritabanı değişikliği varsa migration üretildi ve geri alınabilir
 - [ ] Kullanıcıya görünen metinler Türkçe ve anlaşılır
 - [ ] Yeni bir uç nokta eklendiyse yetkilendirme middleware'i tanımlandı
+- [ ] Yeni bir uç nokta eklendiyse onu çağıran bir ekran da var (bkz. MIMARI.md, Kural 8)
+- [ ] Arayüzün kullanıcıya söylediği bir sınır varsa paylaşılan pakette tanımlı (Kural 7)
 - [ ] Kişisel veri loglanmıyor

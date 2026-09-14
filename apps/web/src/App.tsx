@@ -23,6 +23,7 @@ const HomePage = lazy(() => import('./routes/home.tsx'));
 const ProductsPage = lazy(() => import('./routes/products.tsx'));
 const ProductDetailPage = lazy(() => import('./routes/product-detail.tsx'));
 const OrderTrackingPage = lazy(() => import('./routes/order-tracking.tsx'));
+const ContactPage = lazy(() => import('./routes/contact.tsx'));
 const NotFoundPage = lazy(() => import('./routes/not-found.tsx'));
 
 // Kimlik
@@ -97,6 +98,7 @@ export function App() {
                 <Route path="/blog" element={<BlogPage />} />
                 <Route path="/blog/:slug" element={<BlogDetailPage />} />
                 <Route path="/sss" element={<FaqPage />} />
+                <Route path="/iletisim" element={<ContactPage />} />
                 <Route path="/kullanim-kosullari" element={<TermsPage />} />
                 <Route path="/sifremi-unuttum" element={<ForgotPasswordPage />} />
                 {/*

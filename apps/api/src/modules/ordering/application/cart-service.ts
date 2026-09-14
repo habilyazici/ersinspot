@@ -47,16 +47,33 @@ export async function getCart(userId: string): Promise<Cart> {
   const productsById = new Map(products.map((product) => [product.id, product]));
 
   const items: CartItem[] = [];
+  const vanished: string[] = [];
   let subtotal = money.ZERO;
   let hasUnavailableItems = false;
 
   for (const row of rows) {
     const product = productsById.get(row.productId);
 
-    // Ürün silinmişse kalem gösterilmez; sepette hayalet satır bırakmak yerine
-    // sessizce atlanır ve bir sonraki temizlikte kaldırılır.
+    /*
+      Ürünü silinmiş kalem burada TEMİZLENİR.
+
+      Önceden yalnızca atlanıyor ve `hasUnavailableItems` işaretleniyordu; bu
+      ikisi birlikte müşteriyi çıkışsız bırakıyordu. Kalem ekranda çizilmediği
+      için çöp kutusu düğmesi yok, ama bayrak "Siparişi Tamamla"yı kapatıyor ve
+      uyarı "satışta olmayan ürünleri çıkarın" diyor. Çıkarılacak bir şey
+      görünmüyor: müşteri o sepetle bir daha sipariş veremiyordu. Rozet de ham
+      satır sayısını gösterdiği için sayfa 1 kalem gösterirken başlıkta 2
+      yazıyordu.
+
+      Yorumda "bir sonraki temizlikte kaldırılır" deniyordu; öyle bir temizlik
+      yoktu. Artık var ve satırın önemli olduğu anda çalışıyor.
+
+      Bayrak KURULMAZ: silinmiş ürün "satışta olmayan ürün" değildir, sepette
+      olmayan üründür. Bayrak, ekranda duran ve elle çıkarılabilen kalemler
+      içindir — satılmış ya da rezerve edilmiş olanlar.
+    */
     if (product === undefined) {
-      hasUnavailableItems = true;
+      vanished.push(row.productId);
       continue;
     }
 
@@ -78,6 +95,10 @@ export async function getCart(userId: string): Promise<Cart> {
       price,
       isAvailable: product.isPurchasable,
     });
+  }
+
+  if (vanished.length > 0) {
+    await repository.removeProducts(userId, vanished);
   }
 
   return { items, subtotal, hasUnavailableItems };
@@ -128,7 +149,17 @@ export async function clearCart(userId: string): Promise<Cart> {
   return { items: [], subtotal: 0, hasUnavailableItems: false };
 }
 
-/** Sepetteki kalem sayısı. Başlıktaki rozet için; tam sepeti çekmeye gerek yok. */
+/**
+ * Başlıktaki rozette gösterilen kalem sayısı.
+ *
+ * Sepetin KENDİSİNDEN okunur. Önceden `cart_items` satırları doğrudan
+ * sayılıyordu — "rozet için tam sepeti çekmeye gerek yok" diye — ama o sayı
+ * ürünü silinmiş kalemleri de içeriyordu ve sayfada görünen kalem sayısıyla
+ * ayrışıyordu. İki sayının aynı yerden gelmesi, ayrışamamaları demektir.
+ *
+ * Maliyet, sepet kimliklerinin okunması ve ürünlerin tek bir `IN` sorgusuyla
+ * çekilmesidir; sepette en fazla `MAX_CART_ITEMS` kalem bulunabilir.
+ */
 export async function getCartCount(userId: string): Promise<number> {
-  return repository.countByUser(userId);
+  return (await getCart(userId)).items.length;
 }

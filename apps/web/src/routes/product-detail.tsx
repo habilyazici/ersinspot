@@ -11,7 +11,8 @@ import { StatusBadge } from '@/components/ui/status-badge.tsx';
 import { formatPrice } from '@/lib/format.ts';
 import { cn } from '@/lib/utils.ts';
 import { useAuth } from '@/features/auth';
-import { useProduct } from '@/features/catalog';
+import { formatBrandAndCategory, useProduct } from '@/features/catalog';
+import { useDocumentTitle, useMetaDescription } from '@/lib/document-head.ts';
 import { FavoriteButton, useAddToCart, useFavoriteStatus } from '@/features/ordering';
 
 export default function ProductDetailPage() {
@@ -21,6 +22,15 @@ export default function ProductDetailPage() {
   const addToCart = useAddToCart();
   const { data: favorites } = useFavoriteStatus(product === undefined ? [] : [product.id]);
   const [activeImage, setActiveImage] = useState(0);
+
+  /*
+    Bu sayfa `PageHeader` kullanmaz — başlığı ürün adının kendisidir ve
+    görselin yanında durur. Sekme başlığını bu yüzden doğrudan verir.
+    Kanca koşulsuz çağrılır; ürün yüklenene kadar `undefined` geçilir.
+  */
+  useDocumentTitle(product?.title);
+  // İlanın kendi metni: arama sonucunda ürünü anlatan tek şey budur.
+  useMetaDescription(product?.description);
 
   if (isLoading) return <PageSpinner label="Ürün yükleniyor" />;
   if (isError) return <ErrorState error={error} onRetry={() => void refetch()} />;
@@ -34,7 +44,7 @@ export default function ProductDetailPage() {
 
     Fonksiyon, `product === undefined` erken dönüşünden SONRA tanımlı olsa da
     TypeScript kapanış içinde daraltmayı koruyamaz; kimliği dışarıdan almak,
-    kod tabanının başka hiçbir yerinde bulunmayan bir `!` işaretinden kurtarır.
+    burada bir `!` işareti yazmaktan kurtarır.
   */
   function handleAddToCart(productId: string): void {
     addToCart.mutate(productId, {
@@ -113,11 +123,9 @@ export default function ProductDetailPage() {
 
           <h1 className="mt-3 text-2xl font-bold text-slate-900 lg:text-3xl">{product.title}</h1>
 
-          <p className="mt-1 text-sm text-slate-600">
-            {product.brand?.name ?? '—'} · {product.category.name}
-          </p>
+          <p className="mt-1 text-sm text-slate-600">{formatBrandAndCategory(product)}</p>
 
-          <p className="mt-6 text-3xl font-bold text-brand-orange-600">
+          <p className="mt-6 text-3xl font-bold text-brand-orange-700">
             {formatPrice(product.price)}
           </p>
 
@@ -140,7 +148,7 @@ export default function ProductDetailPage() {
                   isLoading={addToCart.isPending}
                 >
                   <ShoppingCart aria-hidden="true" />
-                  Sepete Ekle
+                  Sepete ekle
                 </Button>
               ) : (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -148,7 +156,7 @@ export default function ProductDetailPage() {
                     Sepete eklemek için giriş yapmanız gerekiyor.
                   </p>
                   <Button asChild size="sm" className="mt-3">
-                    <Link to="/giris">Giriş Yap</Link>
+                    <Link to="/giris">Giriş yap</Link>
                   </Button>
                 </div>
               )

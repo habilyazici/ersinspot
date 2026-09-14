@@ -15,7 +15,6 @@ import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Trash2 } from 'lucide-react';
 import { z } from 'zod';
 import {
   ApiError,
@@ -28,15 +27,16 @@ import {
 import type { CreateProductInput } from '@ersinspot/shared';
 import { Button } from '@/components/ui/button.tsx';
 import { Card } from '@/components/ui/card.tsx';
+import { ConfirmDelete } from '@/components/ui/confirm-delete.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { FormSection, SelectField, TextAreaField, TextField } from '@/components/ui/form-field.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
 import { PhotoUpload } from '@/components/ui/photo-upload.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
 import { findError } from '@/lib/form.ts';
-import type { CategoryNode } from '@/features/catalog';
 import {
   useAdminProduct,
+  flattenCategories,
   useBrands,
   useCategories,
   useCreateProduct,
@@ -57,7 +57,15 @@ import {
  * Ayrım artık tipte görünür: forma giren değer metin, şemadan çıkan değer
  * kuruştur.
  */
-const productFormSchema = createProductSchema.extend({
+/*
+  Form durum alanı TAŞIMAZ.
+
+  Yeni ürün daima taslak olarak doğar (sunucu varsayanı) ve mevcut ürünün
+  durumu ayrı bir uçtan, geçiş kuralları denetlenerek değişir — listede bunun
+  için bir seçici var. Form bir durum gönderiyordu ama hiçbir kutu onu
+  düzenlemiyordu; düzenlemede sunucu alanı zaten yok sayıyordu.
+*/
+const productFormSchema = createProductSchema.omit({ status: true }).extend({
   /*
     Fiyat DOĞRULANIR ama şemada dönüştürülmez.
 
@@ -92,19 +100,9 @@ const productFormSchema = createProductSchema.extend({
  * kuruş kutuya olduğu gibi yazılıyor, personel ekranda "2450000 ₺" görüyordu.
  * Düzeltmek için "24500" yazan biri de ürünü 245 ₺'ye düşürüyordu.
  */
-type ProductValues = Omit<CreateProductInput, 'price'> & { price: string };
+type ProductValues = Omit<CreateProductInput, 'price' | 'status'> & { price: string };
 
 /** Kategori ağacını girintili düz listeye çevirir. */
-function flattenCategories(
-  nodes: readonly CategoryNode[],
-  depth = 0,
-): { id: string; label: string }[] {
-  return nodes.flatMap((node) => [
-    { id: node.id, label: `${'— '.repeat(depth)}${node.name}` },
-    ...flattenCategories(node.children, depth + 1),
-  ]);
-}
-
 export default function AdminProductFormPage() {
   const { productId } = useParams<{ productId: string }>();
   const isEditing = productId !== undefined && productId !== 'yeni';
@@ -132,7 +130,6 @@ export default function AdminProductFormPage() {
       description: '',
       price: '',
       condition: 'good',
-      status: 'draft',
       warrantyMonths: 0,
       brandId: null,
       images: [],
@@ -157,7 +154,6 @@ export default function AdminProductFormPage() {
       // Kuruş → lira metni. Kutuya kuruş yazmak fiyatı 100 katı gösterirdi.
       price: money.toInputValue(money.fromKurus(product.price)),
       condition: product.condition,
-      status: product.status,
       warrantyMonths: product.warrantyMonths,
       categoryId: product.category.id,
       brandId: product.brand?.id ?? null,
@@ -181,7 +177,12 @@ export default function AdminProductFormPage() {
 
     if (price === null) return;
 
-    const payload: CreateProductInput = { ...values, price };
+    /*
+      Durum gönderilmez: yeni ürün sunucunun varsayanıyla TASLAK olarak doğar,
+      düzenlemede ise durum bu uçtan hiç değişmez. Buradan bir değer yazmak,
+      sunucudaki varsayılanı arayüzde ikinci kez tanımlamak olurdu.
+    */
+    const payload = { ...values, price };
 
     const done = {
       onSuccess: () => {
@@ -217,7 +218,7 @@ export default function AdminProductFormPage() {
       >
         <FormSection legend="Temel Bilgiler">
           <TextField
-            label="Ürün Başlığı"
+            label="Ürün başlığı"
             required
             placeholder="Örn. Arçelik No Frost Buzdolabı 520 L"
             error={errors.title?.message}
@@ -245,7 +246,7 @@ export default function AdminProductFormPage() {
             />
 
             <SelectField
-              label="Ürün Durumu"
+              label="Ürün durumu"
               required
               error={errors.condition?.message}
               {...register('condition')}
@@ -294,7 +295,7 @@ export default function AdminProductFormPage() {
 
         <FormSection legend="Fotoğraflar">
           <PhotoUpload
-            label="Ürün Fotoğrafları"
+            label="Ürün fotoğrafları"
             purpose="product_image"
             value={photos}
             onChange={(next) => {
@@ -317,12 +318,12 @@ export default function AdminProductFormPage() {
           </Button>
 
           {isEditing ? (
-            <Button
-              type="button"
-              variant="ghost"
-              className="text-state-danger-fg"
-              isLoading={deleteProduct.isPending}
-              onClick={() => {
+            <ConfirmDelete
+              appearance="text"
+              label="Ürünü sil"
+              question="Ürün vitrinden kaldırılacak."
+              isPending={deleteProduct.isPending}
+              onConfirm={() => {
                 deleteProduct.mutate(productId, {
                   onSuccess: () => {
                     toast.success('Ürün silindi.');
@@ -334,10 +335,7 @@ export default function AdminProductFormPage() {
                   },
                 });
               }}
-            >
-              <Trash2 aria-hidden="true" />
-              Ürünü sil
-            </Button>
+            />
           ) : null}
         </div>
       </form>

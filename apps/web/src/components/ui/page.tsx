@@ -14,6 +14,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils.ts';
+import { useDocumentTitle, useMetaDescription } from '@/lib/document-head.ts';
 
 /**
  * Sayfa genişlikleri.
@@ -82,6 +83,25 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   const centered = align === 'center';
+
+  /*
+    Sekme başlığı buradan ayarlanır.
+
+    Sayfa adı zaten bu bileşene veriliyor; her sayfanın ayrıca bir başlık
+    çağrısı yazması, otuz dört yerde unutulabilecek ikinci bir adım olurdu.
+    `PageHeader` kullanmayan üç sayfa (anasayfa, ürün detayı, 404) kancayı
+    kendisi çağırır.
+  */
+  useDocumentTitle(title);
+
+  /*
+    Arama sonucu açıklaması da buradan gelir — ama YALNIZCA düz metinse.
+
+    `description` bir ReactNode'dur ve on sayfada bağlantı içeren bir parça
+    olarak veriliyor; ondan güvenilir bir düz metin çıkarılamaz. O sayfalar site
+    açıklamasında kalır, kalan kırk beşi kendi cümlesini alır.
+  */
+  useMetaDescription(typeof description === 'string' ? description : undefined);
 
   return (
     <header className={cn('space-y-4', centered && 'text-center', className)}>

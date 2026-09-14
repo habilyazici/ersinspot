@@ -21,7 +21,19 @@
 
 import { deflateSync } from 'node:zlib';
 import { eq } from 'drizzle-orm';
-import { slugify } from '@ersinspot/shared';
+import {
+  DELIVERY_FEE_OTHER_DISTRICT,
+  FREE_DELIVERY_THRESHOLD,
+  HOME_DISTRICT,
+  INSPECTION_FEE,
+  IZMIR_DISTRICTS,
+  MIN_PRODUCT_IMAGES,
+  SERVICED_DISTRICTS,
+  UNSERVICED_DISTRICTS,
+  money,
+  slugify,
+} from '@ersinspot/shared';
+import type { Kurus } from '@ersinspot/shared';
 import type { FAQ_CATEGORIES } from '@ersinspot/shared';
 import { closeDatabase, db } from './platform/db/client.ts';
 import { isProduction } from './platform/config/env.ts';
@@ -43,6 +55,7 @@ import {
   tags,
 } from './modules/content/infrastructure/schema.ts';
 import { DEFAULT_SETTINGS } from './modules/content/application/settings-service.ts';
+import { estimateReadingMinutes } from './modules/content/domain/content-rules.ts';
 import { uploadedFiles } from './modules/files/infrastructure/schema.ts';
 
 // ---------------------------------------------------------------------------
@@ -60,6 +73,12 @@ const CRC_TABLE = Array.from({ length: 256 }, (_, index) => {
 function crc32(data: Buffer): number {
   let crc = 0xffffffff;
   for (const byte of data) {
+    /*
+      Dizin `& 0xff` ile 0-255 aralığına indirgenir ve tablo tam olarak 256
+      girdilidir; erişim tanımsız olamaz. Kod tabanındaki tek `!` işareti
+      budur ve gerekçesi burada yazılıdır — `?? 0` yazmak, hiç oluşamayacak
+      bir dalı sessiz bir sağlama toplamı hatasına çevirirdi.
+    */
     crc = CRC_TABLE[(crc ^ byte) & 0xff]! ^ (crc >>> 8);
   }
   return (crc ^ 0xffffffff) >>> 0;
@@ -117,22 +136,29 @@ function solidPng(width: number, height: number, rgb: [number, number, number]):
   );
 }
 
-/** Ürün için bir yer tutucu görsel yükler ve depolama anahtarını döndürür. */
+/**
+ * Yer tutucu bir görsel yükler ve depolama anahtarını döndürür.
+ *
+ * Amaç, dosyanın nereye ait olduğunu belirler: ürün görselleri ve blog
+ * kapakları farklı yetki kurallarına tabidir ve `purpose` bunu taşır.
+ */
 async function seedImage(
   uploaderId: string,
   rgb: [number, number, number],
+  purpose: 'product_image' | 'blog_cover' = 'product_image',
+  size: [number, number] = [800, 600],
 ): Promise<{ storageKey: string }> {
-  const data = solidPng(800, 600, rgb);
-  const stored = await store('product_image', 'image/png', data);
+  const data = solidPng(size[0], size[1], rgb);
+  const stored = await store(purpose, 'image/png', data);
 
   await db.insert(uploadedFiles).values({
     storageKey: stored.key,
     uploadedByUserId: uploaderId,
-    purpose: 'product_image',
+    purpose,
     contentType: stored.contentType,
     sizeBytes: stored.sizeBytes,
     originalName: 'yer-tutucu.png',
-    // Ürüne bağlanmış sayılır; yetim temizliği bu dosyaları silmemeli.
+    // Kayda bağlanmış sayılır; yetim temizliği bu dosyaları silmemeli.
     attachedAt: new Date(),
   });
 
@@ -294,7 +320,18 @@ const PRODUCTS = [
   },
 ] as const;
 
-/** SSS içeriği. Cevaplar sistemin gerçek davranışını anlatır. */
+/**
+ * SSS içeriği. Cevaplar sistemin gerçek davranışını anlatır.
+ *
+ * Tutarlar ve ilçe listeleri SABİTLERDEN okunur, elle yazılmaz — koşullar
+ * sayfasındaki kuralın aynısı. Elle yazıldıklarında ikisi de yanlıştı:
+ * teslimat sorusu kodda hiçbir yerde bulunmayan on bir ilçelik bir liste
+ * sayıyordu (oysa sipariş teslimatı bütün İzmir'e açık; kısıt yalnızca
+ * nakliye, teknik servis ve ürün satmada) ve tutarlar "500,00 ₺" biçiminde
+ * yazılmıştı, uygulamanın her yerde bastığı "₺500" biçiminde değil.
+ */
+const lira = (amount: Kurus): string => money.format(amount, { hideDecimalsWhenWhole: true });
+
 const FAQS: { question: string; answer: string; category: (typeof FAQ_CATEGORIES)[number] }[] = [
   {
     category: 'orders',
@@ -315,16 +352,18 @@ const FAQS: { question: string; answer: string; category: (typeof FAQ_CATEGORIES
     category: 'delivery',
     question: 'Hangi ilçelere teslimat yapıyorsunuz?',
     answer:
-      'Buca, Bornova, Konak, Karabağlar, Gaziemir, Balçova, Narlıdere, Bayraklı, Çiğli, ' +
-      'Karşıyaka ve Menderes ilçelerine teslimat yapıyoruz. Mağazamızdan teslim alma seçeneği ' +
-      'her zaman mevcuttur.',
+      `İzmir'in ${String(IZMIR_DISTRICTS.length)} ilçesinin tamamına teslimat yapıyoruz. ` +
+      'Mağazamızdan teslim alma seçeneği her zaman mevcuttur. Nakliye, teknik servis ve ' +
+      `ürün satma hizmetlerimiz ise ${String(SERVICED_DISTRICTS.length)} ilçede verilir; ` +
+      `${UNSERVICED_DISTRICTS.join(', ')} ilçelerinde bu üç hizmet verilmez.`,
   },
   {
     category: 'delivery',
     question: 'Teslimat ücreti ne kadar?',
     answer:
-      'Buca içi teslimat ücretsizdir. Diğer ilçelere 500,00 ₺ teslimat ücreti alınır. ' +
-      '15.000,00 ₺ ve üzeri siparişlerde teslimat her ilçede ücretsizdir.',
+      `${HOME_DISTRICT} içi teslimat ücretsizdir. Diğer ilçelere ` +
+      `${lira(DELIVERY_FEE_OTHER_DISTRICT)} teslimat ücreti alınır. ` +
+      `${lira(FREE_DELIVERY_THRESHOLD)} ve üzeri siparişlerde teslimat her ilçede ücretsizdir.`,
   },
   {
     category: 'delivery',
@@ -366,7 +405,8 @@ const FAQS: { question: string; answer: string; category: (typeof FAQ_CATEGORIES
     category: 'technical_service',
     question: 'Teknik servis ücreti nasıl işliyor?',
     answer:
-      "Keşif ücreti 750,00 ₺'dir ve teknisyenimizin adresinize gelip arızayı yerinde " +
+      `Keşif ücreti ${lira(INSPECTION_FEE)}'dir ve teknisyenimizin adresinize gelip arızayı ` +
+      'yerinde ' +
       'incelemesinin karşılığıdır. Onarımı bize yaptırmanız hâlinde bu tutar toplam fiyattan ' +
       'düşülür. Onarım fiyatı, arıza görüldükten sonra ayrı bir teklif olarak iletilir.',
   },
@@ -399,8 +439,8 @@ const FAQS: { question: string; answer: string; category: (typeof FAQ_CATEGORIES
     question: 'Ürünümü nasıl satabilirim?',
     answer:
       '"Ürününüzü Satın" sayfasından ürünü fotoğraflarıyla birlikte tanıtmanız yeterli. ' +
-      'En az üç fotoğraf gerekiyor: ürünü görmeden değerleme yapamıyoruz. Ekibimiz inceledikten ' +
-      'sonra size bir fiyat teklifi sunar.',
+      `En az ${String(MIN_PRODUCT_IMAGES)} fotoğraf gerekiyor: ürünü görmeden değerleme ` +
+      'yapamıyoruz. Ekibimiz inceledikten sonra size bir fiyat teklifi sunar.',
   },
   {
     category: 'selling',
@@ -423,6 +463,7 @@ const FAQS: { question: string; answer: string; category: (typeof FAQ_CATEGORIES
 const BLOG_POSTS = [
   {
     slug: 'ikinci-el-buzdolabi-alirken',
+    coverRgb: [0x3f, 0x5c, 0x70] as [number, number, number],
     title: 'İkinci El Buzdolabı Alırken Nelere Dikkat Etmeli',
     excerpt:
       'İkinci el bir buzdolabı iyi bir tasarruf olabilir ya da pahalı bir hata. Farkı yaratan, ' +
@@ -461,6 +502,7 @@ Satın almadan önce ürünün etiketini görmek isteyin. Bizim ilanlarımızda 
   },
   {
     slug: 'camasir-makinesi-bakim-ipuclari',
+    coverRgb: [0x5a, 0x6b, 0x52] as [number, number, number],
     title: 'Çamaşır Makinesinin Ömrünü Uzatan Beş Alışkanlık',
     excerpt:
       'Servise gelen çamaşır makinelerinin çoğunda arızanın sebebi bakım eksikliği. Beşi de ' +
@@ -498,6 +540,7 @@ Bu adımlar sorunu çözmüyorsa arıza gerçek olabilir. [Teknik servis talebi]
   },
   {
     slug: 'tasinma-oncesi-hazirlik-listesi',
+    coverRgb: [0x7a, 0x5c, 0x4a] as [number, number, number],
     title: 'Taşınmadan Önce Yapılacaklar Listesi',
     excerpt:
       'Taşınma gününün sorunsuz geçmesi, bir gün önce yaptıklarınıza bağlı. İşte sırayla ' +
@@ -606,7 +649,6 @@ async function seed(): Promise<void> {
         key,
         value: setting.value,
         valueType: setting.valueType,
-        description: setting.description,
         updatedByUserId: admin.id,
       })
       .onConflictDoNothing({ target: siteSettings.key });
@@ -766,8 +808,26 @@ async function seed(): Promise<void> {
         category: post.category,
         authorName: 'Ersin Spot',
         authorUserId: admin.id,
-        // Okuma süresi uygulamada içerikten hesaplanır; burada kabaca kelime sayısından.
-        readingMinutes: Math.max(1, Math.round(post.content.split(/\s+/).length / 200)),
+        /*
+          Kapak görseli de tohumlanır.
+
+          Yazılar kapaksız bırakıldığında blog listesi üç boş gri kutu
+          gösteriyordu: arayüz doğru davranıyor (kapak yoksa yer tutucu simge
+          çizer) ama tohumlanmış site yarım kalmış görünüyordu. Ürün görselleri
+          zaten aynı üreteçle üretiliyor.
+        */
+        coverImageStorageKey: (await seedImage(admin.id, post.coverRgb, 'blog_cover', [1200, 630]))
+          .storageKey,
+        /*
+          Okuma süresi, uygulamanın kullandığı AYNI fonksiyonla hesaplanır.
+
+          Burada kelime sayısı elle bölünüyordu ve bu, kuralın ikinci bir
+          uygulamasıydı: `estimateReadingMinutes` markdown işaretlerini metinden
+          ayıklar, buradaki bölme ayıklamazdı. Tohumlanan yazı ile panelden
+          girilen yazı aynı içerikte farklı süre gösterebilirdi. Etiket
+          bağlantısı zaten aynı sebeple paylaşılan `slugify`yi kullanıyor.
+        */
+        readingMinutes: estimateReadingMinutes(post.content),
         isPublished: true,
         publishedAt: new Date(),
       })

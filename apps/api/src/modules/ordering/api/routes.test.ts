@@ -9,7 +9,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { today } from '@ersinspot/shared';
+import { today, APPOINTMENT_TIME_SLOTS } from '@ersinspot/shared';
 import { db } from '../../../platform/db/client.ts';
 import { createTestUser, loginAs, request, resetDatabase } from '../../../test/helpers.ts';
 import {
@@ -18,7 +18,7 @@ import {
   productImages,
   products,
 } from '../../catalog/infrastructure/schema.ts';
-import { orderItems, orders } from '../infrastructure/schema.ts';
+import { cartItems, orderItems, orders } from '../infrastructure/schema.ts';
 import { cancelExpiredUnpaidOrders } from '../index.ts';
 
 /**
@@ -114,6 +114,83 @@ beforeEach(async () => {
 // ═══════════════════════════════════════════════════════════════════════════
 // FİYAT MANİPÜLASYONU — denetimdeki en ciddi mali açık
 // ═══════════════════════════════════════════════════════════════════════════
+
+describe('teslimat saat aralığı', () => {
+  /*
+    Mağaza beş adet iki saatlik aralık sunar ve bu, arayüz ayrıntısı değil
+    paylaşılan bir iş sabitidir. Sunucu sunulanlardan biri olup olmadığına
+    bakmadığında, arayüzü kullanmayan her istemci — bir betik, eski bir sürüm,
+    ileride yazılacak bir mobil uygulama — "03:00–05:00 arası teslim edilecek"
+    diyen bir sipariş bırakabiliyordu; ekip ekranında da o saatle görünüyordu.
+  */
+  it('sunulmayan aralığı reddeder', async () => {
+    await addToCart(customerCookie, productId);
+
+    const response = await request('/api/orders', {
+      method: 'POST',
+      cookie: customerCookie,
+      body: JSON.stringify(
+        orderPayload({
+          delivery: {
+            method: 'home_delivery',
+            address: {
+              district: 'Buca',
+              neighborhood: 'Menderes',
+              street: '1234 Sokak',
+              buildingNo: '7',
+            },
+            deliveryDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+            deliveryTimeSlot: { startTime: '03:00', endTime: '05:00' },
+          },
+        }),
+      ),
+    });
+
+    expect(response.status).toBe(400);
+  });
+});
+
+describe('veritabanı toplam bütünlüğü', () => {
+  /**
+   * Son savunma hattı: toplam, bileşenleriyle uyuşmayan bir sipariş satırı
+   * veritabanına YAZILAMAZ.
+   *
+   * Uygulama katmanı tutarı zaten sunucuda hesaplıyor ve istemcinin gördüğü
+   * tutarla karşılaştırıyor. Bu kısıt, o iki denetimin de atlandığı bir yolun
+   * — yeni bir servis, bir bakım betiği, elle atılan bir sorgu — tutarsız bir
+   * sipariş bırakmasını engeller. Muhasebe tarafında toplamı parçalarına
+   * uymayan bir sipariş, sonradan hangi rakamın doğru olduğu bilinemeyen bir
+   * kayıttır.
+   */
+  async function insertOrder(subtotal: number, fee: number, total: number): Promise<void> {
+    await db.insert(orders).values({
+      referenceNumber: `SIP-2026-${String(Math.floor(Math.random() * 900000) + 100000)}`,
+      userId: customerId,
+      status: 'received',
+      contactName: 'Deneme Kişi',
+      contactPhone: '+905071940550',
+      deliveryMethod: 'store_pickup',
+      paymentMethod: 'cash_on_delivery',
+      subtotalKurus: subtotal,
+      deliveryFeeKurus: fee,
+      totalKurus: total,
+    });
+  }
+
+  it('tutarlı toplamı kabul eder', async () => {
+    // Karşılaştırma noktası: aşağıdaki iki reddin kısıttan geldiğini gösterir.
+    await expect(insertOrder(100_000, 50_000, 150_000)).resolves.not.toThrow();
+  });
+
+  it('tutarsız toplamı reddeder', async () => {
+    await expect(insertOrder(100_000, 0, 999_999)).rejects.toThrow();
+  });
+
+  it('eksik hesaplanmış toplamı da reddeder', async () => {
+    // Teslimat ücretinin unutulması, fazladan eklenmesi kadar yanlıştır.
+    await expect(insertOrder(100_000, 50_000, 100_000)).rejects.toThrow();
+  });
+});
 
 describe('fiyat manipülasyonu', () => {
   it('sipariş şeması hiçbir fiyat alanı kabul etmez', async () => {
@@ -272,6 +349,80 @@ describe('sepet', () => {
 
     expect(response.status).toBe(404);
   });
+
+  /*
+    Ürünü silinen kalem, müşteriyi çıkışsız bırakıyordu.
+
+    Kalem ekranda çizilmiyor — ürün bilgisi yok — ama `hasUnavailableItems`
+    kuruluyordu. Arayüzde o bayrak "Siparişi Tamamla"yı kapatır ve "satışta
+    olmayan ürünleri çıkarın" uyarısını gösterir. Çıkarılacak satır görünmediği
+    için müşteri o sepetle bir daha sipariş veremiyordu; iyi kalemi çıkarıp
+    yeniden eklemek de kurtarmıyordu, çünkü hayalet satır yerinde kalıyordu.
+  */
+  it('ürünü silinmiş kalemi sepetten kaldırır', async () => {
+    const [ikinci] = await db
+      .insert(products)
+      .values({
+        slug: 'silinecek-urun',
+        title: 'Silinecek Ürün',
+        description: 'Sepette dururken yönetici tarafından silinecek ürün.',
+        priceKurus: 500_000,
+        condition: 'good',
+        status: 'for_sale',
+        categoryId,
+      })
+      .returning({ id: products.id });
+
+    await addToCart(customerCookie, productId);
+    await addToCart(customerCookie, ikinci!.id);
+
+    await db.update(products).set({ deletedAt: new Date() }).where(eq(products.id, ikinci!.id));
+
+    const payload = (await (await request('/api/cart', { cookie: customerCookie })).json()) as {
+      cart: { items: unknown[]; hasUnavailableItems: boolean };
+    };
+
+    expect(payload.cart.items).toHaveLength(1);
+    // Silinmiş ürün "satışta olmayan ürün" değildir: sipariş engellenmemelidir.
+    expect(payload.cart.hasUnavailableItems).toBe(false);
+
+    // Satır gerçekten gitmiştir; her okumada yeniden atlanan bir kalıntı değil.
+    const kalan = await db.select({ id: cartItems.id }).from(cartItems);
+    expect(kalan).toHaveLength(1);
+  });
+
+  it('rozet sayısı sepette görünen kalem sayısıyla aynıdır', async () => {
+    /*
+      Rozet `cart_items` satırlarını doğrudan sayıyordu; ürünü silinmiş kalem o
+      sayıya dahildi. Sayfa 1 kalem gösterirken başlıkta 2 yazıyordu.
+    */
+    const [ikinci] = await db
+      .insert(products)
+      .values({
+        slug: 'rozet-urunu',
+        title: 'Rozet Ürünü',
+        description: 'Rozet sayısının sepetle aynı olduğunu denetleyen ürün.',
+        priceKurus: 300_000,
+        condition: 'good',
+        status: 'for_sale',
+        categoryId,
+      })
+      .returning({ id: products.id });
+
+    await addToCart(customerCookie, productId);
+    await addToCart(customerCookie, ikinci!.id);
+    await db.update(products).set({ deletedAt: new Date() }).where(eq(products.id, ikinci!.id));
+
+    const rozet = (await (await request('/api/cart/count', { cookie: customerCookie })).json()) as {
+      count: number;
+    };
+    const sepet = (await (await request('/api/cart', { cookie: customerCookie })).json()) as {
+      cart: { items: unknown[] };
+    };
+
+    expect(rozet.count).toBe(sepet.cart.items.length);
+    expect(rozet.count).toBe(1);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -287,6 +438,53 @@ describe('sipariş oluşturma', () => {
     });
 
     expect(response.status).toBe(400);
+  });
+
+  /**
+   * Sipariş kalemleri her okumada AYNI sırayla döner.
+   *
+   * `order_items` sorgusunda sıralama yoktu; satırların dönüş sırasını tarama
+   * planı belirliyordu. Sipariş listesindeki önizleme ilk kalemden üretildiği
+   * için (`previewTitle`, `previewImageUrl`) müşterinin listede gördüğü ürün
+   * adı ve fotoğrafı sayfa yenilendikçe değişebiliyordu.
+   *
+   * Sıra `id` üzerinedir: keyfi ama kararlı. Denetim, dönen kalemlerin gerçekten
+   * bu sırada olmasına bakar — iki okumayı karşılaştırmak, sırasız bir sorguda
+   * da rastlantıyla geçebilirdi.
+   */
+  it('sipariş kalemleri kararlı bir sırayla döner', async () => {
+    const [second] = await db
+      .insert(products)
+      .values({
+        title: 'Bosch Bulaşık Makinesi',
+        slug: 'bosch-bulasik-makinesi',
+        description: 'Temiz ve bakımlı, altı programlı bulaşık makinesi.',
+        priceKurus: PRICE,
+        condition: 'good',
+        status: 'for_sale',
+        categoryId,
+      })
+      .returning({ id: products.id });
+    if (second === undefined) throw new Error('İkinci ürün oluşturulamadı.');
+
+    await addToCart(customerCookie, productId);
+    await addToCart(customerCookie, second.id);
+
+    const created = await request('/api/orders', {
+      method: 'POST',
+      cookie: customerCookie,
+      // İki ürün ücretsiz teslimat eşiğini aşar; toplam yalnızca ürünlerdir.
+      body: JSON.stringify(orderPayload({ expectedTotal: PRICE * 2 })),
+    });
+    const { order } = (await created.json()) as { order: { orderId: string } };
+
+    const detail = await request(`/api/orders/${order.orderId}`, { cookie: customerCookie });
+    const payload = (await detail.json()) as { order: { items: { id: string }[] } };
+
+    const ids = payload.order.items.map((item) => item.id);
+
+    expect(ids).toHaveLength(2);
+    expect(ids).toEqual([...ids].sort());
   });
 
   it('sipariş sonrası sepeti boşaltır', async () => {
@@ -370,7 +568,7 @@ describe('sipariş oluşturma', () => {
         delivery: {
           method: 'store_pickup',
           pickupDate: tomorrow.toISOString().slice(0, 10),
-          pickupTimeSlot: { startTime: '14:00', endTime: '16:00' },
+          pickupTimeSlot: APPOINTMENT_TIME_SLOTS[2],
         },
         paymentMethod: 'cash_on_delivery',
         expectedTotal: PRICE,
@@ -916,6 +1114,19 @@ describe('ödeme süresi dolan siparişler', () => {
       .where(eq(products.id, productId));
     expect(product?.status).toBe('for_sale');
     expect(product?.reservedUntil).toBeNull();
+
+    /*
+      Müşteri siparişinin neden kaybolduğunu ZAMAN ÇİZELGESİNDEN öğrenir.
+      Kayıt düşülmezse sipariş geçmişinde açıklamasız bir "İptal Edildi"
+      kalır ve müşteri iptali kimin yaptığını bilemez.
+    */
+    const detail = await request(`/api/orders/${orderId}`, { cookie: customerCookie });
+    const view = (await detail.json()) as {
+      order: { timeline: { status: string; note: string | null }[] };
+    };
+
+    const cancellation = view.order.timeline.find((event) => event.status === 'cancelled');
+    expect(cancellation?.note).toContain('Ödeme süresi');
   });
 
   it('süresi dolmamış siparişe dokunmaz', async () => {

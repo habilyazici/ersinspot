@@ -19,9 +19,10 @@
  *
  * Bütünlük kuralı: her `service_requests` satırının, `kind` alanına karşılık gelen
  * tam olarak bir detay satırı vardır. Bu kısıt migration'da tetikleyiciyle güvenceye
- * alınır (bkz. `0001_integrity.sql`).
+ * alınır (bkz. `0001_butunluk.sql`).
  */
 
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
@@ -177,7 +178,10 @@ export const technicalServiceDetails = pgTable('technical_service_details', {
   problemCategory: problemCategoryEnum().notNull(),
   problemDescription: text().notNull(),
 
-  /** Servis adresi `requestAddresses` tablosunda, `service_location` rolüyle tutulur. */
+  // Servis adresi bu tabloda DEĞİL: `requestAddresses` içinde, `service_location`
+  // rolüyle tutulur. Üç talep türü adresi aynı tabloda paylaşır.
+
+  /** Müşterinin tercih ettiği tarih. Kesin randevu teklif onayından sonra verilir. */
   preferredDate: date().notNull(),
   preferredStartTime: time(),
   preferredEndTime: time(),
@@ -226,7 +230,8 @@ export const sellRequestDetails = pgTable(
     /** Müşterinin aklındaki fiyat (kuruş). Bağlayıcı değildir. */
     askingPriceKurus: bigint({ mode: 'number' }),
 
-    /** Teslim alma adresi `requestAddresses` tablosunda, `pickup` rolüyle tutulur. */
+    // Teslim alma adresi bu tabloda DEĞİL: `requestAddresses` içinde, `pickup`
+    // rolüyle tutulur.
 
     /**
      * Talep kabul edilip ürün teslim alındıysa, katalogda oluşturulan ürünün kimliği.
@@ -339,7 +344,18 @@ export const requestEvents = pgTable(
     actor: actorEnum().notNull(),
     actorUserId: uuid().references(() => users.id, { onDelete: 'set null' }),
 
-    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    /**
+     * Olayın gerçekleştiği an — `now()` DEĞİL, `clock_timestamp()`.
+     *
+     * `now()` işlemin başladığı anı verir ve işlem boyunca sabittir. Teklif
+     * verilirken aynı işlemde iki olay yazılır ("incelemeye alındı" ve "teklif
+     * verildi"); ikisi de aynı damgayı aldığında müşteri zaman çizelgesinde
+     * teklifi incelemeden ÖNCE görebiliyordu. `clock_timestamp()` gerçek anı
+     * verir.
+     */
+    createdAt: timestamp({ withTimezone: true })
+      .notNull()
+      .default(sql`clock_timestamp()`),
   },
   (table) => [index('request_events_request_created_idx').on(table.requestId, table.createdAt)],
 );

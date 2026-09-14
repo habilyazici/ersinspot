@@ -100,20 +100,33 @@ function baseQuery(executor: Executor = db) {
 // Sıralama
 // ---------------------------------------------------------------------------
 
+/**
+ * Sıralama anahtarları. Sonuncusu DAİMA kimliktir.
+ *
+ * Sayfalama `LIMIT`/`OFFSET` ile yapılır ve sıralama anahtarı eşit olan
+ * satırların birbirine göre sırası tanımsızdır. İki sorgu arasında bu sıra
+ * değişirse aynı ürün iki sayfada birden görünür, bir başkası hiç görünmez.
+ * Fiyata göre sıralamada bu kuramsal bir risk değil: aynı fiyatlı ürünler
+ * olağandır.
+ *
+ * Kimlik, eşitliği bozan ve sorgudan sorguya değişmeyen bir anahtardır.
+ */
 function orderClause(sort: ProductSort): SQL[] {
+  const stable = asc(products.id);
+
   switch (sort) {
     case 'newest':
-      return [desc(products.createdAt)];
+      return [desc(products.createdAt), stable];
     case 'oldest':
-      return [asc(products.createdAt)];
+      return [asc(products.createdAt), stable];
     case 'price_asc':
-      return [asc(products.priceKurus)];
+      return [asc(products.priceKurus), stable];
     case 'price_desc':
-      return [desc(products.priceKurus)];
+      return [desc(products.priceKurus), stable];
     case 'most_viewed':
-      return [desc(products.viewCount), desc(products.createdAt)];
+      return [desc(products.viewCount), desc(products.createdAt), stable];
     case 'most_favorited':
-      return [desc(products.favoriteCount), desc(products.createdAt)];
+      return [desc(products.favoriteCount), desc(products.createdAt), stable];
   }
 }
 
@@ -344,7 +357,9 @@ export async function findImagesForProducts(
     })
     .from(productImages)
     .where(inArray(productImages.productId, [...productIds]))
-    .orderBy(asc(productImages.productId), asc(productImages.displayOrder));
+    // `id` kararlı son anahtar: `displayOrder` benzersiz değildir ve eşitlik
+    // olduğunda kapak görselinin hangisi olacağı okumadan okumaya değişirdi.
+    .orderBy(asc(productImages.productId), asc(productImages.displayOrder), asc(productImages.id));
 
   const grouped = new Map<string, ProductImageRow[]>();
 
@@ -361,16 +376,20 @@ export async function findImagesForProducts(
 }
 
 export async function findSpecsForProduct(productId: string): Promise<ProductSpecRow[]> {
-  return db
-    .select({
-      productId: productSpecs.productId,
-      key: productSpecs.key,
-      value: productSpecs.value,
-      displayOrder: productSpecs.displayOrder,
-    })
-    .from(productSpecs)
-    .where(eq(productSpecs.productId, productId))
-    .orderBy(asc(productSpecs.displayOrder));
+  return (
+    db
+      .select({
+        productId: productSpecs.productId,
+        key: productSpecs.key,
+        value: productSpecs.value,
+        displayOrder: productSpecs.displayOrder,
+      })
+      .from(productSpecs)
+      .where(eq(productSpecs.productId, productId))
+      // Aynı gerekçe: `displayOrder` eşit olduğunda özellik satırlarının sırası
+      // sabit kalmalı.
+      .orderBy(asc(productSpecs.displayOrder), asc(productSpecs.key))
+  );
 }
 
 // ---------------------------------------------------------------------------

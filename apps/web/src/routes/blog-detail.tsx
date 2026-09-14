@@ -38,7 +38,7 @@ export default function BlogDetailPage() {
         title={post.title}
         meta={
           <>
-            <span className="font-medium text-brand-orange-600">
+            <span className="font-medium text-brand-orange-700">
               {BLOG_CATEGORY_LABELS[post.category]}
             </span>
             <span aria-hidden="true">·</span>

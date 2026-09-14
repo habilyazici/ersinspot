@@ -6,7 +6,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { formatAddress, formatPrice, formatShortDate, formatTimeSlot } from './format.ts';
+import {
+  formatAddress,
+  formatDate,
+  formatDateTime,
+  formatPrice,
+  formatTimeSlot,
+} from './format.ts';
 
 /** Intl, para simgesiyle sayı arasına bölünemez boşluk koyar. */
 const normalize = (value: string): string => value.replace(/\u00a0/g, ' ');
@@ -26,12 +32,6 @@ describe('fiyat biçimlendirme', () => {
 
   it('compact kapalıyken tam liralık tutarda da ondalık gösterir', () => {
     expect(normalize(formatPrice(100_000, { compact: false }))).toBe('₺1.000,00');
-  });
-});
-
-describe('tarih biçimlendirme', () => {
-  it('kısa tarih yazar', () => {
-    expect(formatShortDate('2026-09-15T10:00:00Z')).toBe('15.09.2026');
   });
 });
 
@@ -67,5 +67,34 @@ describe('adres biçimlendirme', () => {
         district: 'Buca',
       }),
     ).toBe('Menderes, Atatürk Caddesi, No: 12, Buca / İzmir');
+  });
+});
+
+describe('tarih biçimlendirme', () => {
+  /**
+   * Tarihler İŞLETMENİN saat diliminde gösterilir, ziyaretçinin değil.
+   *
+   * Teslimat günü, randevu saati ve teklif geçerliliği mağazanın takvimine
+   * göre belirlenir. Tarayıcının saat dilimi kullanılsaydı yurt dışındaki ya
+   * da saati yanlış ayarlanmış bir müşteri, mağazanın planladığından başka bir
+   * gün görürdü — ve ikisi de kendi ekranında haklı olurdu.
+   *
+   * Aşağıdaki an tam da sınırdadır: 15 Mart 21:30 UTC, İstanbul'da 16 Mart
+   * 00:30'dur. Biçimlendiriciden `timeZone` düşerse bu test, testin koştuğu
+   * ortamın saat dilimi ne olursa olsun 15 Mart görür.
+   */
+  const sinir = '2026-03-15T21:30:00.000Z';
+
+  it('gün sınırında İstanbul gününü yazar', () => {
+    expect(formatDate(sinir)).toBe('16 Mart 2026');
+  });
+
+  it('saati de İstanbul saatiyle yazar', () => {
+    expect(formatDateTime(sinir)).toContain('16 Mart 2026');
+    expect(formatDateTime(sinir)).toContain('00:30');
+  });
+
+  it('Date nesnesini de aynı şekilde ele alır', () => {
+    expect(formatDate(new Date(sinir))).toBe('16 Mart 2026');
   });
 });

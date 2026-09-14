@@ -74,7 +74,7 @@ export default function MyRequestsPage() {
                 <Card as="li" key={request.id} interactive className="p-0">
                   <Link to={`/hesabim/taleplerim/${request.id}`} className="flex gap-4 p-4">
                     <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-brand-orange-50">
-                      <Icon className="size-5 text-brand-orange-600" aria-hidden="true" />
+                      <Icon className="size-5 text-brand-orange-700" aria-hidden="true" />
                     </div>
 
                     <div className="min-w-0 flex-1">
@@ -98,7 +98,7 @@ export default function MyRequestsPage() {
                     </div>
 
                     {request.quotedAmount === null ? null : (
-                      <p className="shrink-0 self-center font-semibold text-brand-orange-600">
+                      <p className="shrink-0 self-center font-semibold text-brand-orange-700">
                         {formatPrice(request.quotedAmount)}
                       </p>
                     )}

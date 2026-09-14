@@ -8,15 +8,22 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import {
   MAX_APPOINTMENT_LEAD_DAYS,
   appointmentDateSchema,
   businessDayEnd,
   businessDayStart,
   dateAfterDays,
+  APPOINTMENT_TIME_SLOTS,
+  appointmentTimeSlotSchema,
   dateOnlySchema,
+  ibanSchema,
+  referenceNumberSchema,
   timeSlotSchema,
   today,
+  positiveKurusSchema,
+  selectionSchema,
 } from './validation.ts';
 
 afterEach(() => {
@@ -150,5 +157,154 @@ describe('timeSlotSchema', () => {
 
   it('geçerli aralığı kabul eder', () => {
     expect(timeSlotSchema.safeParse({ startTime: '09:00', endTime: '11:00' }).success).toBe(true);
+  });
+});
+
+describe('referenceNumberSchema', () => {
+  /*
+    Numara müşteriye e-postayla gider ve kopyalanıp yapıştırılır. Başında
+    boşluk kalması ya da küçük harfe düşmesi yazım hatası değildir; desen
+    doğrudan uygulandığında ikisi de "Geçersiz takip numarası" cevabı alıyordu.
+  */
+  it('geçerli numarayı kabul eder', () => {
+    expect(referenceNumberSchema.parse('SIP-2026-000123')).toBe('SIP-2026-000123');
+  });
+
+  it('küçük harfi büyütür', () => {
+    expect(referenceNumberSchema.parse('sip-2026-000123')).toBe('SIP-2026-000123');
+  });
+
+  it('baştaki ve sondaki boşluğu kırpar', () => {
+    expect(referenceNumberSchema.parse('  SIP-2026-000123  ')).toBe('SIP-2026-000123');
+  });
+
+  it('desene uymayanı reddeder', () => {
+    expect(() => referenceNumberSchema.parse('SIP-26-123')).toThrow();
+    expect(() => referenceNumberSchema.parse('')).toThrow();
+    expect(() => referenceNumberSchema.parse('SIP 2026 000123')).toThrow();
+  });
+});
+
+describe('ibanSchema', () => {
+  /*
+    Sağlama toplamı, tek hane hatasını yakalayan tek denetimdir; biçim doğru
+    ama hane yanlışsa para gitmez ya da başkasına gider.
+  */
+  const gecerli = 'TR330006100519786457841326';
+
+  it('geçerli IBAN kabul eder', () => {
+    expect(ibanSchema.parse(gecerli)).toBe(gecerli);
+  });
+
+  it('boşlukları atar ve büyütür', () => {
+    expect(ibanSchema.parse('tr33 0006 1005 1978 6457 8413 26')).toBe(gecerli);
+  });
+
+  it('tek hane değişince reddeder', () => {
+    const bozuk = `${gecerli.slice(0, 25)}7`;
+    expect(() => ibanSchema.parse(bozuk)).toThrow();
+  });
+
+  it('yanlış uzunluğu ve ülkeyi reddeder', () => {
+    expect(() => ibanSchema.parse('TR3300061005197864578413')).toThrow();
+    expect(() => ibanSchema.parse('DE89370400440532013000')).toThrow();
+  });
+});
+
+describe('appointmentTimeSlotSchema', () => {
+  /*
+    `timeSlotSchema` yalnızca biçime ve sıraya bakıyordu; sunulan aralıklardan
+    biri olup olmadığına bakmıyordu. Teslimat, mağazadan alım ve randevu uçları
+    onu doğrudan kullandığı için `03:00–05:00` teslimat aralığıyla sipariş
+    oluşturulabiliyordu — arayüzde beş seçenek varken sunucu her aralığı kabul
+    ediyordu.
+  */
+  it('sunulan aralıkların hepsini kabul eder', () => {
+    for (const slot of APPOINTMENT_TIME_SLOTS) {
+      expect(appointmentTimeSlotSchema.parse(slot)).toEqual(slot);
+    }
+  });
+
+  it('mesai dışı aralığı reddeder', () => {
+    expect(() =>
+      appointmentTimeSlotSchema.parse({ startTime: '03:00', endTime: '05:00' }),
+    ).toThrow();
+  });
+
+  it('sunulanlardan biri olmayan geçerli aralığı da reddeder', () => {
+    // Biçim doğru, sıra doğru, süre iki saat — ama sunulan beşten biri değil.
+    expect(() =>
+      appointmentTimeSlotSchema.parse({ startTime: '10:00', endTime: '12:00' }),
+    ).toThrow();
+  });
+
+  it('tüm günü kaplayan aralığı reddeder', () => {
+    expect(() =>
+      appointmentTimeSlotSchema.parse({ startTime: '09:00', endTime: '19:00' }),
+    ).toThrow();
+  });
+
+  it('ters aralığı reddeder', () => {
+    expect(() =>
+      appointmentTimeSlotSchema.parse({ startTime: '11:00', endTime: '09:00' }),
+    ).toThrow();
+  });
+});
+
+describe('listeden seçilen kayıt', () => {
+  /*
+    `uuidSchema` ile aynı değeri kabul eder, farklı konuşur. "Ürününüzü Satın"
+    formunda boş bırakılan Kategori listesi "Geçersiz kayıt kimliği." diyordu;
+    hemen altındaki İlçe listesi "Lütfen listeden bir ilçe seçin." diyordu. Aynı
+    ekranda, aynı hatada, iki ayrı dil — ve ilki müşteriye söylenecek bir cümle
+    değil.
+  */
+  it('seçim yapılmadığında alanın adıyla konuşur', () => {
+    const sonuc = selectionSchema('bir kategori').safeParse('');
+
+    expect(sonuc.success).toBe(false);
+    if (!sonuc.success) {
+      expect(sonuc.error.issues[0]?.message).toBe('Lütfen bir kategori seçin.');
+    }
+  });
+
+  it('alan hiç gönderilmediğinde de Türkçe konuşur', () => {
+    // Varsayılan `required_error` İngilizce "Required" üretir.
+    const sonuc = selectionSchema('bir marka').safeParse(undefined);
+
+    expect(sonuc.success).toBe(false);
+    if (!sonuc.success) {
+      expect(sonuc.error.issues[0]?.message).toBe('Lütfen bir marka seçin.');
+    }
+  });
+
+  it('geçerli kimliği kabul eder', () => {
+    const kimlik = '11111111-1111-4111-8111-111111111111';
+
+    expect(selectionSchema('bir kategori').parse(kimlik)).toBe(kimlik);
+  });
+});
+
+describe('tutar üst sınırı', () => {
+  /*
+    `Number.isInteger(1e300)` JavaScript'te TRUE döner. Elle yazılmış
+    `.int().positive()` denetimi bu sayıyı geçiriyordu ve değer `bigint` kolona
+    kadar gidip veritabanında patlıyordu: müşteri temiz bir doğrulama hatası
+    yerine 500 alıyordu.
+  */
+  it('taşan sayıyı reddeder', () => {
+    const sonuc = positiveKurusSchema.safeParse(1e300);
+
+    expect(sonuc.success).toBe(false);
+    if (!sonuc.success) {
+      expect(sonuc.error.issues[0]?.message).toBe('Tutar çok büyük.');
+    }
+  });
+
+  it('elle yazılmış denetim bu sayıyı geçiriyordu', () => {
+    // Kaldırılan kuralın aynısı: neden yetersiz olduğunu gösterir.
+    const eskiKural = z.number().int().positive();
+
+    expect(eskiKural.safeParse(1e300).success).toBe(true);
   });
 });

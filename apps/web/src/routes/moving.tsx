@@ -28,6 +28,8 @@ import {
   createMovingRequestSchema,
   dateAfterDays,
   estimateMoving,
+  phone,
+  MAX_APPOINTMENT_LEAD_DAYS,
 } from '@ersinspot/shared';
 import type { CreateMovingRequestInput } from '@ersinspot/shared';
 import { AddressFields } from '@/components/ui/address-fields.tsx';
@@ -36,6 +38,7 @@ import { Card } from '@/components/ui/card.tsx';
 import { CheckboxField } from '@/components/ui/choice-field.tsx';
 import { FormSection, SelectField, TextAreaField, TextField } from '@/components/ui/form-field.tsx';
 import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
+import { PhotoUpload } from '@/components/ui/photo-upload.tsx';
 import { findError } from '@/lib/form.ts';
 import { formatPrice } from '@/lib/format.ts';
 import { useAuth } from '@/features/auth';
@@ -66,6 +69,7 @@ export default function MovingPage() {
     control,
     handleSubmit,
     setError,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<MovingValues>({
     resolver: zodResolver(createMovingRequestSchema),
@@ -91,6 +95,8 @@ export default function MovingPage() {
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' });
+
+  const photos = useWatch({ control, name: 'photos' }) ?? [];
 
   // Tahmini etkileyen her alan izlenir; değiştikçe tutar güncellenir.
   const watched = useWatch({ control });
@@ -186,7 +192,7 @@ export default function MovingPage() {
                 required
                 type="tel"
                 autoComplete="tel"
-                placeholder="0507 194 05 50"
+                placeholder={phone.PLACEHOLDER}
                 hint="Keşif ve teklif için sizi bu numaradan arayacağız."
                 error={errors.contact?.phone?.message}
                 {...register('contact.phone')}
@@ -215,6 +221,7 @@ export default function MovingPage() {
                 required
                 type="date"
                 min={dateAfterDays(LEAD_TIME_DAYS.moving)}
+                max={dateAfterDays(MAX_APPOINTMENT_LEAD_DAYS)}
                 hint="Kesin randevu, teklifi onayladıktan sonra verilir."
                 error={errors.preferredDate?.message}
                 {...register('preferredDate')}
@@ -265,11 +272,6 @@ export default function MovingPage() {
               servicedOnly
               legend="Varış Adresi"
             />
-
-            {/* Çıkış ve varış adresinin aynı olamayacağı kuralı buraya raporlanır. */}
-            {findError(errors, 'toLocation') === undefined ? null : (
-              <p className="text-sm text-red-600">{findError(errors, 'toLocation')}</p>
-            )}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField
@@ -376,6 +378,31 @@ export default function MovingPage() {
             />
           </FormSection>
 
+          {/*
+            Fotoğraf alanı üç talep formunda da bulunur.
+
+            Sözleşme (`createMovingRequestSchema`) fotoğrafı baştan kabul
+            ediyor, sunucu kaydediyor ve talep detayında gösteriyordu; yalnızca
+            nakliye formunda alanı çizen bir şey yoktu. Müşteri, taşınacak
+            eşyayı ancak yazıyla anlatabiliyordu.
+          */}
+          <FormSection
+            legend="Fotoğraflar"
+            description="Büyük veya kırılacak eşyaların fotoğrafı, tahmini gerçeğe yaklaştırır."
+          >
+            <PhotoUpload
+              label="Fotoğraflar"
+              purpose="request_photo"
+              value={photos}
+              onChange={(next) => {
+                setValue('photos', next, { shouldValidate: true });
+              }}
+              max={10}
+              hint="İsteğe bağlı. Eşyaların ve merdiven/koridor durumunun fotoğrafı işimizi kolaylaştırır."
+              error={findError(errors, 'photos')}
+            />
+          </FormSection>
+
           <TextAreaField
             label="Eklemek İstedikleriniz"
             hint="Dar sokak, park sorunu, kırılacak eşya gibi bilmemiz gerekenler."
@@ -422,7 +449,7 @@ export default function MovingPage() {
 
             <div className="flex justify-between gap-4 border-t border-slate-200 pt-2 text-base">
               <dt className="font-semibold text-slate-900">Tahmin</dt>
-              <dd className="font-bold text-brand-orange-600">{formatPrice(estimate.total)}</dd>
+              <dd className="font-bold text-brand-orange-700">{formatPrice(estimate.total)}</dd>
             </div>
           </dl>
 
@@ -442,7 +469,7 @@ export default function MovingPage() {
             className="w-full"
             isLoading={isSubmitting || createRequest.isPending}
           >
-            Talep Oluştur
+            Talep oluştur
           </Button>
         </Card>
       </form>

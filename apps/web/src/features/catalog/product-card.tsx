@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { ImageOff } from 'lucide-react';
 import type { ProductSummary } from '@ersinspot/shared';
 import { PRODUCT_CONDITION_LABELS, PRODUCT_STATUS_LABELS } from '@ersinspot/shared';
+import { Card } from '@/components/ui/card.tsx';
 import { StatusBadge } from '@/components/ui/status-badge.tsx';
 import { formatPrice } from '@/lib/format.ts';
+import { formatBrandAndCategory } from './api.ts';
 import { cn } from '@/lib/utils.ts';
 
 /**
@@ -31,9 +33,19 @@ export function ProductCard({
   const isReserved = product.status === 'reserved';
 
   return (
-    <article
+    /*
+      Kart görünümü ortak `Card` bileşeninden gelir.
+
+      Burada kenarlık, köşe yarıçapı ve zemin elle yazılıydı — yani kart
+      görünümünün ikinci bir tanımıydı. Tutarlılık testi bu kalıbı arıyor ama
+      yalnızca `routes/` ve `components/ui/` altını tarıyordu; özellik
+      modüllerindeki kopya denetim dışında kalmıştı. Dolgu `p-0` ile kapatılır:
+      görsel kartın kenarına kadar uzanır.
+    */
+    <Card
+      as="article"
       className={cn(
-        'group relative flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white',
+        'group relative flex flex-col overflow-hidden p-0',
         'shadow-card transition-shadow hover:shadow-card-hover',
         'focus-within:ring-2 focus-within:ring-brand-orange-500 focus-within:ring-offset-2',
       )}
@@ -63,8 +75,8 @@ export function ProductCard({
 
       <div className="flex flex-1 flex-col gap-2 p-4">
         <div className="flex items-start justify-between gap-2">
-          <span className="text-xs font-medium text-slate-500">
-            {product.brand?.name ?? product.category.name}
+          <span className="truncate text-xs font-medium text-slate-500">
+            {formatBrandAndCategory(product)}
           </span>
           <StatusBadge meta={PRODUCT_CONDITION_LABELS[product.condition]} />
         </div>
@@ -77,16 +89,16 @@ export function ProductCard({
           */}
           <Link
             to={`/urun/${product.slug}`}
-            className="after:absolute after:inset-0 after:content-[''] hover:text-brand-orange-600"
+            className="after:absolute after:inset-0 after:content-[''] hover:text-brand-orange-700"
           >
             {product.title}
           </Link>
         </h3>
 
-        <p className="mt-auto pt-2 text-lg font-bold text-brand-orange-600">
+        <p className="mt-auto pt-2 text-lg font-bold text-brand-orange-700">
           {formatPrice(product.price)}
         </p>
       </div>
-    </article>
+    </Card>
   );
 }

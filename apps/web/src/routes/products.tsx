@@ -1,13 +1,13 @@
-import { useSearchParams } from 'react-router-dom';
-import { PackageSearch } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, PackageSearch } from 'lucide-react';
 import {
   PRODUCT_CONDITIONS,
   PRODUCT_CONDITION_LABELS,
   PRODUCT_SORT_LABELS,
   PRODUCT_SORT_OPTIONS,
 } from '@ersinspot/shared';
-import type { ProductCondition, ProductSort } from '@ersinspot/shared';
 import { PageContainer, PageHeader } from '@/components/ui/page.tsx';
+import { enumParam, useListFilters } from '@/lib/list-filters.ts';
 import { fieldControlClass } from '@/components/ui/form-field.tsx';
 import { SearchField } from '@/components/ui/search-field.tsx';
 import { cn } from '@/lib/utils.ts';
@@ -26,14 +26,25 @@ import { FavoriteButton, useFavoriteStatus } from '@/features/ordering';
  * tuşu beklendiği gibi çalışır ve sayfa yenilenince filtreler kaybolmaz.
  */
 export default function ProductsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params, page, hasActiveFilters, setFilter, clearFilters } = useListFilters();
+
+  /*
+    Süzgeç paneli telefonda KAPALI başlar.
+
+    Masaüstünde süzgeçler solda bir sütun; telefonda aynı işaretleme ürünlerin
+    ÜSTÜNE yığılıyordu. Kategori ağacı ve durum listesiyle birlikte ilk ürün
+    kartı 1244 piksel aşağıda kalıyordu — iki ekran boyu süzgeç, sonra vitrin.
+    Bağlantıyla gelen ziyaretçide süzgeç zaten seçiliyse panel açık başlar;
+    aksi halde neye göre süzüldüğünü göremezdi.
+  */
+  const [filtersOpen, setFiltersOpen] = useState(hasActiveFilters);
 
   const filters = {
-    page: Number(searchParams.get('sayfa') ?? '1'),
-    categorySlug: searchParams.get('kategori') ?? undefined,
-    condition: (searchParams.get('durum') as ProductCondition | null) ?? undefined,
-    search: searchParams.get('ara') ?? undefined,
-    sort: (searchParams.get('sirala') as ProductSort | null) ?? 'newest',
+    page,
+    categorySlug: params.get('kategori') ?? undefined,
+    condition: enumParam(params.get('durum'), PRODUCT_CONDITIONS),
+    search: params.get('ara') ?? undefined,
+    sort: enumParam(params.get('sirala'), PRODUCT_SORT_OPTIONS) ?? 'newest',
   };
 
   const { data, isLoading, isError, error, refetch } = useProducts(filters);
@@ -44,28 +55,6 @@ export default function ProductsPage() {
   */
   const { data: favorites } = useFavoriteStatus(data?.items.map((product) => product.id) ?? []);
   const { data: categories } = useCategories();
-
-  function updateFilter(key: string, value: string | undefined): void {
-    const next = new URLSearchParams(searchParams);
-
-    if (value === undefined || value === '') {
-      next.delete(key);
-    } else {
-      next.set(key, value);
-    }
-
-    // Filtre değişince ilk sayfaya dön: üçüncü sayfada filtre daraltılırsa
-    // boş sonuç görünürdü.
-    next.delete('sayfa');
-
-    /*
-      Süzgeç değişimi geçmişe kayıt EKLEMEZ, mevcut kaydı değiştirir.
-
-      Aksi halde her süzgeç dokunuşu bir geçmiş adımı olur ve geri tuşu
-      kullanıcıyı sayfadan çıkarmak yerine süzgeçler arasında gezdirirdi.
-    */
-    setSearchParams(next, { replace: true });
-  }
 
   return (
     <PageContainer width="wide">
@@ -79,83 +68,104 @@ export default function ProductsPage() {
         {/* Filtreler */}
         <aside aria-labelledby="filtreler" className="space-y-6">
           <h2 id="filtreler" className="text-sm font-semibold text-slate-900">
-            Filtreler
+            <span className="hidden lg:block">Filtreler</span>
+
+            <Button
+              variant="outline"
+              className="w-full justify-between lg:hidden"
+              aria-expanded={filtersOpen}
+              aria-controls="filtre-alanlari"
+              onClick={() => {
+                setFiltersOpen((open) => !open);
+              }}
+            >
+              Filtreler
+              <ChevronDown
+                aria-hidden="true"
+                className={cn('size-4 transition-transform', filtersOpen && 'rotate-180')}
+              />
+            </Button>
           </h2>
 
-          <SearchField
-            value={filters.search ?? ''}
-            placeholder="Ürün veya marka"
-            onSearch={(next) => {
-              updateFilter('ara', next);
-            }}
-          />
+          <div
+            id="filtre-alanlari"
+            className={cn('space-y-6 lg:block', filtersOpen ? 'block' : 'hidden')}
+          >
+            <SearchField
+              value={filters.search ?? ''}
+              placeholder="Ürün veya marka"
+              onSearch={(next) => {
+                setFilter('ara', next);
+              }}
+            />
 
-          <fieldset>
-            <legend className="text-sm font-medium text-slate-700">Kategori</legend>
-            <div className="mt-2 space-y-1">
-              <Button
-                variant={filters.categorySlug === undefined ? 'secondary' : 'ghost'}
-                size="sm"
-                className="w-full justify-start"
-                onClick={() => updateFilter('kategori', undefined)}
-              >
-                Tümü
-              </Button>
-
-              {(categories ?? []).map((category) => (
-                <div key={category.id}>
-                  <Button
-                    variant={filters.categorySlug === category.slug ? 'secondary' : 'ghost'}
-                    size="sm"
-                    className="w-full justify-between"
-                    onClick={() => updateFilter('kategori', category.slug)}
-                  >
-                    <span>{category.name}</span>
-                    <span className="text-xs opacity-70">{category.productCount}</span>
-                  </Button>
-
-                  {category.children.map((child) => (
-                    <Button
-                      key={child.id}
-                      variant={filters.categorySlug === child.slug ? 'secondary' : 'ghost'}
-                      size="sm"
-                      className="w-full justify-between pl-6"
-                      onClick={() => updateFilter('kategori', child.slug)}
-                    >
-                      <span>{child.name}</span>
-                      <span className="text-xs opacity-70">{child.productCount}</span>
-                    </Button>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend className="text-sm font-medium text-slate-700">Durum</legend>
-            <div className="mt-2 space-y-1">
-              <Button
-                variant={filters.condition === undefined ? 'secondary' : 'ghost'}
-                size="sm"
-                className="w-full justify-start"
-                onClick={() => updateFilter('durum', undefined)}
-              >
-                Tümü
-              </Button>
-
-              {PRODUCT_CONDITIONS.map((condition) => (
+            <fieldset>
+              <legend className="text-sm font-medium text-slate-700">Kategori</legend>
+              <div className="mt-2 space-y-1">
                 <Button
-                  key={condition}
-                  variant={filters.condition === condition ? 'secondary' : 'ghost'}
+                  variant={filters.categorySlug === undefined ? 'secondary' : 'ghost'}
                   size="sm"
                   className="w-full justify-start"
-                  onClick={() => updateFilter('durum', condition)}
+                  onClick={() => setFilter('kategori', undefined)}
                 >
-                  {PRODUCT_CONDITION_LABELS[condition].label}
+                  Tümü
                 </Button>
-              ))}
-            </div>
-          </fieldset>
+
+                {(categories ?? []).map((category) => (
+                  <div key={category.id}>
+                    <Button
+                      variant={filters.categorySlug === category.slug ? 'secondary' : 'ghost'}
+                      size="sm"
+                      className="w-full justify-between"
+                      onClick={() => setFilter('kategori', category.slug)}
+                    >
+                      <span>{category.name}</span>
+                      <span className="text-xs opacity-70">{category.productCount}</span>
+                    </Button>
+
+                    {category.children.map((child) => (
+                      <Button
+                        key={child.id}
+                        variant={filters.categorySlug === child.slug ? 'secondary' : 'ghost'}
+                        size="sm"
+                        className="w-full justify-between pl-6"
+                        onClick={() => setFilter('kategori', child.slug)}
+                      >
+                        <span>{child.name}</span>
+                        <span className="text-xs opacity-70">{child.productCount}</span>
+                      </Button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend className="text-sm font-medium text-slate-700">Durum</legend>
+              <div className="mt-2 space-y-1">
+                <Button
+                  variant={filters.condition === undefined ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() => setFilter('durum', undefined)}
+                >
+                  Tümü
+                </Button>
+
+                {PRODUCT_CONDITIONS.map((condition) => (
+                  <Button
+                    key={condition}
+                    variant={filters.condition === condition ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className="w-full justify-start"
+                    onClick={() => setFilter('durum', condition)}
+                  >
+                    {PRODUCT_CONDITION_LABELS[condition].label}
+                  </Button>
+                ))}
+              </div>
+            </fieldset>
+          </div>
         </aside>
 
         {/* Sonuçlar */}
@@ -173,7 +183,7 @@ export default function ProductsPage() {
                 id="siralama"
                 value={filters.sort}
                 onChange={(event) => {
-                  updateFilter('sirala', event.target.value);
+                  setFilter('sirala', event.target.value);
                 }}
                 className={cn(fieldControlClass, 'w-auto py-2')}
               >
@@ -198,7 +208,7 @@ export default function ProductsPage() {
               title="Aradığınız kriterlerde ürün bulunamadı"
               description="Filtreleri değiştirerek tekrar deneyin."
               action={
-                <Button variant="outline" onClick={() => setSearchParams(new URLSearchParams())}>
+                <Button variant="outline" onClick={clearFilters}>
                   Filtreleri temizle
                 </Button>
               }
@@ -226,7 +236,7 @@ export default function ProductsPage() {
                 page={data.page}
                 totalPages={data.totalPages}
                 onPageChange={(next) => {
-                  updateFilter('sayfa', String(next));
+                  setFilter('sayfa', String(next));
                 }}
               />
             </>

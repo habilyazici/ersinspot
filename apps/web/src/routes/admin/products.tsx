@@ -9,7 +9,7 @@
  * girmek gereksiz bir adım olurdu; asıl iş toplu gözden geçirmedir.
  */
 
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Package, Plus, Search } from 'lucide-react';
 import {
@@ -25,6 +25,7 @@ import { EmptyState } from '@/components/ui/empty-state.tsx';
 import { ErrorState } from '@/components/ui/error-state.tsx';
 import { SelectField } from '@/components/ui/form-field.tsx';
 import { PageHeader } from '@/components/ui/page.tsx';
+import { enumParam, useListFilters } from '@/lib/list-filters.ts';
 import { FilterChips, Pagination } from '@/components/ui/pagination.tsx';
 import { SearchField } from '@/components/ui/search-field.tsx';
 import { PageSpinner } from '@/components/ui/spinner.tsx';
@@ -33,11 +34,10 @@ import { formatPrice } from '@/lib/format.ts';
 import { useAdminProducts, useUpdateProductStatus } from '@/features/catalog';
 
 export default function AdminProductsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params, page, hasActiveFilters, setFilter, clearFilters } = useListFilters();
 
-  const status = (searchParams.get('durum') ?? undefined) as ProductStatus | undefined;
-  const search = searchParams.get('ara') ?? '';
-  const page = Number(searchParams.get('sayfa') ?? '1');
+  const status = enumParam(params.get('durum'), PRODUCT_STATUSES);
+  const search = params.get('ara') ?? '';
 
   const { data, isLoading, isError, error, refetch } = useAdminProducts({
     page,
@@ -46,19 +46,6 @@ export default function AdminProductsPage() {
   });
 
   const updateStatus = useUpdateProductStatus();
-
-  function setFilter(key: string, value: string | undefined): void {
-    const next = new URLSearchParams(searchParams);
-
-    if (value === undefined || value === '') next.delete(key);
-    else next.set(key, value);
-
-    if (key !== 'sayfa') next.delete('sayfa');
-
-    // Süzgeç değişimi geçmişe kayıt eklemez; geri tuşu listede değil,
-    // sayfalar arasında gezinmelidir.
-    setSearchParams(next, { replace: true });
-  }
 
   return (
     <>
@@ -104,12 +91,19 @@ export default function AdminProductsPage() {
         <ErrorState error={error} onRetry={() => void refetch()} />
       ) : data === undefined || data.items.length === 0 ? (
         <EmptyState
-          icon={search === '' ? Package : Search}
-          title={search === '' ? 'Ürün yok' : 'Sonuç bulunamadı'}
+          icon={hasActiveFilters ? Search : Package}
+          title={hasActiveFilters ? 'Sonuç bulunamadı' : 'Ürün yok'}
           description={
-            search === ''
-              ? 'Bu süzgeçle eşleşen ürün bulunmuyor.'
-              : 'Arama kriterlerinizi değiştirip tekrar deneyin.'
+            hasActiveFilters
+              ? 'Bu filtreyle eşleşen ürün bulunmuyor.'
+              : 'İlk ürünü ekleyerek başlayın.'
+          }
+          action={
+            hasActiveFilters ? (
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Filtreleri temizle
+              </Button>
+            ) : undefined
           }
           className="mt-4"
         />
@@ -138,7 +132,7 @@ export default function AdminProductsPage() {
                 <div className="min-w-0 flex-1">
                   <Link
                     to={`/yonetim/urunler/${product.id}`}
-                    className="text-sm font-medium text-slate-900 hover:text-brand-orange-600"
+                    className="text-sm font-medium text-slate-900 hover:text-brand-orange-700"
                   >
                     {product.title}
                   </Link>
@@ -156,7 +150,7 @@ export default function AdminProductsPage() {
                   </p>
                 </div>
 
-                <p className="shrink-0 font-semibold tabular-nums text-brand-orange-600">
+                <p className="shrink-0 font-semibold tabular-nums text-brand-orange-700">
                   {formatPrice(product.price)}
                 </p>
 
@@ -170,7 +164,15 @@ export default function AdminProductsPage() {
                   label="Durum"
                   className="w-40 shrink-0"
                   value={product.status}
-                  disabled={updateStatus.isPending}
+                  /*
+                    Kilit YALNIZCA işlem gören satırda. Mutasyon durumu liste
+                    boyunca paylaşıldığı için tek bir ürünün durumunu
+                    değiştirmek, o sırada bütün satırların seçicisini devre dışı
+                    bırakıyordu.
+                  */
+                  disabled={
+                    updateStatus.isPending && updateStatus.variables?.productId === product.id
+                  }
                   onChange={(event) => {
                     updateStatus.mutate(
                       { productId: product.id, status: event.target.value as ProductStatus },

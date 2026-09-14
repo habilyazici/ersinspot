@@ -324,6 +324,60 @@ describe('markalar', () => {
 
     expect(payload.brands.map((brand) => brand.slug)).toEqual(['arcelik']);
   });
+
+  it('Türkçe alfabeye göre sıralar', async () => {
+    /*
+      Veritabanının harmanlaması bu işi yapmıyor: imaj alpine, musl yerel ayar
+      tablolarını uygulamıyor ve karşılaştırma bayt sırasına düşüyor. Türkçe
+      harfler UTF-8'de iki bayt olduğu için ASCII ile başlayan HER ad öne
+      geçiyor — "Çağrı" ve "Öztiryakiler" listede "Zebra"dan sonra görünüyordu.
+      Sıralamayı sorgu, ICU harmanlamasını isteyerek kendisi sağlar.
+    */
+    const [category] = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(eq(categories.slug, 'buzdolabi'));
+
+    if (category === undefined) throw new Error('Kategori bulunamadı.');
+
+    const eklenecek = [
+      { name: 'Zebra', slug: 'zebra' },
+      { name: 'Öztiryakiler', slug: 'oztiryakiler' },
+      { name: 'Çağrı', slug: 'cagri' },
+      { name: 'Şahin', slug: 'sahin' },
+      { name: 'Islak', slug: 'islak' },
+    ];
+
+    for (const [index, marka] of eklenecek.entries()) {
+      const [row] = await db.insert(brands).values(marka).returning({ id: brands.id });
+      if (row === undefined) throw new Error('Marka oluşturulamadı.');
+
+      // Marka listesi yalnızca ÜRÜNÜ OLAN markaları döndürür.
+      await db.insert(products).values({
+        title: `${marka.name} ürünü`,
+        slug: `${marka.slug}-urunu`,
+        description: 'Sıralama denetimi için eklenen kayıt. Ürün açıklaması alanı doldurulmuştur.',
+        priceKurus: 100_000 + index,
+        condition: 'good',
+        status: 'for_sale',
+        warrantyMonths: 0,
+        categoryId: category.id,
+        brandId: row.id,
+      });
+    }
+
+    const response = await request('/api/brands');
+    const payload = (await response.json()) as { brands: { name: string }[] };
+
+    expect(payload.brands.map((brand) => brand.name)).toEqual([
+      'Arçelik',
+      'Çağrı',
+      'Islak',
+      'Öztiryakiler',
+      'Şahin',
+      'Zebra',
+    ]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -407,6 +461,63 @@ describe('yönetim uçlarının yetkilendirmesi', () => {
 // ---------------------------------------------------------------------------
 // Görsellerin kayda bağlanması
 // ---------------------------------------------------------------------------
+
+describe('ürün oluşturmada durum makinesi', () => {
+  /**
+   * Ürün, sipariş akışının sonucu olan bir durumda DOĞAMAZ.
+   *
+   * Durum makinesi ürünü `for_sale → reserved → sold` yolundan geçirir ve
+   * durum değiştirme ucu bunu denetler. Oluşturma şeması ise tüm durumları
+   * kabul ediyordu: doğrudan "satıldı" yazan bir istek, hiçbir siparişe
+   * bağlanmamış bir ürünü satılmış gösteriyordu. `reserved` yalnızca
+   * veritabanı kısıtına (`products_reserved_has_expiry`) takıldığı için kazara
+   * engelleniyordu — yani kural şemada değil, tesadüfte duruyordu.
+   */
+  async function createWithStatus(status: string): Promise<Response> {
+    const staff = await createTestUser({
+      email: `personel-${status}@ersinspot.com`,
+      role: 'staff',
+    });
+    const cookie = await loginAs(staff.email, staff.password);
+
+    const imageKeys = await createUploads({
+      uploaderId: staff.id,
+      purpose: 'product_image',
+      count: 3,
+    });
+
+    const [category] = await db.select({ id: categories.id }).from(categories).limit(1);
+
+    return request('/api/admin/products', {
+      method: 'POST',
+      cookie,
+      body: JSON.stringify({
+        title: 'Durum Denemesi Buzdolabı',
+        description: 'Durum makinesinin oluşturma yolunda da geçerli olduğunu sınayan ilan.',
+        price: 750_000,
+        condition: 'good',
+        status,
+        warrantyMonths: 0,
+        categoryId: category?.id,
+        brandId: null,
+        images: imageKeys.map((storageKey) => ({ storageKey })),
+        specs: [],
+      }),
+    });
+  }
+
+  it('satılmış olarak ürün oluşturulamaz', async () => {
+    expect((await createWithStatus('sold')).status).toBe(400);
+  });
+
+  it('rezerve olarak ürün oluşturulamaz', async () => {
+    expect((await createWithStatus('reserved')).status).toBe(400);
+  });
+
+  it('satışa açık olarak oluşturulabilir', async () => {
+    expect((await createWithStatus('for_sale')).status).toBe(201);
+  });
+});
 
 describe('ürün görsellerinin kalıcılığı', () => {
   /**
