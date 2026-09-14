@@ -91,7 +91,9 @@ export default tseslint.config(
         {
           object: 'process',
           property: 'env',
-          message: "Ortam değişkenlerine '@/platform/config/env' üzerinden erişin.",
+          message:
+            "Ortam değişkenlerine 'platform/config/env.ts' modülünden erişin; " +
+            'değerler orada bir kez doğrulanır.',
         },
       ],
     },
@@ -165,16 +167,18 @@ export default tseslint.config(
         'error',
         {
           patterns: [
+            /*
+              Modül sınırı yalnızca GÖRELİ yolla denetlenir.
+
+              Burada bir de `@/modules/*` deseni duruyordu, ama sunucu paketinin
+              `tsconfig.json` dosyasında `paths` tanımı yok: takma adlı bir
+              içe aktarım zaten çözümlenmez ve `apps/api` içinde tek bir örneği
+              de bulunmaz. Hiçbir zaman eşleşemeyecek bir desen, okuyana
+              korunmayan bir yolun korunduğunu söyler — asıl işi yapan aşağıdaki
+              göreli desendir.
+            */
             {
-              // Başka bir modülün iç dosyalarına erişim yasak — takma adlı yolla da.
-              group: ['@/modules/*/*', '@/modules/*/**'],
-              message:
-                'Modüller arası erişim yalnızca genel sözleşme üzerinden yapılır: ' +
-                "import { catalog } from '../../catalog/index.ts'. " +
-                'Ayrıntı için docs/MIMARI.md, Kural 1.',
-            },
-            {
-              // Göreli yolla modül sınırını aşmak da yasak.
+              // Göreli yolla modül sınırını aşmak yasak.
               group: [
                 '../../*/infrastructure/*',
                 '../../*/application/*',
@@ -182,9 +186,9 @@ export default tseslint.config(
                 '../../*/api/*',
               ],
               message:
-                'Başka bir modülün iç katmanına göreli yolla erişilemez. ' +
-                "Genel sözleşmeyi içe aktarın: '../../<modül>/index.ts'. " +
-                'Ayrıntı için docs/MIMARI.md.',
+                'Modüller arası erişim yalnızca genel sözleşme üzerinden yapılır: ' +
+                "import { catalog } from '../../catalog/index.ts'. " +
+                'Ayrıntı için docs/MIMARI.md, Kural 1.',
             },
             {
               // Şema birleştiricisi modüllerin tablolarını toplar; iş kodu ondan
