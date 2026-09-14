@@ -12,12 +12,40 @@
  * hangi durumda hangi sorgunun çağrılacağına orası karar verir.
  */
 
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '../../../platform/db/client.ts';
 import type { Transaction } from '../../../platform/db/client.ts';
 import { emailVerificationTokens, passwordResetTokens, users } from './schema.ts';
 
 type Executor = Transaction | typeof db;
+
+/**
+ * Adrese göre eşleşme koşulu.
+ *
+ * Karşılaştırma `lower(email)` ÜZERİNDEN yapılır, ham sütun üzerinden değil.
+ * İki sebebi var ve ikisi de aynı yere çıkar:
+ *
+ *  1. Tekillik indeksi `lower(email)` ifadesi üzerinde tanımlıdır
+ *     (`users_email_unique`). PostgreSQL bir ifade indeksini ancak sorgudaki
+ *     ifade birebir eşleştiğinde seçer; `WHERE email = $1` ona ulaşamaz ve
+ *     `users` üzerinde başka indeks yoktur. Yani giriş, kayıt ve şifre
+ *     sıfırlama — üçü de tablonun TAMAMINI tarıyordu. Tablo büyüdükçe doğrusal
+ *     olarak yavaşlayan ve saldırganın istediği kadar tekrarlayabildiği bir yol
+ *     tam olarak yavaşlamaması gereken yoldur.
+ *
+ *  2. Tekillik "aynı adres" sorusunu küçük harf üzerinden yanıtlıyor; arama da
+ *     aynı soruyu sormalıdır. İki tarafın aynı ifadeyi kullanması, kayıtta
+ *     çakışan bir adresin girişte bulunamaması durumunu yapısal olarak
+ *     imkânsız kılar.
+ *
+ * Değer `emailSchema` tarafından kırpılmış ve küçük harfe çevrilmiş gelir;
+ * `users_email_lowercase` kısıtı da sütunun küçük harf olduğunu garanti eder.
+ * Dolayısıyla eşleşen satır kümesi değişmez, yalnızca indeks kullanılır hâle
+ * gelir.
+ */
+function emailMatches(email: string) {
+  return sql`lower(${users.email}) = ${email}`;
+}
 
 /** Kullanıcının istemciye gönderilebilir alanları. Şifre özeti burada yoktur. */
 const PUBLIC_COLUMNS = {
@@ -59,16 +87,13 @@ export interface TokenRow {
 // ---------------------------------------------------------------------------
 
 /**
- * Adrese göre SİLİNMEMİŞ kullanıcıyı getirir.
- *
- * Adres `emailSchema` tarafından kırpılıp küçük harfe çevrilmiş olarak gelir;
- * tekillik indeksi de `lower(email)` üzerinde tanımlıdır.
+ * Adrese göre SİLİNMEMİŞ kullanıcıyı getirir. Giriş yolunun ilk adımıdır.
  */
 export async function findCredentialsByEmail(email: string): Promise<CredentialRow | undefined> {
   const rows = await db
     .select({ ...PUBLIC_COLUMNS, passwordHash: users.passwordHash, lockedUntil: users.lockedUntil })
     .from(users)
-    .where(and(eq(users.email, email), isNull(users.deletedAt)))
+    .where(and(emailMatches(email), isNull(users.deletedAt)))
     .limit(1);
 
   return rows[0];
@@ -76,7 +101,7 @@ export async function findCredentialsByEmail(email: string): Promise<CredentialR
 
 /** Adres kayıtlı mı? Yalnızca varlık bilgisi okunur. */
 export async function existsByEmail(email: string): Promise<boolean> {
-  const rows = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+  const rows = await db.select({ id: users.id }).from(users).where(emailMatches(email)).limit(1);
 
   return rows.length > 0;
 }
@@ -88,7 +113,7 @@ export async function findActiveByEmail(
   const rows = await db
     .select({ id: users.id, fullName: users.fullName })
     .from(users)
-    .where(and(eq(users.email, email), isNull(users.deletedAt)))
+    .where(and(emailMatches(email), isNull(users.deletedAt)))
     .limit(1);
 
   return rows[0];
