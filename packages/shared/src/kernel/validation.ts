@@ -300,10 +300,19 @@ export const positiveKurusSchema = kurusSchema.refine((value) => value > 0, {
 // Tarih ve saat
 // ---------------------------------------------------------------------------
 
-/** "2026-03-15" biçiminde takvim günü. Saat dilimi taşımaz. */
+/**
+ * "2026-03-15" biçiminde takvim günü. Saat dilimi taşımaz.
+ *
+ * Ret mesajı, ŞEMANIN BEKLEDİĞİ biçimi söyler. Önceki hâli "GG.AA.YYYY"
+ * diyordu, yani desenin kabul etmediği tek biçimi: mesajı okuyup "15.09.2026"
+ * yazan kullanıcı aynı hatayı bir kez daha alırdı. Tarih alanları normalde
+ * `<input type="date">` olduğu için tarayıcı değeri zaten ISO gönderir ve
+ * mesaj nadiren görünür — ama göründüğü yer, tam olarak birinin değeri elle
+ * yazdığı yerdir.
+ */
 export const dateOnlySchema = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Tarih GG.AA.YYYY biçiminde olmalıdır.' })
+  .regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Tarih YYYY-AA-GG biçiminde olmalıdır.' })
   .refine(
     (value) => {
       const date = new Date(`${value}T00:00:00Z`);
